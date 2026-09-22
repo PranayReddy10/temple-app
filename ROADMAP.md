@@ -93,37 +93,20 @@ leaves the system in a working state. **Nothing is built all at once.**
 
 | # | Slice | Scope | Status |
 | --- | --- | --- | --- |
-| 1 | **Admin auth + Temple CRUD** | Admin login, roles, temples table, deities, categories, states/districts, draft→published workflow, trust labelling, seed data | ✅ **Done** |
-| 2 | **Temple media + timings** | Photo gallery on DigitalOcean Spaces with generated variants, opening/darshan/aarti timings, closure and special-hour overrides | ✅ **Done** |
-| 3 | **Puja / Seva + facilities** | Published pujas with time, duration, eligibility, fee and official booking route; visitor rules; facilities including accessibility | ✅ **Done** |
-| 4 | **Public REST API v1** | Read endpoints for the app: search, filter, nearby with real distance ordering, temple detail, deity/category/state/facility listings | ✅ **Done** |
-| — | Admin dark / light theme | Temple palette in both schemes, with a Light / Dark / System switcher in the user menu | ✅ **Done** — shipped with slice 1 |
-| — | Admin dashboard & temple styling | Today's deity panel with its mantra, a work queue of what needs a person, pilgrimage-circuit completeness, and gopuram-derived styling across both schemes | ✅ **Done** |
+| 1 | **Admin auth + Temple CRUD** | Admin login, roles, temples table, deities, categories, states/districts, draft→published workflow, seed data | ✅ **Done** |
+| 2 | Temple media + timings | Photo gallery upload, image processing, opening/darshan/aarti timings, special-day and closure overrides | ⬜ Next |
+| 3 | Puja / Seva + facilities | Published pujas with time, duration, eligibility, fee, official booking route; visitor rules and facilities | ⬜ |
+| 4 | Public REST API v1 | Read endpoints for the Flutter app: search, filter, nearby, temple detail, deity and category listings | ⬜ |
+| 5 | **Flutter app shell** | Temple design system tinted per weekday deity, temple-door transitions, 5-tab navigation, API client with offline fallback | ✅ **Done** |
+| 6 | **Explorer + temple profile** | Search by name/deity/city/state, nearby, filters, lamp map, day pages, full temple profile with timings, pujas, facilities and trust | ✅ **Done** |
+| 7 | **User accounts + Passport** | Registration and login, visited state, manual check-in, ink stamps, circuit collections, achievements | ✅ **Done** |
+| 8 | **Photo Stamp** | Attach a visit photo, compose a temple-themed memory card with the stamp, share; original kept untouched | ✅ **Done** |
+| 9 | **Favourites + basic Yatra planner** | Saved temples (synced to the account), itinerary by days, reorder, Yatra mode, route in Maps | ✅ **Done** |
+| 10 | **Languages: EN / TE / HI** | Interface strings in three languages with bundled Indic fonts; alternate temple names come from the API | ✅ **Done** |
 
-### Phase 2 — The other two logins  ✅ **Complete**
+### Phase 2 — Scale and trust
 
-| # | Slice | Scope | Status |
-| --- | --- | --- | --- |
-| 5 | **Admin settings + puja images** | Settings screen for brand name, tagline, contact, default language, feature flags and maintenance mode; image upload on each puja/seva | ✅ **Done** |
-| 6 | **Temple authority portal** | Separate `/temple` panel. Claim-and-verify flow, `temple_user` scoping, temple team manages its own timings, photos, pujas and contact details. Nothing outside their own temples is reachable | ✅ **Done** |
-| 7 | **Temple events & programs** | Festivals, programs, special pujas and announcements published by the temple, with image, date range and recurrence. Verified temples publish directly; unverified go to a review queue | ✅ **Done** |
-| 8 | **Devotee accounts** | Signup, login, profile, saved temples. Separate `devotees` table and Sanctum token auth, exposed through `/api/v1/auth` and `/api/v1/me` | ✅ **Done** |
-| 9 | **Daily devotional content** | Weekday-to-deity content: Monday Shiva, Tuesday Hanuman, and so on. Curated photos, videos and songs surfaced on the app home screen each day, with a per-day accent colour and the deity's temples | ✅ **Done** |
-
-### Phase 3 — Flutter app
-
-| # | Slice | Scope | Status |
-| --- | --- | --- | --- |
-| 10 | **App shell** | Temple design system in light and dark, 5-tab navigation (Home, Explore, Passport, Yatra, Profile), API client | ⬜ |
-| 11 | **Explorer + temple profile** | Search by name/deity/city/state, nearby, filters, full temple profile screen | ⬜ |
-| 12 | **Passport** | Visited/unvisited state, manual check-in, digital stamps, collections | ⬜ |
-| 13 | **Photo Stamp** | Upload visit photo, generate temple-themed memory card, save original and stamp separately, share | ⬜ |
-| 14 | **Favourites + basic Yatra planner** | Saved temples, multi-temple itinerary by days and route | ⬜ |
-| 15 | **Languages: EN / TE / HI** | Localisation across app, admin and temple portal; alternate temple names and spellings | ⬜ |
-
-### Later phases
-
-Community submissions and moderation · GPS and QR visit verification ·
+Community submissions and moderation · GPS + QR visit verification ·
 advanced Yatra planner · festival calendar and notifications · Family
 Passport · certificates and achievements · offline trip packs · hotel and
 travel partnerships · Temple Admin SaaS · official QR Passport network ·

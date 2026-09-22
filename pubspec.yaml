@@ -1,0 +1,50 @@
+name: temple_app
+description: Temple pilgrimage companion for India. Discover temples, plan yatras, collect stamps.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.2.2
+  provider: ^6.1.2
+  shared_preferences: ^2.3.2
+  intl: ^0.20.2
+  url_launcher: ^6.3.1
+  image_picker: ^1.1.2
+  share_plus: ^10.1.2
+  path_provider: ^2.1.4
+  geolocator: ^13.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  # Noto fonts, SIL Open Font License 1.1 (see assets/fonts/OFL.txt). Bundled
+  # so Devanagari and Telugu render on every platform without a CDN fetch.
+  fonts:
+    - family: NotoSerif
+      fonts:
+        - asset: assets/fonts/NotoSerif_400Regular.ttf
+        - asset: assets/fonts/NotoSerif_600SemiBold.ttf
+          weight: 600
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans_400Regular.ttf
+        - asset: assets/fonts/NotoSans_700Bold.ttf
+          weight: 700
+    - family: NotoSansDevanagari
+      fonts:
+        - asset: assets/fonts/NotoSansDevanagari_400Regular.ttf
+    - family: NotoSansTelugu
+      fonts:
+        - asset: assets/fonts/NotoSansTelugu_400Regular.ttf
