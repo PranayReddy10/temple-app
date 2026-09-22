@@ -19,6 +19,8 @@ class SampleData {
     DeityRef(slug: 'narasimha', name: 'Narasimha', alternateNames: ['Nrisimha', 'Lakshmi Narasimha']),
     DeityRef(slug: 'devi', name: 'Devi', alternateNames: ['Durga', 'Parvati', 'Amman', 'Shakti']),
     DeityRef(slug: 'lakshmi', name: 'Lakshmi', alternateNames: ['Sri', 'Mahalakshmi']),
+    DeityRef(slug: 'saraswati', name: 'Saraswati', alternateNames: ['Sharada', 'Vagdevi']),
+    DeityRef(slug: 'kali', name: 'Kali', alternateNames: ['Mahakali', 'Bhadrakali']),
     DeityRef(slug: 'ganesha', name: 'Ganesha', alternateNames: ['Ganapati', 'Vinayaka', 'Pillaiyar']),
     DeityRef(slug: 'hanuman', name: 'Hanuman', alternateNames: ['Anjaneya', 'Maruti', 'Bajrangbali']),
     DeityRef(slug: 'surya', name: 'Surya', alternateNames: ['Aditya', 'Ravi']),
@@ -69,7 +71,7 @@ class SampleData {
 
   static DeityRef _deity(String slug) => deities.firstWhere((d) => d.slug == slug);
 
-  static TempleSummary _t(String slug, String name, String deity, String city, String state, double lat, double lng, String summary, List<String> cats) =>
+  static TempleSummary _t(String slug, String name, String deity, String city, String state, double lat, double lng, String summary, List<String> cats, {bool featured = false}) =>
       TempleSummary(
         slug: slug,
         name: name,
@@ -78,6 +80,7 @@ class SampleData {
         location: Location(city: city, state: state, latitude: lat, longitude: lng),
         trust: _community,
         categorySlugs: cats,
+        isFeatured: featured,
       );
 
   static final List<TempleSummary> temples = [
@@ -119,10 +122,46 @@ class SampleData {
         'Eleventh-century Kalinga-style temple, the largest in Bhubaneswar.', []),
     _t('guruvayur-sri-krishna-temple', 'Guruvayur Sri Krishna Temple', 'krishna', 'Guruvayur', 'Kerala', 10.5949, 76.0411,
         'Krishna temple in Thrissur district, often called the Dwarka of the south.', []),
-    _t('yadadri-lakshmi-narasimha-temple', 'Yadadri Lakshmi Narasimha Temple', 'narasimha', 'Yadagirigutta', 'Telangana', 17.6017, 78.9500,
-        'Hill temple to Lakshmi Narasimha, rebuilt in Krishna Shila stone.', ['hill-temple']),
+    // Famous temples of Telangana: mirrors the featured rows of the backend's
+    // TelanganaTempleSeeder. Coordinates are approximate.
+    _t('yadadri-lakshmi-narasimha-temple', 'Yadadri Lakshmi Narasimha Temple', 'narasimha', 'Yadagirigutta', 'Telangana', 17.5886, 78.9449,
+        'Hill temple to Lakshmi Narasimha, rebuilt in black Krishna Shila stone and reopened in 2022. The most visited temple in Telangana.', ['hill-temple'], featured: true),
     _t('bhadrachalam-sita-ramachandraswamy-temple', 'Bhadrachalam Sita Ramachandraswamy Temple', 'rama', 'Bhadrachalam', 'Telangana', 17.6688, 80.8897,
-        'Rama temple on the Godavari, known for Sri Rama Navami celebrations.', ['river-ghat-temple']),
+        'Rama temple on the Godavari, built in the 17th century by Kancherla Gopanna (Bhakta Ramadasu). Known for the Sri Rama Navami Kalyanam.', ['river-ghat-temple'], featured: true),
+    _t('sri-raja-rajeshwara-swamy-temple-vemulawada', 'Sri Raja Rajeshwara Swamy Temple, Vemulawada', 'shiva', 'Vemulawada', 'Telangana', 18.4663, 78.8687,
+        'Shiva temple known as Dakshina Kashi, where devotees keep the Kode Mokku vow by walking a bull calf around the shrine.', [], featured: true),
+    _t('gnana-saraswati-temple-basara', 'Gnana Saraswati Temple, Basara', 'saraswati', 'Basara', 'Telangana', 18.8766, 77.9555,
+        'Temple to Saraswati on the Godavari where families bring children for Aksharabhyasam, their first letters.', ['river-ghat-temple'], featured: true),
+    _t('ramappa-temple-kakatiya-rudreshwara-temple', 'Ramappa Temple (Kakatiya Rudreshwara Temple)', 'shiva', 'Palampet', 'Telangana', 18.2593, 79.9434,
+        'Kakatiya Shiva temple completed in 1213 CE and named after its sculptor. A UNESCO World Heritage Site since 2021.', ['unesco-world-heritage'], featured: true),
+    _t('thousand-pillar-temple-hanumakonda', 'Thousand Pillar Temple, Hanumakonda', 'shiva', 'Hanumakonda', 'Telangana', 18.0037, 79.5747,
+        'Kakatiya temple of 1163 CE with three shrines, to Shiva, Vishnu and Surya, and a monolithic Nandi.', [], featured: true),
+    _t('bhadrakali-temple-warangal', 'Bhadrakali Temple, Warangal', 'kali', 'Warangal', 'Telangana', 17.9937, 79.5831,
+        'Hilltop shrine to Bhadrakali above Bhadrakali lake, patronised by the Kakatiyas.', ['hill-temple'], featured: true),
+    _t('chilkur-balaji-temple', 'Chilkur Balaji Temple', 'venkateswara', 'Chilkur', 'Telangana', 17.3563, 78.2994,
+        'Visa Balaji temple near Osman Sagar. No hundi and no VIP darshan: every devotee joins the same queue.', [], featured: true),
+    _t('birla-mandir-hyderabad', 'Birla Mandir, Hyderabad', 'venkateswara', 'Hyderabad', 'Telangana', 17.4062, 78.4691,
+        'White marble Venkateswara temple on Naubat Pahad overlooking Hussain Sagar, opened in 1976.', ['hill-temple'], featured: true),
+    _t('jogulamba-temple-alampur', 'Jogulamba Temple, Alampur', 'devi', 'Alampur', 'Telangana', 15.8784, 78.1339,
+        'Shrine to Jogulamba near the meeting of the Tungabhadra and Krishna, one of the eighteen Maha Shakti Peethas.', ['shakti-peetha', 'river-ghat-temple'], featured: true),
+    _t('alampur-navabrahma-temples', 'Alampur Navabrahma Temples', 'shiva', 'Alampur', 'Telangana', 15.8790, 78.1330,
+        'Nine 7th–8th century Badami Chalukya Shiva temples on the Tungabhadra.', ['river-ghat-temple'], featured: true),
+    _t('sammakka-saralamma-temple-medaram', 'Sammakka Saralamma Temple, Medaram', 'devi', 'Medaram', 'Telangana', 18.2956, 80.2464,
+        'Forest shrine of the Koya tribal goddesses, home of the biennial Medaram Jatara.', ['forest-temple'], featured: true),
+    _t('komuravelli-mallikarjuna-swamy-temple', 'Komuravelli Mallikarjuna Swamy Temple', 'shiva', 'Komuravelli', 'Telangana', 17.9667, 78.8833,
+        'Hill temple of Mallanna, a folk form of Shiva; the jatara runs from Sankranti to Ugadi.', ['hill-temple'], featured: true),
+    _t('kondagattu-anjaneya-swamy-temple', 'Kondagattu Anjaneya Swamy Temple', 'hanuman', 'Kondagattu', 'Telangana', 18.7164, 78.9467,
+        'Hill temple to Hanuman in Jagtial district, crowded on Hanuman Jayanti.', ['hill-temple'], featured: true),
+    _t('kaleshwara-mukteswara-swamy-temple-kaleshwaram', 'Kaleshwara Mukteswara Swamy Temple, Kaleshwaram', 'shiva', 'Kaleshwaram', 'Telangana', 18.8120, 79.9070,
+        'Shiva temple at the Godavari–Pranahita confluence, with two lingams on one pedestal.', ['river-ghat-temple'], featured: true),
+    _t('sri-lakshmi-narasimha-swamy-temple-dharmapuri', 'Sri Lakshmi Narasimha Swamy Temple, Dharmapuri', 'narasimha', 'Dharmapuri', 'Telangana', 18.9480, 79.0930,
+        'Narasimha temple on the Godavari, a major bathing site during Godavari Pushkaralu.', ['river-ghat-temple'], featured: true),
+    _t('keesaragutta-sri-ramalingeswara-swamy-temple', 'Keesaragutta Sri Ramalingeswara Swamy Temple', 'shiva', 'Keesara', 'Telangana', 17.5310, 78.6680,
+        'Hill shrine where, by tradition, Rama installed a Shiva lingam.', ['hill-temple'], featured: true),
+    _t('ujjaini-mahankali-temple-secunderabad', 'Ujjaini Mahankali Temple, Secunderabad', 'kali', 'Secunderabad', 'Telangana', 17.4390, 78.4960,
+        'Mahankali temple at the centre of the Lashkar Bonalu festival in Ashada.', [], featured: true),
+    _t('balkampet-yellamma-temple', 'Balkampet Yellamma Temple', 'devi', 'Hyderabad', 'Telangana', 17.4460, 78.4290,
+        'Shrine to Yellamma whose self-manifested idol lies below ground level; known for the Yellamma Kalyanam.', [], featured: true),
     _t('kailasa-temple-ellora', 'Kailasa Temple, Ellora', 'shiva', 'Ellora', 'Maharashtra', 20.0268, 75.1779,
         'Monolithic temple carved downward from a single basalt cliff, Ellora Cave 16.', ['unesco-world-heritage', 'rock-cut-temple', 'cave-temple']),
     _t('salasar-balaji-temple', 'Salasar Balaji Temple', 'hanuman', 'Salasar', 'Rajasthan', 27.7333, 74.7333,
@@ -141,6 +180,13 @@ class SampleData {
     'vaishno-devi-temple-katra': ['Mata Rani', 'Vaishnodevi'],
     'yadadri-lakshmi-narasimha-temple': ['Yadagirigutta', 'యాదాద్రి'],
     'bhadrachalam-sita-ramachandraswamy-temple': ['Bhadradri', 'భద్రాచలం'],
+    'sri-raja-rajeshwara-swamy-temple-vemulawada': ['Vemulawada', 'Rajanna', 'వేములవాడ'],
+    'gnana-saraswati-temple-basara': ['Basar', 'బాసర'],
+    'ramappa-temple-kakatiya-rudreshwara-temple': ['Ramappa', 'రామప్ప'],
+    'thousand-pillar-temple-hanumakonda': ['Veyi Sthambala Gudi', 'Rudreshwara', 'వేయి స్తంభాల గుడి'],
+    'chilkur-balaji-temple': ['Visa Balaji', 'చిలుకూరు'],
+    'sammakka-saralamma-temple-medaram': ['Medaram Jatara', 'మేడారం'],
+    'komuravelli-mallikarjuna-swamy-temple': ['Komuravelli Mallanna', 'కొమురవెల్లి'],
   };
 
   static List<String> aliasesFor(String slug) => _aliases[slug] ?? const [];
