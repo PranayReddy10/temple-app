@@ -52,12 +52,12 @@ leaves the system in a working state. **Nothing is built all at once.**
 | 2 | Temple media + timings | Photo gallery upload, image processing, opening/darshan/aarti timings, special-day and closure overrides | ⬜ Next |
 | 3 | Puja / Seva + facilities | Published pujas with time, duration, eligibility, fee, official booking route; visitor rules and facilities | ⬜ |
 | 4 | Public REST API v1 | Read endpoints for the Flutter app: search, filter, nearby, temple detail, deity and category listings | ⬜ |
-| 5 | Flutter app shell | Temple-themed design system, 5-tab navigation (Home, Explore, Passport, Yatra, Profile), API client | ⬜ |
-| 6 | Explorer + temple profile | Search by name/deity/city/state, nearby, filters, full temple profile screen | ⬜ |
-| 7 | User accounts + Passport | Registration, visited/unvisited state, manual check-in, digital stamps, collections | ⬜ |
-| 8 | Photo Stamp | Upload visit photo, generate temple-themed memory card, save original and stamp separately, share | ⬜ |
-| 9 | Favourites + basic Yatra planner | Saved temples, multi-temple itinerary by days and route | ⬜ |
-| 10 | Languages: EN / TE / HI | Localisation across app and admin, alternate temple names and spellings | ⬜ |
+| 5 | **Flutter app shell** | Temple design system tinted per weekday deity, temple-door transitions, 5-tab navigation, API client with offline fallback | ✅ **Done** |
+| 6 | **Explorer + temple profile** | Search by name/deity/city/state, nearby, filters, lamp map, day pages, full temple profile with timings, pujas, facilities and trust | ✅ **Done** |
+| 7 | **User accounts + Passport** | Registration and login, visited state, manual check-in, ink stamps, circuit collections, achievements | ✅ **Done** |
+| 8 | **Photo Stamp** | Attach a visit photo, compose a temple-themed memory card with the stamp, share; original kept untouched | ✅ **Done** |
+| 9 | **Favourites + basic Yatra planner** | Saved temples (synced to the account), itinerary by days, reorder, Yatra mode, route in Maps | ✅ **Done** |
+| 10 | **Languages: EN / TE / HI** | Interface strings in three languages with bundled Indic fonts; alternate temple names come from the API | ✅ **Done** |
 
 ### Phase 2 — Scale and trust
 

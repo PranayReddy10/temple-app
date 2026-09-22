@@ -5,56 +5,124 @@ Flutter client for the temple pilgrimage platform (working name:
 Flutter Web**.
 
 The backend API and admin panel live in
-[`temple-website`](https://github.com/PranayReddy10/temple-website).
+[`temple-website`](https://github.com/PranayReddy10/temple-website); this app
+talks to it only through `/api/v1`.
 
 See **[ROADMAP.md](ROADMAP.md)** for the feature slices and delivery order.
 
-## Status
+## Status — Phase 1 complete
 
-Flutter work begins at **slice 5** of the roadmap, once the public REST API
-(slice 4) is available to build against. Slices 1–4 are backend and admin
-panel work in `temple-website`.
+Every Phase 3 slice of the product roadmap (the Flutter phase) has a first
+working version:
 
-Building the app shell before the API exists would mean writing throwaway
-mock layers, so the order is deliberate.
+| Feature | Where |
+| --- | --- |
+| Temple design system, light and dark, tinted per weekday deity | `core/theme/` |
+| Opening temple doors on every "enter" (temple, day, yatra) and on launch | `core/widgets/temple_door.dart` |
+| Five tabs: Home, Explore, Passport, Yatra, Profile | `features/shell/` |
+| Home: today's deity, mantra, week strip, nearby, popular, festivals | `features/home/` |
+| Day pages: one sanctum per weekday with mantra, offering, vrat, media, temples | `features/days/` |
+| Explore: lamp map of India, circuits, deities, states, search with filters and nearby | `features/explore/` |
+| Temple profile: gallery, timings, pujas, facilities, rules, contact, trust | `features/temple/` |
+| Passport: stamps, visits, circuit collections, achievements, manual check-in | `features/passport/` |
+| Photo Stamp: memory card with the passport stamp, share sheet | `features/photo_stamp/` |
+| Favourites and Yatra planner: days, stops, reorder, Yatra mode, route in Maps | `features/yatra/` |
+| Devotee accounts against `/api/v1/auth` and `/api/v1/me` | `features/auth/` |
+| English, Telugu and Hindi interface strings | `core/l10n/` |
 
-## Planned structure
+Works with **no backend**: when the API is unreachable the app falls back to
+the bundled sample set (the same records the backend seeds) and says so on
+screen. Sample records are all community level; nothing bundled is ever shown
+as verified.
+
+## Running
+
+```
+flutter pub get
+flutter run                               # a connected device or emulator
+flutter run -d chrome                     # web
+flutter run --dart-define=API_BASE_URL=https://your-server.example
+```
+
+The API server can also be changed at runtime from **Profile → Server**.
+Brand name and tagline come from `--dart-define=BRAND_NAME=…` and
+`BRAND_TAGLINE=…`, mirroring `config/brand.php` on the backend.
+
+```
+flutter analyze
+flutter test
+flutter build web --release
+```
+
+## The day themes
+
+Every screen is tinted by the day's deity. The mapping is the traditional one
+the backend seeds, so the app and the admin dashboard agree:
+
+| Day | Deity | Accent | Motif |
+| --- | --- | --- | --- |
+| Sunday | Surya | saffron | sun |
+| Monday | Shiva | vibhuti ash-blue | trishul and crescent |
+| Tuesday | Hanuman | sindoor | gada |
+| Wednesday | Krishna | peacock green | feather and flute |
+| Thursday | Vishnu | turmeric gold | shankha and chakra |
+| Friday | Devi | kumkum | lotus |
+| Saturday | Venkateswara | deep teak | namam |
+
+When the API is live, the lead deity's accent for today comes from the
+`/api/v1/today` response so editors can tune it without an app release. The
+motifs, greetings, offerings and vrat notes are in `core/theme/day_theme.dart`.
+
+Motifs, the gopuram skyline, kolam dividers, the torana arch, the carved
+doors and the passport stamp are all `CustomPainter`s: no image assets, any
+size, any colour.
+
+## Two API contracts the UI honours
+
+From `docs/API.md` in the backend, because getting them wrong misleads a
+devotee:
+
+1. **An unpriced puja is not a free puja.** The fee label is rendered
+   verbatim; `amount: null` is shown as "No published price", never "Free".
+2. **Only `booking.is_official` may be presented as official.** Any other
+   link is shown as a plain link with the label the API supplies.
+
+Trust levels (official, verified, community, unverified) stay visually
+distinct on every card and profile.
+
+## Structure
 
 ```
 lib/
 ├── core/
-│   ├── theme/        # Temple design system — saffron, kumkum, gold
-│   ├── api/          # REST client against /api/v1
-│   └── l10n/         # English, Telugu, Hindi
+│   ├── api/          # ApiClient, TempleRepository (live + offline fallback)
+│   ├── data/         # Bundled sample records
+│   ├── l10n/         # EN / TE / HI strings
+│   ├── models/       # v1 resource models
+│   ├── motifs/       # Deity motifs and temple architecture painters
+│   ├── state/        # Settings, auth, day theme, passport, favourites, yatra
+│   ├── theme/        # Palette, DayTheme, AppTheme
+│   └── widgets/      # Temple door, cards, badges, dividers, loaders
 ├── features/
-│   ├── home/         # Search, nearby, popular, festivals
-│   ├── explore/      # Map, categories, states, advanced search
-│   ├── passport/     # Stamps, visits, collections, achievements
-│   ├── yatra/        # Itinerary creation and Yatra mode
-│   └── profile/      # Memories, family, settings, language
+│   ├── splash/  home/  days/  explore/  temple/
+│   ├── passport/  photo_stamp/  yatra/  profile/  auth/  shell/
 └── main.dart
 ```
 
-## Navigation
+## Fonts
 
-Five tabs, per the project plan:
+Noto Serif, Noto Sans, Noto Sans Devanagari and Noto Sans Telugu are bundled
+under the SIL Open Font License 1.1 so mantras and Indic interface text render
+on every platform without a network fetch.
 
-| Tab | Purpose |
-| --- | --- |
-| Home | Search, nearby, popular temples, festivals, recommendations |
-| Explore | Map, categories, states, advanced search |
-| Passport | Stamps, visits, collections, achievements, certificates |
-| Yatra | Create, manage and complete pilgrimage itineraries |
-| Profile | Memories, family, settings, language, subscription |
+## Screenshots
 
-## Theme
+Captured from the web build with no backend attached (bundled records).
 
-Visual language draws on Indian temple tradition — saffron and kumkum reds,
-temple gold, and motifs referencing gopuram architecture. The palette is
-defined once in `core/theme/` so the app, admin panel and public web stay
-visually consistent.
+| Doors | Home | Explore |
+| --- | --- | --- |
+| ![](docs/screenshots/01-splash.png) | ![](docs/screenshots/02-home.png) | ![](docs/screenshots/03-explore.png) |
 
-## Branding
-
-The product name is not final and is never hard-coded. It resolves from a
-single constant in `core/` so renaming is a one-file change.
+| Passport | Yatra | Profile |
+| --- | --- | --- |
+| ![](docs/screenshots/04-passport.png) | ![](docs/screenshots/05-yatra.png) | ![](docs/screenshots/06-profile.png) |
