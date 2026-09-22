@@ -86,8 +86,9 @@ class CategoryRef {
 }
 
 class StateRef {
-  const StateRef({required this.slug, required this.name, this.code, this.templeCount, this.districts = const []});
+  const StateRef({this.id, required this.slug, required this.name, this.code, this.templeCount, this.districts = const []});
 
+  final int? id;
   final String slug;
   final String name;
   final String? code;
@@ -95,6 +96,7 @@ class StateRef {
   final List<DistrictRef> districts;
 
   factory StateRef.fromJson(Map<String, dynamic> j) => StateRef(
+        id: _i(j['id']),
         slug: _s(j['slug']) ?? '',
         name: _s(j['name']) ?? '',
         code: _s(j['code']),
@@ -589,7 +591,7 @@ class DevotionalDay {
 }
 
 class Devotee {
-  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.isVerified = false, this.joinedAt});
+  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.isVerified = false, this.joinedAt});
 
   final int? id;
   final String name;
@@ -598,6 +600,7 @@ class Devotee {
   final String? avatarUrl;
   final String? locale;
   final String? homeState;
+  final String? dateOfBirth;
   final bool isVerified;
   final String? joinedAt;
 
@@ -609,6 +612,7 @@ class Devotee {
         avatarUrl: _s(j['avatar_url']),
         locale: _s(j['locale']),
         homeState: _s(j['home_state']),
+        dateOfBirth: _s(j['date_of_birth']),
         isVerified: _b(j['is_verified']),
         joinedAt: _s(j['joined_at']),
       );
@@ -621,6 +625,7 @@ class Devotee {
         'avatar_url': avatarUrl,
         'locale': locale,
         'home_state': homeState,
+        'date_of_birth': dateOfBirth,
         'is_verified': isVerified,
         'joined_at': joinedAt,
       };

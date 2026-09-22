@@ -406,9 +406,10 @@ class StoneTile extends StatelessWidget {
 
 /// A mantra in Devanagari with its transliteration, framed by a torana.
 class MantraCard extends StatelessWidget {
-  const MantraCard({super.key, required this.day, this.mantra, this.transliteration});
+  const MantraCard({super.key, required this.day, this.mantra, this.transliteration, this.title});
 
   final DayTheme day;
+  final String? title;
   final String? mantra;
   final String? transliteration;
 
@@ -433,7 +434,7 @@ class MantraCard extends StatelessWidget {
           ),
           Column(
             children: [
-              Text(S.of(context)('mantra_of_day').toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 2, color: day.accent)),
+              Text((title ?? S.of(context)('mantra_of_day')).toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 2, color: day.accent)),
               const SizedBox(height: 10),
               Text(mantra ?? day.mantra, textAlign: TextAlign.center, style: theme.textTheme.headlineSmall?.copyWith(fontFamily: 'NotoSerif', height: 1.3)),
               const SizedBox(height: 6),
