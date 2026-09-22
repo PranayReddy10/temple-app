@@ -17,25 +17,70 @@ Save Photo → Share → Plan the next Yatra.
 
 | Repo | Contains |
 | --- | --- |
-| `temple-website` | Laravel 11 REST API + Filament admin panel + public web |
+| `temple-website` | Laravel 12 REST API + Filament admin + temple portal + public web |
 | `temple-app` | Flutter — Android, iOS and Flutter Web from one codebase |
 
 The Flutter app talks to this repo only through versioned REST endpoints
 (`/api/v1/...`). Nothing in the app depends on Laravel specifics, so the
 backend can migrate to Node/VPS in a later phase without an app release.
 
----
-
-## Why Laravel + MySQL
+## Why Laravel 12 + MySQL
 
 Hosting is **shared Hostinger**, which runs PHP 8.2+ and MySQL 8 on every plan
 but cannot run persistent Node.js processes (that needs a VPS). The project
 plan lists Laravel as an accepted backend, so we take the option that deploys
 to the hosting we actually have.
 
-Geospatial "temples near me" uses MySQL spatial functions
-(`ST_Distance_Sphere`) rather than PostGIS. This is comfortable well past
-100,000 temple records — beyond the Phase 3 target.
+Laravel **12**, not 11: the 11.x line is past security support and carries two
+unpatched advisories (CRLF injection in the default email rule, signed-URL path
+confusion) that were fixed only in 12.x. Laravel 12 needs PHP 8.2, which shared
+Hostinger has; Laravel 13 needs PHP 8.3, which is less reliably available.
+
+## Storage
+
+Temple photos live in **DigitalOcean Spaces**, not on the web host. Spaces is
+S3-compatible, so Laravel's own `s3` driver reaches it with no
+DigitalOcean-specific package, and images are delivered from its CDN.
+
+This matters for the hosting plan: photo storage was the thing that would
+otherwise have forced a move off shared Hostinger at slice 2. With media
+elsewhere, shared hosting carries the project comfortably through slice 4.
+
+`MEDIA_DISK` defaults to the local `public` disk, so a fresh clone, the test
+suite and CI all run with no DigitalOcean account. Only production sets it to
+`spaces`. Each photo row records the disk it was written to, so photos uploaded
+before the switch keep resolving afterwards.
+
+---
+
+## Three audiences, three logins
+
+The platform serves three groups with almost nothing in common. Each gets its
+own entry point.
+
+| Audience | Entry point | Authentication | Stored in |
+| --- | --- | --- | --- |
+| **Staff** — super admin, editors | `/admin` | Session (Filament) | `users` |
+| **Temple authority** — trust, temple office | `/temple` | Session (Filament) | `users`, scoped to their temples |
+| **Devotees** — app and web users | Flutter app, public web | API token (Sanctum) | `devotees` (separate table) |
+
+**Staff and temple authorities share the `users` table.** Both are small,
+known populations who manage content through a Filament panel. A
+`temple_user` pivot decides which temples an authority may touch, and every
+query in that panel is scoped through it. A temple admin who can edit a
+temple they do not own is the failure mode to design against.
+
+**Devotees get their own table, deliberately.** Three reasons:
+
+1. **Scale.** Devotees are expected in the millions; staff in the hundreds.
+2. **Different auth.** Devotees will sign in with phone OTP or a social
+   provider; staff use passwords and, later, two-factor.
+3. **Blast radius.** If both lived in one table, a single mass-assignment
+   mistake could give a devotee account a staff role. Separate tables make
+   that class of bug impossible rather than merely unlikely.
+
+They also share almost no columns: a devotee has a Passport, stamps, visits
+and memories; a staff user has a role and an audit trail.
 
 ---
 
@@ -44,7 +89,7 @@ Geospatial "temples near me" uses MySQL spatial functions
 Features ship one slice at a time. Each slice is independently testable and
 leaves the system in a working state. **Nothing is built all at once.**
 
-### Phase 1 — MVP foundation
+### Phase 1 — Backend and admin foundation
 
 | # | Slice | Scope | Status |
 | --- | --- | --- | --- |
@@ -63,15 +108,62 @@ leaves the system in a working state. **Nothing is built all at once.**
 
 Community submissions and moderation · GPS + QR visit verification ·
 advanced Yatra planner · festival calendar and notifications · Family
-Passport · certificates and achievements · offline trip packs · temple
-authority verification · hotel and travel partnerships.
+Passport · certificates and achievements · offline trip packs · hotel and
+travel partnerships · Temple Admin SaaS · official QR Passport network ·
+authorized puja/seva/prasadam · AI assistant grounded in verified temple data.
 
-### Phase 3 — Full ecosystem
+---
 
-100,000+ temple records · Temple Admin SaaS · official QR Passport network ·
-travel and accommodation integrations · authorized puja/seva/prasadam ·
-AI assistant grounded in verified temple data · expanded Indian-language
-support.
+## Notes on the Phase 2 slices
+
+### Slice 6 — Temple authority portal
+
+Section 19 of the project plan. A temple claims its profile, the claim is
+verified by staff, and only then can the temple team edit anything.
+
+The security requirement is narrow and absolute: **a temple admin must not be
+able to read or write any temple outside their own.** That is enforced by
+scoping every query in the panel through `temple_user`, not by hiding
+navigation links.
+
+Temple-edited fields stay separated from editorial ones. A temple correcting
+its own darshan timings should not be able to overwrite a sourced history
+section, and changes they make are recorded so staff can review them.
+
+### Slice 7 — Events and programs
+
+Temple-published content raises a moderation question that needs an answer
+before the feature ships: a verified temple publishing to thousands of devotees
+without review is the point of the feature, but an unverified one doing the
+same is a spam vector. The proposal is that verification level decides —
+`official` and `verified` temples publish directly, everyone else queues for
+review.
+
+### Slice 9 — Daily devotional content
+
+The traditional weekday associations are the backbone:
+
+| Day | Commonly associated with |
+| --- | --- |
+| Monday | Shiva |
+| Tuesday | Hanuman, Ganesha |
+| Wednesday | Krishna, Vithoba |
+| Thursday | Vishnu, Dattatreya, Guru |
+| Friday | Devi, Lakshmi |
+| Saturday | Shani, Venkateswara, Hanuman |
+| Sunday | Surya |
+
+Regional traditions differ, so the mapping is data in a table rather than
+constants in code, and more than one deity per day is allowed.
+
+> **Songs and videos are copyrighted, and this is the one slice with legal
+> exposure.** A devotional recording is owned by its performer or label even
+> when the composition is centuries old. The schema therefore requires a
+> licence and a source on every media row, the same way temple facts require a
+> source. Three workable routes: license recordings directly, use
+> public-domain or Creative Commons recordings with attribution, or embed
+> official YouTube uploads rather than hosting audio. Hosting ripped audio is
+> not one of them.
 
 ---
 
