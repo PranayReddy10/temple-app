@@ -1,4 +1,4 @@
-package `in`.templepassport.temple_app
+package app.templepassport.temple_app
 
 import io.flutter.embedding.android.FlutterActivity
 
