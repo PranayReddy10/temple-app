@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import '../l10n/strings.dart';
+import '../state/mantra_player.dart';
 import '../models/models.dart';
 import '../motifs/architecture.dart';
 import '../motifs/motif.dart';
 import '../theme/day_theme.dart';
 import '../theme/palette.dart';
+import 'app_image.dart';
 
 /// A gopuram skyline as a header background, tinted by [color].
 class GopuramBand extends StatelessWidget {
@@ -148,12 +152,7 @@ class TempleImage extends StatelessWidget {
       ),
     );
     if (url == null || url!.isEmpty) return placeholder;
-    return Image.network(
-      url!,
-      fit: fit,
-      errorBuilder: (_, __, ___) => placeholder,
-      loadingBuilder: (context, child, progress) => progress == null ? child : placeholder,
-    );
+    return AppImage(url!, fit: fit, placeholder: placeholder, decodeWidth: 800);
   }
 }
 
@@ -184,8 +183,9 @@ class TempleCard extends StatelessWidget {
   Widget _tall(ThemeData theme, DayTheme day) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AspectRatio(
-            aspectRatio: 16 / 10,
+          // The image takes whatever the text leaves, so a larger font never
+          // pushes the card past its strip.
+          Expanded(
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -392,7 +392,7 @@ class StoneTile extends StatelessWidget {
                 children: [
                   if (motif != null) MotifIcon(motif!, size: 30, color: c) else if (icon != null) Icon(icon, color: c, size: 28),
                   const Spacer(),
-                  Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif')),
+                  Flexible(child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif'))),
                   if (subtitle != null) Text(subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
                 ],
               ),
@@ -406,11 +406,16 @@ class StoneTile extends StatelessWidget {
 
 /// A mantra in Devanagari with its transliteration, framed by a torana.
 class MantraCard extends StatelessWidget {
-  const MantraCard({super.key, required this.day, this.mantra, this.transliteration, this.title, this.meaning});
+  const MantraCard({super.key, required this.day, this.mantra, this.transliteration, this.title, this.meaning, this.playKey, this.audioUrl});
 
   final DayTheme day;
   final String? title;
   final String? meaning;
+
+  /// When set, the card can play the mantra: [audioUrl] as a recording when
+  /// there is one, otherwise chanted by the device voice.
+  final String? playKey;
+  final String? audioUrl;
   final String? mantra;
   final String? transliteration;
 
@@ -444,6 +449,10 @@ class MantraCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(meaning!, textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
               ],
+              if (playKey != null) ...[
+                const SizedBox(height: 12),
+                MantraControls(playKey: playKey!, text: mantra ?? day.mantra, audioUrl: audioUrl, accent: day.accent),
+              ],
             ],
           ),
         ],
@@ -464,7 +473,7 @@ class EmptyShrine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -499,7 +508,86 @@ class DeityPortrait extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(shape: BoxShape.circle, color: on.withValues(alpha: 0.12), border: Border.all(color: on.withValues(alpha: 0.35))),
       clipBehavior: Clip.antiAlias,
-      child: imageUrl == null ? Center(child: motif) : Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: motif)),
+      child: imageUrl == null ? Center(child: motif) : AppImage(imageUrl!, placeholder: Center(child: motif), decodeWidth: 240),
     );
+  }
+}
+
+
+/// Play / stop and mute for a mantra, bound to the app-wide [MantraPlayer].
+class MantraControls extends StatelessWidget {
+  const MantraControls({super.key, required this.playKey, required this.text, this.audioUrl, required this.accent, this.compact = false, this.onColor});
+
+  final String playKey;
+  final String text;
+  final String? audioUrl;
+  final Color accent;
+  final bool compact;
+  final Color? onColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final player = context.watch<MantraPlayer>();
+    final playing = player.isPlayingKey(playKey);
+    final fg = onColor ?? accent;
+    final label = playing ? 'Stop' : audioUrl != null ? 'Play recording' : 'Chant';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (compact)
+          IconButton(
+            tooltip: label,
+            style: IconButton.styleFrom(foregroundColor: fg, side: BorderSide(color: fg.withValues(alpha: 0.5))),
+            onPressed: () => player.toggle(key: playKey, text: text, audioUrl: audioUrl),
+            icon: Icon(playing ? Icons.stop_rounded : Icons.play_arrow_rounded),
+          )
+        else
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(foregroundColor: fg, backgroundColor: fg.withValues(alpha: 0.12)),
+            onPressed: () => player.toggle(key: playKey, text: text, audioUrl: audioUrl),
+            icon: Icon(playing ? Icons.stop_rounded : Icons.play_arrow_rounded),
+            label: Text(label),
+          ),
+        const SizedBox(width: 6),
+        IconButton(
+          tooltip: player.muted ? 'Unmute' : 'Mute',
+          style: IconButton.styleFrom(foregroundColor: fg),
+          onPressed: player.toggleMuted,
+          icon: Icon(player.muted ? Icons.volume_off_rounded : Icons.volume_up_rounded),
+        ),
+      ],
+    );
+  }
+}
+
+/// Strip heights that grow with the user's font size, so a larger text
+/// setting never overflows a fixed-height list.
+double scaledHeight(BuildContext context, double base) {
+  final f = MediaQuery.textScalerOf(context).scale(1.0);
+  return base * (1 + (f - 1) * 0.7);
+}
+
+
+/// An app-bar title that is invisible while the header is expanded and
+/// fades in as it collapses, so it never sits on top of the hero content.
+class CollapsedTitle extends StatelessWidget {
+  const CollapsedTitle({super.key, required this.text, required this.color, required this.expandedHeight});
+
+  final String text;
+  final Color color;
+  final double expandedHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+    var t = 1.0;
+    if (settings != null) {
+      final range = (settings.maxExtent - settings.minExtent).clamp(1.0, double.infinity);
+      t = 1 - ((settings.currentExtent - settings.minExtent) / range).clamp(0.0, 1.0);
+      // Only the last third of the collapse shows the title.
+      t = ((t - 0.66) / 0.34).clamp(0.0, 1.0);
+    }
+    return Opacity(opacity: t, child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: color)));
   }
 }

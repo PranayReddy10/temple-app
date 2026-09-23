@@ -195,7 +195,7 @@ class _GuideBubble extends StatelessWidget {
         ),
         if (reply.temples.isNotEmpty)
           SizedBox(
-            height: 96,
+            height: scaledHeight(context, 100),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.only(top: 8),
