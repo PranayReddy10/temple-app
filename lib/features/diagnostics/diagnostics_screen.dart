@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
-import '../../core/api/temple_repository.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/app_image.dart';

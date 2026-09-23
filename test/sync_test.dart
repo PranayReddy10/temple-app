@@ -45,6 +45,7 @@ class FakeServer {
     if (r.method == 'PATCH' && path.startsWith('me/yatras/')) return _json({'data': yatras[int.parse(path.split('/')[2])]});
     if (r.method == 'GET' && RegExp(r'^me/yatras/\d+$').hasMatch(path)) return _json({'data': yatras[int.parse(path.split('/')[2])]});
     if (r.method == 'PUT' && path.contains('/temples/')) return _json({'data': {}}, 201);
+    if (r.method == 'POST' && RegExp(r'^me/support/[^/]+/replies$').hasMatch(path)) return _json({'data': {'reference': path.split('/')[2], 'subject': 's', 'body': 'b', 'status': {'value': 'open', 'label': 'Open', 'is_open': true}, 'messages': [{'id': 1, 'body': body['body'], 'from_staff': false, 'author': 'Anu'}]}}, 201);
     if (r.method == 'POST' && path == 'support') return _json({'data': {'reference': 'TP-ABC123', 'subject': body['subject'], 'body': body['body'], 'status': {'value': 'open', 'label': 'Open', 'is_open': true}, 'category': {'value': body['category'], 'label': body['category']}}}, 201);
     if (r.method == 'GET' && path == 'languages') return _json({'data': {'current': 'en', 'fallback': 'en', 'languages': [{'code': 'en', 'name': 'English', 'native_name': 'English', 'rtl': false, 'is_available': true}, {'code': 'kn', 'name': 'Kannada', 'native_name': 'ಕನ್ನಡ', 'rtl': false, 'is_available': false}]}});
     if (r.method == 'GET' && path == 'me/passport') return _json({'data': {'stamps': 3, 'temples_visited': 5, 'visits_recorded': 6, 'photos': 1, 'memories': 2, 'states_covered': 2, 'circuits': [{'slug': 'jyotirlinga', 'name': 'Jyotirlinga', 'collected': 2, 'recorded': 8, 'total': 12}]}});
@@ -169,6 +170,24 @@ void main() {
     t.auth.api.token = 't';
     await t.submissions.mergeTickets([SupportTicket.fromJson(jsonDecode(jsonEncode({'reference': 'TP-ABC123', 'subject': s.subject, 'body': s.text, 'status': {'value': 'resolved', 'label': 'Resolved', 'is_open': false}, 'resolution': 'Fixed the timings.'})) as Map<String, dynamic>)]);
     expect(t.submissions.all.single.resolution, 'Fixed the timings.');
+  });
+
+  test('a support request is filed and a reply is sent to its thread', () async {
+    final t = await build();
+    final s = await t.submissions.add(kind: 'support', templeName: '', field: 'Something is broken', text: 'The map is blank.', category: 'app_problem', subject: 'Blank map');
+    await t.sync.flush();
+    final filed = t.server.requests.where((r) => r.url.path == '/api/v1/support').single;
+    expect(jsonDecode(filed.body)['kind'], 'support');
+    expect(jsonDecode(filed.body)['category'], 'app_problem');
+    expect(jsonDecode(filed.body)['subject'], 'Blank map');
+    await t.submissions.reply(t.submissions.byId(s.id)!, 'Still blank today.');
+    await t.sync.flush();
+    final replied = t.server.requests.where((r) => r.url.path.endsWith('/replies')).single;
+    expect(replied.url.path, '/api/v1/me/support/TP-ABC123/replies');
+    expect(t.submissions.byId(s.id)!.replies.single.body, 'Still blank today.');
+    // A ticket filed elsewhere is imported on pull.
+    await t.submissions.mergeTickets([SupportTicket.fromJson({'reference': 'TP-ZZZ999', 'kind': 'support', 'subject': 'From the web', 'body': 'x', 'status': {'value': 'open', 'is_open': true}})]);
+    expect(t.submissions.all.map((x) => x.reference), contains('TP-ZZZ999'));
   });
 
   test('a server rejection drops the op but keeps the device record', () async {
