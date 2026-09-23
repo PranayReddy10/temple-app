@@ -254,7 +254,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   for (final d in _deities)
                     ChoiceChip(
                       label: Text(d.name),
-                      avatar: MotifIcon(DayTheme.forDeity(d.slug).deitySlug == d.slug ? DayTheme.forDeity(d.slug).motif : Motif.om, size: 16, color: DayTheme.forDeity(d.slug).accent),
+                      avatar: MotifIcon(deityMotif(d.slug), size: 18, color: DayTheme.forDeity(d.slug).accent),
                       selected: draft.deity == d.slug,
                       onSelected: (v) => setSheet(() => draft = TempleQuery(q: draft.q, deity: v ? d.slug : null, category: draft.category, state: draft.state, verifiedOnly: draft.verifiedOnly, lat: draft.lat, lng: draft.lng, radiusKm: draft.radiusKm, sort: draft.sort)),
                     ),

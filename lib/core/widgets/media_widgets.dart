@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../l10n/strings.dart';
 import '../models/models.dart';
@@ -28,6 +29,13 @@ IconData mediaIcon(String? type) => switch (type) {
 Future<void> openMedia(BuildContext context, DevotionalMedia m, {DayTheme? day}) async {
   if (m.url == null) return;
   final isYoutube = m.url!.contains('youtube.com') || m.url!.contains('youtu.be');
+  // A YouTube search or channel link has no single video to embed; the
+  // YouTube app (or site) is where it works, so send it there.
+  if (isYoutube && m.playback.youtubeId == null && YoutubePlayerController.convertUrlToId(m.url!) == null) {
+    final ok = await launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open YouTube.')));
+    return;
+  }
   if (kIsWeb && !isYoutube && !isDirectAudio(m.url, m.sourceType)) {
     final ok = await launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open this link.')));

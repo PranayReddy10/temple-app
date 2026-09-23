@@ -42,7 +42,17 @@ class SubmissionsScreen extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
               children: [
-                if (sync.pendingCount > 0) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text('${sync.pendingCount} waiting to send.', style: theme.textTheme.bodySmall)),
+                if (ctl.pending.isNotEmpty)
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    color: Palette.saffron.withValues(alpha: 0.12),
+                    child: ListTile(
+                      leading: sync.isFlushing ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.schedule_send_rounded, color: Palette.saffron),
+                      title: Text(sync.isFlushing ? 'Sending…' : '${ctl.pending.length} not sent yet'),
+                      subtitle: Text(ctl.pending.any((p) => p.sendError != null) ? 'The server refused one. Open it to see why.' : 'They go as soon as the app is online.', style: theme.textTheme.bodySmall),
+                      trailing: TextButton(onPressed: sync.isFlushing ? null : () => sync.sync(), child: const Text('Send now')),
+                    ),
+                  ),
                 if (open.isNotEmpty) const SectionHeader(title: 'Open', motif: Motif.diya),
                 for (final sub in open) _TicketCard(sub: sub),
                 if (closed.isNotEmpty) const SectionHeader(title: 'Answered', motif: Motif.bell),
@@ -101,9 +111,13 @@ class SubmissionsScreen extends StatelessWidget {
         ),
       ),
     );
-    if (ok != true || subject.text.trim().isEmpty || text.text.trim().isEmpty) return;
+    if (ok != true) return;
+    if (subject.text.trim().isEmpty || text.text.trim().isEmpty) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add a subject and a few words about what happened, then send.')));
+      return;
+    }
     await ctl.add(kind: 'support', templeName: '', field: Submission.categories.firstWhere((c) => c.$1 == category).$2, text: text.text.trim(), category: category, subject: subject.text.trim(), reporterName: who.text.trim().isEmpty ? null : who.text.trim(), reporterEmail: email.text.trim().isEmpty ? null : email.text.trim());
-    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sent. Replies appear in Help & support.')));
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sending. Replies appear in Help & support.')));
   }
 
   /// A report about a temple record, or a new-temple suggestion.
@@ -149,7 +163,11 @@ class SubmissionsScreen extends StatelessWidget {
         ),
       ),
     );
-    if (ok != true || name.text.trim().isEmpty || text.text.trim().isEmpty) return;
+    if (ok != true) return;
+    if (name.text.trim().isEmpty || text.text.trim().isEmpty) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add the temple and what should change, then send.')));
+      return;
+    }
     await ctl.add(kind: temple == null ? 'new_temple' : 'correction', templeSlug: temple?.slug, templeId: temple?.id, templeName: name.text.trim(), field: temple == null ? 'New temple' : field, text: text.text.trim(), reporterName: who.text.trim().isEmpty ? null : who.text.trim(), reporterEmail: email.text.trim().isEmpty ? null : email.text.trim());
     if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved. It goes to the editors as soon as the app is online.')));
   }
@@ -170,10 +188,10 @@ class _TicketCard extends StatelessWidget {
         leading: Icon(icon, color: theme.colorScheme.primary),
         title: Text(sub.subject, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'NotoSerif')),
         subtitle: Text(
-          [if (sub.reference != null) sub.reference!, sub.sent ? (sub.statusLabel ?? 'Sent') : 'Waiting to send', if (sub.answered) 'Answered'].join(' · '),
-          style: theme.textTheme.bodySmall,
+          [if (sub.reference != null) sub.reference!, sub.sent ? (sub.statusLabel ?? 'Sent') : (sub.sendError != null ? 'Not sent' : 'Waiting to send'), if (sub.answered) 'Answered'].join(' · '),
+          style: theme.textTheme.bodySmall?.copyWith(color: sub.sendError != null && !sub.sent ? Palette.kumkum : null),
         ),
-        trailing: Icon(sub.answered ? Icons.mark_email_read_rounded : sub.sent ? Icons.chevron_right_rounded : Icons.schedule_send_rounded, color: sub.answered ? Palette.tulsi : null),
+        trailing: Icon(sub.answered ? Icons.mark_email_read_rounded : sub.sent ? Icons.chevron_right_rounded : sub.sendError != null ? Icons.error_outline_rounded : Icons.schedule_send_rounded, color: sub.answered ? Palette.tulsi : sub.sendError != null && !sub.sent ? Palette.kumkum : null),
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TicketScreen(id: sub.id))),
       ),
     );
@@ -206,6 +224,7 @@ class _TicketScreenState extends State<TicketScreen> {
     final theme = Theme.of(context);
     final ctl = context.watch<SubmissionsController>();
     final auth = context.watch<AuthController>();
+    final sync = context.watch<SyncService>();
     final sub = ctl.byId(widget.id);
     if (sub == null) return Scaffold(appBar: AppBar(), body: const EmptyShrine(motif: Motif.lotus, message: 'This request was removed.'));
     final canReply = sub.reference != null && auth.isSignedIn;
@@ -251,7 +270,24 @@ class _TicketScreenState extends State<TicketScreen> {
                     decoration: BoxDecoration(color: Palette.tulsi.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(16), border: Border.all(color: Palette.tulsi.withValues(alpha: 0.5))),
                     child: Row(children: [const Icon(Icons.verified_rounded, color: Palette.tulsi), const SizedBox(width: 10), Expanded(child: Text('Resolved: ${sub.resolution}', style: theme.textTheme.bodyMedium))]),
                   ),
-                if (!sub.sent) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Kept on this device; it is sent the next time the app is online.', style: theme.textTheme.bodySmall)),
+                if (!sub.sent)
+                  Container(
+                    margin: const EdgeInsets.only(top: 14),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: (sub.sendError != null ? Palette.kumkum : Palette.saffron).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: (sub.sendError != null ? Palette.kumkum : Palette.saffron).withValues(alpha: 0.4))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(sub.sendError != null ? 'Not sent: ${sub.sendError}' : 'Kept on this device. It goes the moment the app is online.', style: theme.textTheme.bodyMedium),
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                          onPressed: sync.isFlushing ? null : () => sync.resendSupport(sub.id),
+                          icon: sync.isFlushing ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send_rounded),
+                          label: Text(sync.isFlushing ? 'Sending…' : 'Send now'),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (sub.sent && !auth.isSignedIn) Padding(padding: const EdgeInsets.only(top: 12), child: Text('Sign in with the account this was filed from to see replies here and answer them. Quote ${sub.reference} in any email.', style: theme.textTheme.bodySmall)),
               ],
             ),
