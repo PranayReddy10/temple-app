@@ -227,11 +227,14 @@ class TempleSummary {
   final double? distanceKm;
   final Trust trust;
   final Photo? primaryPhoto;
-  final bool isFeatured;
 
   /// Only populated by the offline sample data; the summary endpoint does not
   /// carry categories.
   final List<String> categorySlugs;
+
+  /// An editor's "famous temple" mark. A curation choice, not a trust claim:
+  /// [trust] still says how far the record can be relied on.
+  final bool isFeatured;
 
   factory TempleSummary.fromJson(Map<String, dynamic> j) => TempleSummary(
         id: _i(j['id']),
@@ -522,6 +525,7 @@ class TempleDetail {
         trust: Trust.fromJson(_m(j['trust'])),
         primaryPhoto: primary,
         categorySlugs: _l(j['categories']).map((e) => _s(_m(e)['slug']) ?? '').toList(),
+        isFeatured: _b(j['is_featured']),
       ),
       alternateNames: _l(j['alternate_names']).map((e) => _s(_m(e)['name']) ?? '').where((e) => e.isNotEmpty).toList(),
       categories: _l(j['categories']).map((e) => CategoryRef.fromJson(_m(e))).toList(),

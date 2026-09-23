@@ -47,6 +47,36 @@ the bundled sample set (the same records the backend seeds) and says so on
 screen. Sample records are all community level; nothing bundled is ever shown
 as verified.
 
+## Not yet wired to the backend
+
+The app and its backend were built in parallel, so some of what works here
+works on the device against endpoints that now exist. None of it is broken —
+the app has to keep working with no signal at a temple gate — but these are
+the joins still to make:
+
+| In the app | Endpoint waiting for it |
+| --- | --- |
+| Passport visits and stamps, kept on the device | `GET /me/passport`, `GET /me/visits`, `POST /temples/{slug}/visits` |
+| Photo Stamp cards, composed and shared locally | `POST /temples/{slug}/photos` — keeps the original and the card as separate files, and moderates before anyone else sees either |
+| Yatra itineraries, kept on the device | `GET|POST /me/yatras`, `PUT /me/yatras/{id}/temples/{slug}` |
+| Interface strings bundled in three languages | `GET /api/v1/languages`, and `?lang=` on every read endpoint for translated temple content |
+| — | `GET|POST /me/memories`: a devotee's own writing about a visit, private by default |
+
+Two rules the backend enforces that the client has to respect when syncing:
+
+- A **manual check-in never counts as a stamp**, whatever coordinates it
+  sends. Only a GPS or QR check-in within the radius verifies itself. The app
+  should show recorded-but-unverified visits differently from stamps.
+- A **private memory stays private** through a `PATCH` that omits the field,
+  and an uploaded photo is not visible to anyone else until it is both
+  approved and shared.
+
+Send `X-Platform` and `X-App-Version` on requests — they are recorded against
+each sign-in and are what the admin's analytics screen reads.
+
+Full request and response detail is in
+[`temple-website/docs/API.md`](https://github.com/PranayReddy10/temple-website/blob/main/docs/API.md).
+
 ## Running
 
 ```

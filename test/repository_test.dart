@@ -29,7 +29,8 @@ void main() {
     test('nearby orders by distance and respects radius', () async {
       // Hyderabad.
       final r = await offlineRepo().temples(const TempleQuery(lat: 17.3850, lng: 78.4867, radiusKm: 200));
-      expect(r.data.items.first.slug, 'yadadri-lakshmi-narasimha-temple');
+      expect(r.data.items.first.slug, 'birla-mandir-hyderabad');
+      expect(r.data.items.map((t) => t.slug), contains('yadadri-lakshmi-narasimha-temple'));
       expect(r.data.items.every((t) => t.distanceKm! <= 200), isTrue);
       for (var i = 1; i < r.data.items.length; i++) {
         expect(r.data.items[i].distanceKm!, greaterThanOrEqualTo(r.data.items[i - 1].distanceKm!));
@@ -41,6 +42,20 @@ void main() {
       expect(r.data.items.every((t) => t.trust.level == TrustLevel.community), isTrue);
       final v = await offlineRepo().temples(const TempleQuery(verifiedOnly: true));
       expect(v.data.items, isEmpty);
+    });
+
+    test('featured filter returns only famous temples', () async {
+      final r = await offlineRepo().temples(const TempleQuery(featuredOnly: true, perPage: 50));
+      expect(r.data.items, isNotEmpty);
+      expect(r.data.items.every((t) => t.isFeatured), isTrue);
+      expect(r.data.items.map((t) => t.slug), contains('yadadri-lakshmi-narasimha-temple'));
+      expect(r.data.items.map((t) => t.slug), isNot(contains('kailasa-temple-ellora')));
+    });
+
+    test('featured sort puts famous temples first', () async {
+      final r = await offlineRepo().temples(const TempleQuery(sort: 'featured'));
+      final flags = r.data.items.map((t) => t.isFeatured).toList();
+      expect(flags.skipWhile((f) => f).contains(true), isFalse);
     });
 
     test('unknown slug is a 404, not a fallback', () async {
