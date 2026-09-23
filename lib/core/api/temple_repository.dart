@@ -14,6 +14,7 @@ class TempleQuery {
     this.state,
     this.district,
     this.verifiedOnly = false,
+    this.featuredOnly = false,
     this.lat,
     this.lng,
     this.radiusKm,
@@ -28,6 +29,10 @@ class TempleQuery {
   final String? state;
   final String? district;
   final bool verifiedOnly;
+
+  /// Famous temples only. A backend that predates the flag ignores the
+  /// parameter and returns its normal list, so this degrades gracefully.
+  final bool featuredOnly;
   final double? lat;
   final double? lng;
   final double? radiusKm;
@@ -44,6 +49,7 @@ class TempleQuery {
         'state': state,
         'district': district,
         'verified': verifiedOnly ? '1' : null,
+        'featured': featuredOnly ? '1' : null,
         'lat': lat?.toString(),
         'lng': lng?.toString(),
         'radius': radiusKm?.toString(),
@@ -58,6 +64,7 @@ class TempleQuery {
     String? category,
     String? state,
     bool? verifiedOnly,
+    bool? featuredOnly,
     double? lat,
     double? lng,
     double? radiusKm,
@@ -72,6 +79,7 @@ class TempleQuery {
         state: clearFilters ? null : (state ?? this.state),
         district: clearFilters ? null : district,
         verifiedOnly: clearFilters ? false : (verifiedOnly ?? this.verifiedOnly),
+        featuredOnly: clearFilters ? false : (featuredOnly ?? this.featuredOnly),
         lat: lat ?? this.lat,
         lng: lng ?? this.lng,
         radiusKm: radiusKm ?? this.radiusKm,
@@ -149,6 +157,7 @@ class TempleRepository {
     if (q.category != null) list = list.where((t) => t.categorySlugs.contains(q.category));
     if (q.state != null) list = list.where((t) => SampleData.stateSlug(t.location.state) == q.state);
     if (q.verifiedOnly) list = list.where((t) => t.trust.level == TrustLevel.verified || t.trust.level == TrustLevel.official);
+    if (q.featuredOnly) list = list.where((t) => t.isFeatured);
     var out = list.toList();
     if (q.isNearby) {
       out = out
@@ -161,6 +170,8 @@ class TempleRepository {
       out.sort((a, b) => a.name.compareTo(b.name));
     } else if (q.sort == '-name') {
       out.sort((a, b) => b.name.compareTo(a.name));
+    } else if (q.sort == 'featured') {
+      out.sort((a, b) => a.isFeatured == b.isFeatured ? a.name.compareTo(b.name) : (a.isFeatured ? -1 : 1));
     }
     return out;
   }

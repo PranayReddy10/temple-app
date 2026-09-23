@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _load() async {
     final repo = context.read<TempleRepository>();
     final results = await Future.wait([
-      repo.temples(const TempleQuery(perPage: 10, sort: 'recent')),
+      repo.temples(const TempleQuery(perPage: 10, featuredOnly: true)),
       repo.events(),
     ]);
     if (!mounted) return;
