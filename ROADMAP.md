@@ -134,6 +134,228 @@ and the redesigned temple page.
 | Expanded Indian-language support | Tamil and Kannada interface strings with bundled Noto fonts, alongside English, Telugu and Hindi | Content translations |
 | 100,000+ temple records | Paginated search, offline packs | The records |
 | Temple Admin SaaS | — | Backend product |
+| 1 | **Admin auth + Temple CRUD** | Admin login, roles, temples table, deities, categories, states/districts, draft→published workflow, trust labelling, seed data | ✅ **Done** |
+| 2 | **Temple media + timings** | Photo gallery on DigitalOcean Spaces with generated variants, opening/darshan/aarti timings, closure and special-hour overrides | ✅ **Done** |
+| 3 | **Puja / Seva + facilities** | Published pujas with time, duration, eligibility, fee and official booking route; visitor rules; facilities including accessibility | ✅ **Done** |
+| 4 | **Public REST API v1** | Read endpoints for the app: search, filter, nearby with real distance ordering, temple detail, deity/category/state/facility listings | ✅ **Done** |
+| — | Admin dark / light theme | Temple palette in both schemes, with a Light / Dark / System switcher in the user menu | ✅ **Done** — shipped with slice 1 |
+| — | Admin dashboard & temple styling | Today's deity panel with its mantra, a work queue of what needs a person, pilgrimage-circuit completeness, and gopuram-derived styling across both schemes | ✅ **Done** |
+
+### Phase 2 — The other two logins  ✅ **Complete**
+
+| # | Slice | Scope | Status |
+| --- | --- | --- | --- |
+| 5 | **Admin settings + puja images** | Settings screen for brand name, tagline, contact, default language, feature flags and maintenance mode; image upload on each puja/seva | ✅ **Done** |
+| 6 | **Temple authority portal** | Separate `/temple` panel. Claim-and-verify flow, `temple_user` scoping, temple team manages its own timings, photos, pujas and contact details. Nothing outside their own temples is reachable | ✅ **Done** |
+| 7 | **Temple events & programs** | Festivals, programs, special pujas and announcements published by the temple, with image, date range and recurrence. Verified temples publish directly; unverified go to a review queue | ✅ **Done** |
+| 8 | **Devotee accounts** | Signup, login, profile, saved temples. Separate `devotees` table and Sanctum token auth, exposed through `/api/v1/auth` and `/api/v1/me` | ✅ **Done** |
+| 9 | **Daily devotional content** | Weekday-to-deity content: Monday Shiva, Tuesday Hanuman, and so on. Curated photos, videos and songs surfaced on the app home screen each day, with a per-day accent colour and the deity's temples | ✅ **Done** |
+
+### Phase 2.1 — Making it usable  ✅ **Complete**
+
+Not new features; the seams between the ones already built.
+
+| Slice | Scope | Status |
+| --- | --- | --- |
+| **Granting temple access** | The Temple Admin account can be created from the grant form itself, so a first-time super admin is no longer shown a required dropdown with nothing in it and no way forward | ✅ **Done** |
+| **Temple Trust Access in the side menu** | The same grants, and the pending ones badged, as a queue in **Administration** rather than only inside a temple record. Same form and actions from either direction | ✅ **Done** |
+| **Events & Programs in the side menu** | Submissions from every temple in one review queue, so approving one does not start with guessing which temple sent it | ✅ **Done** |
+| **A clickable dashboard** | Every tile opens the records it counted, filtered the same way; a tile the role may not open is unlinked rather than a 403. Deity panel and circuit rows link through too | ✅ **Done** |
+| **My profile** | A real account page in both panels — name, email, password, plus the role, the panel it signs into and the temples it covers. The dashboard's sign-out card is gone; sign out stays in the user menu | ✅ **Done** |
+
+### Phase 3 — Passport, trips and languages  ✅ **Both halves shipped**
+
+Every slice has a **backend half** (schema, API, admin) in `temple-website`
+and a **Flutter half** in [`temple-app`](https://github.com/PranayReddy10/temple-app).
+They were built in parallel, so a few of the app's features work locally
+against endpoints that now exist and it has yet to sync to — the last column
+says which.
+
+| # | Slice | Scope | Backend | App | Synced |
+| --- | --- | --- | --- | --- | --- |
+| 10 | **App shell** | Temple design system in light and dark, tinted per weekday deity, temple-door transitions, 5-tab navigation, API client with offline fallback | n/a | ✅ | n/a |
+| 11 | **Explorer + temple profile** | Search by name/deity/city/state, nearby, filters, lamp map, day pages, full temple profile | ✅ | ✅ | ✅ `GET /temples`, `/days` |
+| 12 | **Passport** | Visits, check-in, stamps, circuit collections, achievements | ✅ | ✅ | ⬜ app keeps visits on the device; `/me/visits` and `/me/passport` are waiting |
+| 13 | **Photo Stamp** | Visit photo, temple-themed memory card, original kept untouched, moderation | ✅ | ✅ | ⬜ card composed on the device; `/temples/{slug}/photos` is waiting |
+| 14 | **Favourites + Yatra planner** | Saved temples, itinerary by days, reorder, Yatra mode, route in Maps | ✅ | ✅ | 🟡 favourites sync to `/me/saved-temples`; trips are local, `/me/yatras` is waiting |
+| 15 | **Languages: EN / TE / HI** | Twelve configured, three shipping; app interface strings with bundled Indic fonts; translated temple fields with English fallback, reviewed-only serving | ✅ | ✅ | 🟡 app strings are bundled; `?lang=` on the API and `GET /languages` are waiting |
+| 16 | **User memories** | A devotee's own writing about a visit, private by default | ✅ | ⬜ | ⬜ `/me/memories` |
+| 17 | **Devotee analytics** | Sign-in events for both guards, active-user windows, trips being planned, per-account profile | ✅ | n/a | n/a |
+
+The app works with **no backend at all**: when the API is unreachable it falls
+back to the bundled sample records and says so on screen. That is what made
+building both halves at once possible, and it is also why the sync column
+above is the remaining work rather than a defect — a device that was offline
+at the temple gate still has to be able to record the visit.
+
+### Phase 4 — Detail, and being told when we are wrong  ✅ **Complete**
+
+| Slice | Scope | Status |
+| --- | --- | --- |
+| **Deity images and mantras** | Image, mantra with transliteration and meaning, accent colour — on the deity, where they belong, with weekdays falling back to them | ✅ |
+| **Temple cover image** | Set while creating a temple rather than only afterwards; writes the primary photo row rather than a second column | ✅ |
+| **Temple mantras and songs** | Per-temple verse and recordings, falling back to the deity's; one polymorphic media table for weekdays, deities and temples | ✅ |
+| **Side-menu lists** | Puja & Sevas and Temple Photos alongside Events, each sharing one form with the version inside a temple | ✅ |
+| **State-wise and god-wise** | Grouping on the temple list, plus tabs with counts including "needs work" | ✅ |
+| **Support and reports** | One queue, filing without an account, references, internal notes kept apart from replies, allow-listed report subjects | ✅ |
+
+### Phase 5 — What devotees add  ⬜ **Next**
+
+| Slice | Scope | Status |
+| --- | --- | --- |
+| **Likes and follows** | Follow a temple; a like as the lightest signal of interest, distinct from saving and from planning a trip | ⬜ |
+| **Reviews and ratings** | A devotee's account of a visit, moderated like photos are. The hard part is not the schema — it is that a place of worship is not a restaurant, and the product has to decide what it is asking people to rate | ⬜ |
+| **Devotee photos on a temple** | Approved Photo Stamps promoted into a temple's own gallery, credited to the devotee, with the temple able to object | ⬜ |
+| **Notifications** | Festival and event reminders for followed temples; the first thing here that can annoy people, so it starts opt-in and per-temple | ⬜ |
+
+The open question for reviews, worth settling before any of it is built: a
+one-to-five star average is how restaurants are ranked, and applying it to
+temples would produce a leaderboard of places of worship. Rating the *visit*
+— queue length, accessibility, facilities, how accurate our listing turned
+out to be — says something useful without ranking the sacred.
+
+### Later phases
+
+Community submissions and moderation · GPS and QR visit verification ·
+advanced Yatra planner · festival calendar and notifications · Family
+Passport · certificates and achievements · offline trip packs · hotel and
+travel partnerships · Temple Admin SaaS · official QR Passport network ·
+authorized puja/seva/prasadam · AI assistant grounded in verified temple data.
+
+---
+
+## Notes on the Phase 3 slices
+
+### Slice 12 — what makes a stamp
+
+A visit is a row; a stamp is the existence of a **verified** visit, derived
+rather than stored, so revoking a verification revokes the stamp with it
+instead of leaving an orphan in a collection.
+
+The decision that carries the whole feature is that a manual check-in never
+verifies itself, however good the coordinates it sends. Recording a pilgrimage
+from before the app existed is exactly what a passport is for, so manual entry
+has to exist — but a collection that treats a claim and a GPS fix identically
+is a list anyone can type in, and then "6 of 12 Jyotirlingas" means nothing.
+Staff can verify a visit the device could not, and revoke one that was false.
+
+The GPS radius is generous (500m, configurable). Large complexes cover hundreds
+of metres and phone GPS is poor between tall gopurams; the failure that matters
+is telling a devotee standing in the queue that they are not at the temple.
+
+### Slice 13 — the original is the irreplaceable half
+
+The generated card can always be re-rendered from the photo. The photo cannot
+be recovered from the card, so both are stored and the original is never
+overwritten.
+
+Moderation is pending by default and cannot be otherwise: this is user-supplied
+imagery attached by name to real places of worship. Approval is still not
+publication — the devotee's own `is_public` has to agree, and both conditions
+live in one scope so a caller that checks only the status cannot leak a private
+photo.
+
+### Slice 14 — a planner, not a router
+
+Ordering temples by road distance needs a maps provider, a budget and an
+internet connection that a devotee planning on a train does not have. What they
+do have is a list they can reorder themselves, which works offline. Recording a
+visit closes the planned stop for that temple, which is the link back to the
+Passport.
+
+### Slice 15 — rows, not columns
+
+`name_te`, `name_hi`, `name_ta`… is a migration per language across every
+translatable table, and India has more languages than that approach survives.
+A row per value adds a language by inserting rows. A JSON column would answer
+"which temples have no Telugu description" only by reading every row, and that
+is the question the admin actually asks.
+
+Twelve languages are configured; three ship. A language offered in the picker
+and then mostly blank reads as neglect rather than as progress, so availability
+is a separate flag from what the schema can hold.
+
+Two serving rules: a missing translation falls back to English rather than to
+nothing, because a listing that renders half-blank looks broken rather than
+untranslated; and an unreviewed translation is not served at all, because a
+deity's name rendered wrongly in someone's own language is worse than the
+English they can at least recognise.
+
+### Slice 17 — why sign-ins are events
+
+`last_login_at` can only ever hold the latest value. It cannot say how many
+people signed in this week, whether a returning devotee is a daily user or a
+once-a-year one, or that one account has failed twenty attempts from three
+addresses — and none of that can be reconstructed after the fact. So the event
+is written at the time, for both guards, successes and failures alike.
+
+"Active users" means distinct people who signed in, never sign-ins. A devotee
+who opens the app eight times in a day is one active user, and the metric that
+says eight is the one that will be quoted to somebody.
+
+---
+
+## Notes on the Phase 2 slices
+
+### Slice 6 — Temple authority portal
+
+Section 19 of the project plan. A temple claims its profile, the claim is
+verified by staff, and only then can the temple team edit anything.
+
+The security requirement is narrow and absolute: **a temple admin must not be
+able to read or write any temple outside their own.** That is enforced by
+scoping every query in the panel through `temple_user`, not by hiding
+navigation links.
+
+Temple-edited fields stay separated from editorial ones. A temple correcting
+its own darshan timings should not be able to overwrite a sourced history
+section, and changes they make are recorded so staff can review them.
+
+Granting that access is itself a staff workflow, and it has two natural
+starting points: the temple you are looking at, and the queue of claims
+waiting on you. Both exist, and both drive the same form — a grant reached
+from the side menu and one reached from inside a temple must not be able to
+behave differently. The account the seat is given to must hold the Temple
+Admin role, since that role is what the portal's sign-in gate checks, so the
+form creates the account itself rather than sending you elsewhere to make one
+and come back.
+
+### Slice 7 — Events and programs
+
+Temple-published content raises a moderation question that needs an answer
+before the feature ships: a verified temple publishing to thousands of devotees
+without review is the point of the feature, but an unverified one doing the
+same is a spam vector. The proposal is that verification level decides —
+`official` and `verified` temples publish directly, everyone else queues for
+review.
+
+### Slice 9 — Daily devotional content
+
+The traditional weekday associations are the backbone:
+
+| Day | Commonly associated with |
+| --- | --- |
+| Monday | Shiva |
+| Tuesday | Hanuman, Ganesha |
+| Wednesday | Krishna, Vithoba |
+| Thursday | Vishnu, Dattatreya, Guru |
+| Friday | Devi, Lakshmi |
+| Saturday | Shani, Venkateswara, Hanuman |
+| Sunday | Surya |
+
+Regional traditions differ, so the mapping is data in a table rather than
+constants in code, and more than one deity per day is allowed.
+
+> **Songs and videos are copyrighted, and this is the one slice with legal
+> exposure.** A devotional recording is owned by its performer or label even
+> when the composition is centuries old. The schema therefore requires a
+> licence and a source on every media row, the same way temple facts require a
+> source. Three workable routes: license recordings directly, use
+> public-domain or Creative Commons recordings with attribution, or embed
+> official YouTube uploads rather than hosting audio. Hosting ripped audio is
+> not one of them.
+
+---
 
 ## Data quality is the product
 

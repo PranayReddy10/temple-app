@@ -203,6 +203,7 @@ class TempleSummary {
     required this.trust,
     this.primaryPhoto,
     this.categorySlugs = const [],
+    this.isFeatured = false,
   });
 
   final int? id;
@@ -219,6 +220,10 @@ class TempleSummary {
   /// carry categories.
   final List<String> categorySlugs;
 
+  /// An editor's "famous temple" mark. A curation choice, not a trust claim:
+  /// [trust] still says how far the record can be relied on.
+  final bool isFeatured;
+
   factory TempleSummary.fromJson(Map<String, dynamic> j) => TempleSummary(
         id: _i(j['id']),
         slug: _s(j['slug']) ?? '',
@@ -229,6 +234,7 @@ class TempleSummary {
         distanceKm: _d(j['distance_km']),
         trust: Trust.fromJson(_m(j['trust'])),
         primaryPhoto: j['primary_photo'] is Map ? Photo.fromJson(_m(j['primary_photo'])) : null,
+        isFeatured: j['is_featured'] == true,
       );
 
   TempleSummary withDistance(double km) => TempleSummary(
@@ -242,6 +248,7 @@ class TempleSummary {
         trust: trust,
         primaryPhoto: primaryPhoto,
         categorySlugs: categorySlugs,
+        isFeatured: isFeatured,
       );
 }
 
@@ -481,6 +488,7 @@ class TempleDetail {
         trust: Trust.fromJson(_m(j['trust'])),
         primaryPhoto: primary,
         categorySlugs: _l(j['categories']).map((e) => _s(_m(e)['slug']) ?? '').toList(),
+        isFeatured: j['is_featured'] == true,
       ),
       alternateNames: _l(j['alternate_names']).map((e) => _s(_m(e)['name']) ?? '').where((e) => e.isNotEmpty).toList(),
       categories: _l(j['categories']).map((e) => CategoryRef.fromJson(_m(e))).toList(),
