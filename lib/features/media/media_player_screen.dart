@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -38,31 +39,44 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
   bool _playing = false;
   StreamSubscription<dynamic>? _s1, _s2, _s3;
 
-  String? get _videoId => widget.media.url == null ? null : YoutubePlayerController.convertUrlToId(widget.media.url!);
+  String? get _videoId => widget.media.playback.youtubeId ?? (widget.media.url == null ? null : YoutubePlayerController.convertUrlToId(widget.media.url!));
+  late final MantraPlayer _mantra = context.read<MantraPlayer>();
 
   @override
   void initState() {
     super.initState();
+    _mantra.addListener(_applyMute);
     final url = widget.media.url;
     if (url == null) return;
+    final kind = widget.media.playback.kind;
     if (_videoId != null) {
-      _yt = YoutubePlayerController.fromVideoId(videoId: _videoId!, autoPlay: true, params: const YoutubePlayerParams(showFullscreenButton: true, strictRelatedVideos: true));
-    } else if (isDirectAudio(url, widget.media.sourceType)) {
+      _yt = YoutubePlayerController.fromVideoId(videoId: _videoId!, autoPlay: true, params: YoutubePlayerParams(showFullscreenButton: true, strictRelatedVideos: true, mute: _mantra.muted));
+    } else if (kind == 'audio' || (kind != 'video' && kind != 'vimeo' && isDirectAudio(url, widget.media.sourceType))) {
       _audio = ap.AudioPlayer();
       _s1 = _audio!.onPositionChanged.listen((d) => setState(() => _pos = d));
       _s2 = _audio!.onDurationChanged.listen((d) => setState(() => _len = d));
       _s3 = _audio!.onPlayerStateChanged.listen((s) => setState(() => _playing = s == ap.PlayerState.playing));
+      _audio!.setVolume(_mantra.muted ? 0 : 1);
       _audio!.play(ap.UrlSource(url));
     } else if (!kIsWeb) {
+      // A Vimeo or other page, or a video file: the in-app web view plays
+      // it where it is published.
       _web = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(Palette.ebony)
-        ..loadRequest(Uri.parse(url));
+        ..loadRequest(Uri.parse(widget.media.playback.embedUrl ?? url));
     }
+  }
+
+  /// The app-wide mute switch reaches whichever player is running.
+  void _applyMute() {
+    if (_yt != null) _mantra.muted ? _yt!.mute() : _yt!.unMute();
+    _audio?.setVolume(_mantra.muted ? 0 : 1);
   }
 
   @override
   void dispose() {
+    _mantra.removeListener(_applyMute);
     _yt?.close();
     _s1?.cancel();
     _s2?.cancel();
@@ -137,6 +151,10 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
       appBar: AppBar(
         title: Text(m.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          Builder(builder: (context) {
+            final muted = context.watch<MantraPlayer>().muted;
+            return IconButton(tooltip: muted ? 'Unmute' : 'Mute', onPressed: () => context.read<MantraPlayer>().toggleMuted(), icon: Icon(muted ? Icons.volume_off_rounded : Icons.volume_up_rounded));
+          }),
           if (m.url != null)
             IconButton(tooltip: 'Open outside the app', onPressed: () => launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication), icon: const Icon(Icons.open_in_new_rounded)),
         ],

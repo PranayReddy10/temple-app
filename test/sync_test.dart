@@ -196,7 +196,7 @@ void main() {
       'devotional_media': [{'type': 'song', 'title': 'Suprabhatam', 'license': 'CC BY'}],
       'language': 'te',
     });
-    expect(d.mantra!.isTempleSpecific, isTrue);
+    expect(d.mantra!.isOwn, isTrue);
     expect(d.devotionalMedia.single.title, 'Suprabhatam');
     expect(d.language, 'te');
     final day = DevotionalDay.fromJson({'weekday': 1, 'title': 't', 'deity': {'slug': 'shiva', 'name': 'Shiva', 'image_url': 'https://x/shiva.jpg', 'mantra_meaning': 'I bow to Shiva.'}});

@@ -7,7 +7,6 @@ import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
-import '../../core/state/mantra_player.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
@@ -118,9 +117,10 @@ class _DayScreenState extends State<DayScreen> {
                 day: day,
                 mantra: lead?.mantra,
                 transliteration: lead?.mantraTransliteration,
-                meaning: lead?.deity?.mantraMeaning,
+                meaning: lead?.mantraAudio?.meaning ?? lead?.deity?.mantraMeaning,
                 playKey: 'day-${day.weekday}',
-                audioUrl: lead?.media.where((m) => m.type == 'chant' && isDirectAudio(m.url, m.sourceType)).firstOrNull?.url,
+                audio: lead?.mantraAudio?.audio,
+                audioUrl: lead?.mantraAudio?.audio == null ? lead?.media.where((m) => m.type == 'chant' && m.playback.kind == 'audio').firstOrNull?.url : null,
               ),
             ),
           ),
@@ -166,19 +166,20 @@ class _DayScreenState extends State<DayScreen> {
           ],
           if (lead != null && lead.media.isNotEmpty) ...[
             SliverToBoxAdapter(child: SectionHeader(title: s('songs_videos'), motif: Motif.bell, subtitle: 'For ${lead.deity?.name ?? day.deityName}')),
+            if (lead.media.any(isVideoLike))
             SliverToBoxAdapter(
               child: SizedBox(
                 height: scaledHeight(context, 206),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: lead.media.take(8).length,
+                  itemCount: lead.media.where(isVideoLike).take(8).length,
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, i) => MediaCard(media: lead.media[i], day: day, width: 150),
+                  itemBuilder: (context, i) => MediaCard(media: lead.media.where(isVideoLike).elementAt(i), day: day, width: 150),
                 ),
               ),
             ),
-            SliverToBoxAdapter(child: MediaSections(media: lead.media, day: day)),
+            SliverToBoxAdapter(child: MediaSections(media: lead.media.where((m) => !isVideoLike(m)).toList(), day: day)),
           ],
           SliverToBoxAdapter(
             child: SectionHeader(

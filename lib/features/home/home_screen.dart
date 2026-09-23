@@ -9,7 +9,6 @@ import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
-import '../../core/state/mantra_player.dart';
 import '../../core/state/reminders_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
@@ -258,9 +257,11 @@ class _DayHeader extends StatelessWidget {
                     MantraControls(
                       playKey: 'day-${day.weekday}',
                       text: lead?.mantra ?? day.mantra,
-                      audioUrl: lead?.media.where((m) => m.type == 'chant' && isDirectAudio(m.url, m.sourceType)).firstOrNull?.url,
+                      audio: lead?.mantraAudio?.audio,
+                      audioUrl: lead?.mantraAudio?.audio == null ? lead?.media.where((m) => m.type == 'chant' && m.playback.kind == 'audio').firstOrNull?.url : null,
                       accent: day.accent,
                       onColor: on,
+                      day: day,
                       compact: true,
                     ),
                   ],
