@@ -96,7 +96,7 @@ class _DayScreenState extends State<DayScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(height: 40),
-                          MotifIcon(day.motif, size: 96, color: on, secondary: day.secondary),
+                          DeityPortrait(day: day, imageUrl: lead?.deity?.imageUrl, size: 110, color: on),
                           const SizedBox(height: 10),
                           Text(lead?.deity?.name ?? day.deityName, style: theme.textTheme.displaySmall?.copyWith(color: on)),
                           Text(day.epithet, style: theme.textTheme.bodyMedium?.copyWith(color: on.withValues(alpha: 0.85), fontStyle: FontStyle.italic)),
@@ -112,7 +112,7 @@ class _DayScreenState extends State<DayScreen> {
           if (_days?.isOffline == true) const SliverToBoxAdapter(child: OfflineNote()),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-            sliver: SliverToBoxAdapter(child: MantraCard(day: day, mantra: lead?.mantra, transliteration: lead?.mantraTransliteration)),
+            sliver: SliverToBoxAdapter(child: MantraCard(day: day, mantra: lead?.mantra, transliteration: lead?.mantraTransliteration, meaning: lead?.deity?.mantraMeaning)),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),

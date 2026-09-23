@@ -110,6 +110,26 @@ Complete devotee profile, memories, songs, chants and darshan videos on
 Home, on each weekday page and on every temple, galleries with a viewer,
 and the redesigned temple page.
 
+### Account sync  ✅ **Done**
+
+Every slice above has a backend half in `temple-website`. The app now talks
+to all of it, through an outbox that keeps working with no signal:
+
+| Slice | Endpoint | How the app syncs |
+| --- | --- | --- |
+| Passport | `GET /me/passport`, `GET /me/visits`, `POST /temples/{slug}/visits` | A check-in is recorded on the device first, then queued with its method, time and coordinates. The server's verdict (only GPS or QR within its radius is a stamp) comes back onto the visit. Visits from other devices merge in by id, then by temple and day |
+| Photo Stamp | `GET /me/photos`, `POST /temples/{slug}/photos` | "Save to my account" uploads the original and the card separately, after the visit it belongs to has synced; moderation status shows on the photo |
+| Memories | `/me/memories` | Written memories, private by default, created, edited and deleted through the outbox |
+| Yatra planner | `/me/yatras`, `PUT /me/yatras/{id}/temples/{slug}` | A trip is pushed whole: create or update, then every stop with its day number, then stops removed remotely that the device dropped. Stops the server has a visit for come back marked done |
+| Languages | `GET /languages`, `?lang=`, `Accept-Language` | Every request asks for the chosen language; the interface offers the bundled five and says which the server serves content in |
+| Support and reports | `POST /support`, `GET /me/support` | Reports about a temple record and new-temple suggestions, filed with or without an account, with the reference, status and editors' replies shown |
+| Deity images and mantras | `/today`, `/days/{weekday}`, `/temples/{slug}` | The deity's image replaces the motif where the API has one; a temple's own mantra is shown as its own, its deity's otherwise; the API's media list (temple first, then deity) replaces the bundled catalogue |
+
+Signing in sends everything recorded as a guest. A server rejection (a
+validation error) drops the queued write and keeps the device record; a
+network failure keeps the write for next time. Neither direction deletes a
+device record on its own.
+
 ### Phase 3 — Scale and trust  ✅ **Done** (app side)
 
 | Feature | What shipped in the app | Still needs backend |

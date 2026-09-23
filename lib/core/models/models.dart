@@ -52,18 +52,30 @@ class Trust {
 }
 
 class DeityRef {
-  const DeityRef({required this.slug, required this.name, this.alternateNames = const [], this.templeCount});
+  const DeityRef({required this.slug, required this.name, this.alternateNames = const [], this.templeCount, this.description, this.imageUrl, this.mantra, this.mantraTransliteration, this.mantraMeaning});
 
   final String slug;
   final String name;
   final List<String> alternateNames;
   final int? templeCount;
+  final String? description;
+
+  /// From the API's deity record: an image, and a mantra with its meaning.
+  final String? imageUrl;
+  final String? mantra;
+  final String? mantraTransliteration;
+  final String? mantraMeaning;
 
   factory DeityRef.fromJson(Map<String, dynamic> j) => DeityRef(
         slug: _s(j['slug']) ?? '',
         name: _s(j['name']) ?? '',
         alternateNames: _l(j['alternate_names']).map((e) => '$e').toList(),
         templeCount: _i(j['temples_count'] ?? j['temple_count']),
+        description: _s(j['description']),
+        imageUrl: _s(j['image_url']),
+        mantra: _s(j['mantra']),
+        mantraTransliteration: _s(j['mantra_transliteration']),
+        mantraMeaning: _s(j['mantra_meaning']),
       );
 }
 
@@ -203,6 +215,7 @@ class TempleSummary {
     required this.trust,
     this.primaryPhoto,
     this.categorySlugs = const [],
+    this.isFeatured = false,
   });
 
   final int? id;
@@ -214,6 +227,7 @@ class TempleSummary {
   final double? distanceKm;
   final Trust trust;
   final Photo? primaryPhoto;
+  final bool isFeatured;
 
   /// Only populated by the offline sample data; the summary endpoint does not
   /// carry categories.
@@ -229,6 +243,7 @@ class TempleSummary {
         distanceKm: _d(j['distance_km']),
         trust: Trust.fromJson(_m(j['trust'])),
         primaryPhoto: j['primary_photo'] is Map ? Photo.fromJson(_m(j['primary_photo'])) : null,
+        isFeatured: _b(j['is_featured']),
       );
 
   TempleSummary withDistance(double km) => TempleSummary(
@@ -242,7 +257,21 @@ class TempleSummary {
         trust: trust,
         primaryPhoto: primaryPhoto,
         categorySlugs: categorySlugs,
+        isFeatured: isFeatured,
       );
+}
+
+/// A temple's verse: its own, or its deity's when it has none.
+class Mantra {
+  const Mantra({this.text, this.transliteration, this.isTempleSpecific = false});
+
+  final String? text;
+  final String? transliteration;
+  final bool isTempleSpecific;
+
+  bool get isEmpty => text == null || text!.isEmpty;
+
+  factory Mantra.fromJson(Map<String, dynamic> j) => Mantra(text: _s(j['text']), transliteration: _s(j['transliteration']), isTempleSpecific: _b(j['is_temple_specific']));
 }
 
 class Timing {
@@ -443,9 +472,21 @@ class TempleDetail {
     this.events = const [],
     this.facilities = const [],
     this.isClosedToday = false,
+    this.mantra,
+    this.devotionalMedia = const [],
+    this.language,
   });
 
   final TempleSummary summary;
+
+  /// The temple's verse, falling back to its deity's. Null when the API
+  /// predates the field (or the record is a bundled sample).
+  final Mantra? mantra;
+
+  /// The temple's own songs first, then its deity's. Empty when the API has
+  /// nothing published; the bundled catalogue then stands in.
+  final List<DevotionalMedia> devotionalMedia;
+  final String? language;
   final List<String> alternateNames;
   final List<CategoryRef> categories;
   final String? history;
@@ -502,6 +543,9 @@ class TempleDetail {
       events: _l(j['events']).map((e) => TempleEvent.fromJson(_m(e))).toList(),
       facilities: _l(j['facilities']).map((e) => FacilityRef.fromJson(_m(e))).toList(),
       isClosedToday: _b(j['is_closed_today']),
+      mantra: j['mantra'] is Map ? Mantra.fromJson(_m(j['mantra'])) : null,
+      devotionalMedia: _l(j['devotional_media']).map((e) => DevotionalMedia.fromJson(_m(e))).toList(),
+      language: _s(j['language']),
     );
   }
 }
@@ -640,4 +684,295 @@ class Paged<T> {
   final int? total;
 
   bool get hasMore => currentPage < lastPage;
+}
+
+// ---------------------------------------------------------------------------
+// Devotee endpoints: passport, photos, memories, yatras, support, languages.
+// ---------------------------------------------------------------------------
+
+/// A visit as the server records it.
+class RemoteVisit {
+  const RemoteVisit({required this.id, required this.templeSlug, required this.templeName, this.templeId, this.city, this.visitedOn, this.visitedAt, this.method, this.isVerified = false, this.distanceMetres, this.note, this.isPublic = true, this.photos = const []});
+
+  final int id;
+  final int? templeId;
+  final String templeSlug;
+  final String templeName;
+  final String? city;
+  final String? visitedOn;
+  final String? visitedAt;
+  final String? method;
+  final bool isVerified;
+  final int? distanceMetres;
+  final String? note;
+  final bool isPublic;
+  final List<VisitPhoto> photos;
+
+  factory RemoteVisit.fromJson(Map<String, dynamic> j) {
+    final t = _m(j['temple']);
+    return RemoteVisit(
+      id: _i(j['id']) ?? 0,
+      templeId: _i(t['id']),
+      templeSlug: _s(t['slug']) ?? '',
+      templeName: _s(t['name']) ?? '',
+      city: _s(t['city']),
+      visitedOn: _s(j['visited_on']),
+      visitedAt: _s(j['visited_at']),
+      method: _s(_m(j['method'])['value']),
+      isVerified: _b(j['is_verified']),
+      distanceMetres: _i(j['distance_metres']),
+      note: _s(j['note']),
+      isPublic: j['is_public'] == null ? true : _b(j['is_public']),
+      photos: _l(j['photos']).map((e) => VisitPhoto.fromJson(_m(e))).toList(),
+    );
+  }
+}
+
+class CircuitProgress {
+  const CircuitProgress({required this.slug, required this.name, required this.collected, required this.recorded, this.total});
+
+  final String slug;
+  final String name;
+  final int collected;
+  final int recorded;
+  final int? total;
+
+  factory CircuitProgress.fromJson(Map<String, dynamic> j) => CircuitProgress(
+        slug: _s(j['slug']) ?? '',
+        name: _s(j['name']) ?? '',
+        collected: _i(j['collected']) ?? 0,
+        recorded: _i(j['recorded']) ?? 0,
+        total: _i(j['total']),
+      );
+}
+
+/// `GET /me/passport`: stamps are verified visits only.
+class PassportSummary {
+  const PassportSummary({required this.stamps, required this.templesVisited, required this.visitsRecorded, required this.photos, required this.memories, required this.statesCovered, this.firstVisitOn, this.latestVisitOn, this.circuits = const []});
+
+  final int stamps;
+  final int templesVisited;
+  final int visitsRecorded;
+  final int photos;
+  final int memories;
+  final int statesCovered;
+  final String? firstVisitOn;
+  final String? latestVisitOn;
+  final List<CircuitProgress> circuits;
+
+  factory PassportSummary.fromJson(Map<String, dynamic> j) => PassportSummary(
+        stamps: _i(j['stamps']) ?? 0,
+        templesVisited: _i(j['temples_visited']) ?? 0,
+        visitsRecorded: _i(j['visits_recorded']) ?? 0,
+        photos: _i(j['photos']) ?? 0,
+        memories: _i(j['memories']) ?? 0,
+        statesCovered: _i(j['states_covered']) ?? 0,
+        firstVisitOn: _s(j['first_visit_on']),
+        latestVisitOn: _s(j['latest_visit_on']),
+        circuits: _l(j['circuits']).map((e) => CircuitProgress.fromJson(_m(e))).toList(),
+      );
+}
+
+class VisitPhoto {
+  const VisitPhoto({required this.id, this.templeId, this.visitId, this.originalUrl, this.stampUrl, this.hasStamp = false, this.caption, this.status, this.statusLabel, this.moderationNote, this.isPublic = false, this.isVisibleToOthers = false, this.createdAt});
+
+  final int id;
+  final int? templeId;
+  final int? visitId;
+  final String? originalUrl;
+  final String? stampUrl;
+  final bool hasStamp;
+  final String? caption;
+  final String? status;
+  final String? statusLabel;
+  final String? moderationNote;
+  final bool isPublic;
+  final bool isVisibleToOthers;
+  final String? createdAt;
+
+  factory VisitPhoto.fromJson(Map<String, dynamic> j) => VisitPhoto(
+        id: _i(j['id']) ?? 0,
+        templeId: _i(j['temple_id']),
+        visitId: _i(j['visit_id']),
+        originalUrl: _s(j['original_url']),
+        stampUrl: _s(j['stamp_url']),
+        hasStamp: _b(j['has_stamp']),
+        caption: _s(j['caption']),
+        status: _s(_m(j['status'])['value']),
+        statusLabel: _s(_m(j['status'])['label']),
+        moderationNote: _s(j['moderation_note']),
+        isPublic: _b(j['is_public']),
+        isVisibleToOthers: _b(j['is_visible_to_others']),
+        createdAt: _s(j['created_at']),
+      );
+}
+
+class RemoteMemory {
+  const RemoteMemory({required this.id, this.title, required this.body, this.happenedOn, this.isPrivate = true, this.templeId, this.templeSlug, this.templeName, this.visitId});
+
+  final int id;
+  final String? title;
+  final String body;
+  final String? happenedOn;
+  final bool isPrivate;
+  final int? templeId;
+  final String? templeSlug;
+  final String? templeName;
+  final int? visitId;
+
+  factory RemoteMemory.fromJson(Map<String, dynamic> j) {
+    final t = _m(j['temple']);
+    return RemoteMemory(
+      id: _i(j['id']) ?? 0,
+      title: _s(j['title']),
+      body: _s(j['body']) ?? '',
+      happenedOn: _s(j['happened_on']),
+      isPrivate: j['is_private'] == null ? true : _b(j['is_private']),
+      templeId: _i(t['id']),
+      templeSlug: _s(t['slug']),
+      templeName: _s(t['name']),
+      visitId: _i(j['visit_id']),
+    );
+  }
+}
+
+class RemoteYatraStop {
+  const RemoteYatraStop({required this.id, required this.dayNumber, required this.sortOrder, this.plannedOn, this.note, this.isVisited = false, this.visitId, this.templeId, this.templeSlug, this.templeName, this.city});
+
+  final int id;
+  final int dayNumber;
+  final int sortOrder;
+  final String? plannedOn;
+  final String? note;
+  final bool isVisited;
+  final int? visitId;
+  final int? templeId;
+  final String? templeSlug;
+  final String? templeName;
+  final String? city;
+
+  factory RemoteYatraStop.fromJson(Map<String, dynamic> j) {
+    final t = _m(j['temple']);
+    return RemoteYatraStop(
+      id: _i(j['id']) ?? 0,
+      dayNumber: _i(j['day_number']) ?? 1,
+      sortOrder: _i(j['sort_order']) ?? 0,
+      plannedOn: _s(j['planned_on']),
+      note: _s(j['note']),
+      isVisited: _b(j['is_visited']),
+      visitId: _i(j['visit_id']),
+      templeId: _i(t['id']),
+      templeSlug: _s(t['slug']),
+      templeName: _s(t['name']),
+      city: _s(t['city']),
+    );
+  }
+}
+
+class RemoteYatra {
+  const RemoteYatra({required this.id, required this.title, this.description, this.status, this.startsOn, this.endsOn, this.dayCount, this.partySize, this.isPublic = false, this.stops = const [], this.updatedAt});
+
+  final int id;
+  final String title;
+  final String? description;
+  final String? status;
+  final String? startsOn;
+  final String? endsOn;
+  final int? dayCount;
+  final int? partySize;
+  final bool isPublic;
+  final List<RemoteYatraStop> stops;
+  final String? updatedAt;
+
+  factory RemoteYatra.fromJson(Map<String, dynamic> j) => RemoteYatra(
+        id: _i(j['id']) ?? 0,
+        title: _s(j['title']) ?? '',
+        description: _s(j['description']),
+        status: _s(_m(j['status'])['value']),
+        startsOn: _s(j['starts_on']),
+        endsOn: _s(j['ends_on']),
+        dayCount: _i(j['day_count']),
+        partySize: _i(j['party_size']),
+        isPublic: _b(j['is_public']),
+        stops: _l(j['stops']).map((e) => RemoteYatraStop.fromJson(_m(e))).toList(),
+        updatedAt: _s(j['updated_at']),
+      );
+}
+
+class SupportMessage {
+  const SupportMessage({required this.body, required this.fromStaff, this.author, this.createdAt});
+
+  final String body;
+  final bool fromStaff;
+  final String? author;
+  final String? createdAt;
+
+  factory SupportMessage.fromJson(Map<String, dynamic> j) => SupportMessage(body: _s(j['body']) ?? '', fromStaff: _b(j['from_staff']), author: _s(j['author']), createdAt: _s(j['created_at']));
+}
+
+class SupportTicket {
+  const SupportTicket({required this.reference, this.kind, this.category, this.categoryLabel, this.status, this.statusLabel, this.isOpen = true, required this.subject, required this.body, this.aboutLabel, this.resolution, this.messages = const [], this.createdAt});
+
+  final String reference;
+  final String? kind;
+  final String? category;
+  final String? categoryLabel;
+  final String? status;
+  final String? statusLabel;
+  final bool isOpen;
+  final String subject;
+  final String body;
+  final String? aboutLabel;
+  final String? resolution;
+  final List<SupportMessage> messages;
+  final String? createdAt;
+
+  factory SupportTicket.fromJson(Map<String, dynamic> j) => SupportTicket(
+        reference: _s(j['reference']) ?? '',
+        kind: _s(j['kind']),
+        category: _s(_m(j['category'])['value']),
+        categoryLabel: _s(_m(j['category'])['label']),
+        status: _s(_m(j['status'])['value']),
+        statusLabel: _s(_m(j['status'])['label']),
+        isOpen: j['status'] is Map ? _b(_m(j['status'])['is_open']) : true,
+        subject: _s(j['subject']) ?? '',
+        body: _s(j['body']) ?? '',
+        aboutLabel: _s(_m(j['about'])['label']),
+        resolution: _s(j['resolution']),
+        messages: _l(j['messages']).map((e) => SupportMessage.fromJson(_m(e))).toList(),
+        createdAt: _s(j['created_at']),
+      );
+}
+
+class SupportCategory {
+  const SupportCategory({required this.value, required this.label, this.description, this.needsSubject = true});
+
+  final String value;
+  final String label;
+  final String? description;
+  final bool needsSubject;
+
+  factory SupportCategory.fromJson(Map<String, dynamic> j) => SupportCategory(value: _s(j['value']) ?? '', label: _s(j['label']) ?? '', description: _s(j['description']), needsSubject: j['needs_subject'] == null ? true : _b(j['needs_subject']));
+}
+
+/// `GET /languages`: what the app may offer today.
+class LanguageInfo {
+  const LanguageInfo({required this.code, required this.name, required this.nativeName, this.rtl = false, this.isAvailable = true});
+
+  final String code;
+  final String name;
+  final String nativeName;
+  final bool rtl;
+  final bool isAvailable;
+
+  factory LanguageInfo.fromJson(Map<String, dynamic> j) => LanguageInfo(code: _s(j['code']) ?? '', name: _s(j['name']) ?? '', nativeName: _s(j['native_name']) ?? _s(j['name']) ?? '', rtl: _b(j['rtl']), isAvailable: j['is_available'] == null ? true : _b(j['is_available']));
+
+  /// The languages the app ships interface strings and fonts for.
+  static const bundled = [
+    LanguageInfo(code: 'en', name: 'English', nativeName: 'English'),
+    LanguageInfo(code: 'te', name: 'Telugu', nativeName: 'తెలుగు'),
+    LanguageInfo(code: 'hi', name: 'Hindi', nativeName: 'हिन्दी'),
+    LanguageInfo(code: 'ta', name: 'Tamil', nativeName: 'தமிழ்'),
+    LanguageInfo(code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ'),
+  ];
 }
