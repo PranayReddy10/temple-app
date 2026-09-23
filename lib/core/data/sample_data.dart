@@ -1,5 +1,6 @@
 import '../models/models.dart';
 import '../theme/day_theme.dart';
+import 'sample_media.dart';
 
 /// Bundled records so the app runs with no backend and stays usable with no
 /// signal. Mirrors the backend seeders.
@@ -151,8 +152,12 @@ class SampleData {
     final s = bySlug(slug);
     if (s == null) return null;
     final cats = s.categorySlugs.map((c) => categories.firstWhere((x) => x.slug == c, orElse: () => CategoryRef(slug: c, name: c))).toList();
+    final photos = SampleMedia.galleryFor(slug);
     return TempleDetail(
-      summary: s,
+      summary: photos.isEmpty
+          ? s
+          : TempleSummary(slug: s.slug, name: s.name, shortDescription: s.shortDescription, deity: s.deity, location: s.location, trust: s.trust, primaryPhoto: photos.first, categorySlugs: s.categorySlugs),
+      photos: photos,
       alternateNames: aliasesFor(slug),
       categories: cats,
       history: s.shortDescription,
@@ -223,6 +228,7 @@ class SampleData {
           mantraTransliteration: t.transliteration,
           accentColor: '#${t.accent.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
           deity: deities.where((d) => d.slug == t.deitySlug).firstOrNull ?? DeityRef(slug: t.deitySlug, name: t.deityName),
+          media: SampleMedia.forDeity(t.deitySlug),
           temples: temples.where((x) => x.deity?.slug == t.deitySlug).take(10).toList(),
         );
     return [build(lead), ...extras.map(build)];

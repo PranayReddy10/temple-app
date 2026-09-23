@@ -24,7 +24,6 @@ class AuthController extends ChangeNotifier {
 
   Devotee? _devotee;
   bool _busy = false;
-  final Set<String> _saved = {};
 
   Devotee? get devotee => _devotee;
   bool get isSignedIn => _devotee != null;
@@ -79,7 +78,6 @@ class AuthController extends ChangeNotifier {
     }
     _devotee = null;
     api.token = null;
-    _saved.clear();
     await _prefs.remove('devotee_token');
     await _prefs.remove('devotee');
     notifyListeners();
@@ -96,21 +94,42 @@ class AuthController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> updateProfile({String? name, String? locale}) async {
-    final json = await api.patch('me', {if (name != null) 'name': name, if (locale != null) 'locale': locale});
+  Future<void> updateProfile({String? name, String? email, String? phone, String? locale, int? homeStateId, bool clearHomeState = false, String? dateOfBirth, bool clearDateOfBirth = false}) async {
+    final json = await api.patch('me', {
+      if (name != null) 'name': name,
+      if (email != null) 'email': email.isEmpty ? null : email,
+      if (phone != null) 'phone': phone.isEmpty ? null : phone,
+      if (locale != null) 'locale': locale,
+      if (homeStateId != null) 'home_state_id': homeStateId,
+      if (clearHomeState) 'home_state_id': null,
+      if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
+      if (clearDateOfBirth) 'date_of_birth': null,
+    });
     await _store(Devotee.fromJson(json['data'] as Map<String, dynamic>), api.token!);
   }
 
   /// Server-side saved temples, merged into the local favourites when online.
-  Future<Set<String>> savedTempleSlugs() async {
-    if (!isSignedIn) return {};
+  Future<List<TempleSummary>> savedTemples() async {
+    if (!isSignedIn) return const [];
     try {
       final json = await api.get('me/saved-temples');
-      _saved
-        ..clear()
-        ..addAll((json['data'] as List? ?? const []).map((e) => '${(e as Map)['slug']}'));
-    } catch (_) {}
-    return _saved;
+      return (json['data'] as List? ?? const []).map((e) => TempleSummary.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// A locally chosen avatar. The API has no upload endpoint yet, so the
+  /// picture stays on the device until one exists.
+  String? get localAvatarPath => _prefs.getString('avatar_path');
+
+  Future<void> setLocalAvatar(String? path) async {
+    if (path == null) {
+      await _prefs.remove('avatar_path');
+    } else {
+      await _prefs.setString('avatar_path', path);
+    }
+    notifyListeners();
   }
 
   Future<void> syncSave(String slug, bool saved) async {

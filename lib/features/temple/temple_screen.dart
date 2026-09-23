@@ -15,12 +15,17 @@ import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
+import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../passport/stamp_widget.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
 
 /// The full temple profile. Entered through the temple door, and while open
 /// the app wears the temple deity's colour.
+///
+/// One long scroll with a pinned row of section anchors (Overview, Gallery,
+/// Songs & videos, Darshan, Seva) rather than separate tabs, so a devotee at
+/// the gate can flick from timings to the aarti video without losing place.
 class TempleScreen extends StatefulWidget {
   const TempleScreen({super.key, required this.slug, this.preview});
 
@@ -33,21 +38,37 @@ class TempleScreen extends StatefulWidget {
 
 class _TempleScreenState extends State<TempleScreen> {
   Result<TempleDetail>? _detail;
+  Result<List<DevotionalMedia>>? _media;
   String? _error;
   int _photo = 0;
+  bool _previewing = false;
+  final _keys = {for (final k in _Section.values) k: GlobalKey()};
+  // Cached here because dispose() may not look up ancestors through context.
+  late final DayController _dayCtl = context.read<DayController>();
 
   @override
   void initState() {
     super.initState();
     _load();
     final slug = widget.preview?.deity?.slug;
-    if (slug != null) WidgetsBinding.instance.addPostFrameCallback((_) => context.read<DayController>().preview(DayTheme.forDeity(slug)));
+    if (slug != null) _startPreview(slug);
+    if (widget.preview != null) _loadMedia(widget.preview!);
+  }
+
+  void _startPreview(String slug) {
+    if (_previewing) return;
+    _previewing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _dayCtl.preview(DayTheme.forDeity(slug));
+    });
   }
 
   @override
   void dispose() {
-    final ctl = context.read<DayController>();
-    WidgetsBinding.instance.addPostFrameCallback((_) => ctl.resetToToday());
+    if (_previewing) {
+      final ctl = _dayCtl;
+      WidgetsBinding.instance.addPostFrameCallback((_) => ctl.endPreview());
+    }
     super.dispose();
   }
 
@@ -57,7 +78,8 @@ class _TempleScreenState extends State<TempleScreen> {
       if (!mounted) return;
       setState(() => _detail = r);
       final slug = r.data.summary.deity?.slug;
-      if (slug != null && widget.preview?.deity?.slug != slug) context.read<DayController>().preview(DayTheme.forDeity(slug));
+      if (slug != null) _startPreview(slug);
+      if (widget.preview == null) _loadMedia(r.data.summary);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.isNotFound ? 'This temple is not published.' : e.message);
     } catch (e) {
@@ -65,7 +87,17 @@ class _TempleScreenState extends State<TempleScreen> {
     }
   }
 
+  Future<void> _loadMedia(TempleSummary t) async {
+    final r = await context.read<TempleRepository>().templeMedia(t);
+    if (mounted) setState(() => _media = r);
+  }
+
   TempleSummary get _summary => _detail?.data.summary ?? widget.preview!;
+
+  void _jump(_Section s) {
+    final ctx = _keys[s]!.currentContext;
+    if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 450), curve: Curves.easeInOutCubic, alignment: 0.02);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,71 +114,18 @@ class _TempleScreenState extends State<TempleScreen> {
     final visited = passport.hasVisited(t.slug);
     final saved = favs.contains(t.slug);
     final photos = d?.photos.isNotEmpty == true ? d!.photos : [if (t.primaryPhoto != null) t.primaryPhoto!];
+    final media = _media?.data ?? const <DevotionalMedia>[];
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar(
-            expandedHeight: 320,
-            pinned: true,
-            stretch: true,
-            backgroundColor: day.accent,
-            foregroundColor: day.onAccent(),
-            actions: [
-              IconButton(
-                tooltip: saved ? s('saved') : s('save'),
-                onPressed: () => favs.toggle(t.slug),
-                icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded),
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              stretchModes: const [StretchMode.zoomBackground],
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (photos.isEmpty)
-                    TempleImage(deitySlug: t.deity?.slug, motifSize: 110)
-                  else
-                    PageView.builder(
-                      itemCount: photos.length,
-                      onPageChanged: (i) => setState(() => _photo = i),
-                      itemBuilder: (_, i) => TempleImage(url: photos[i].best, deitySlug: t.deity?.slug, motifSize: 110),
-                    ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withValues(alpha: 0.35), Colors.transparent, Colors.black.withValues(alpha: 0.55)]),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const Positioned(left: 0, right: 0, bottom: 0, child: SizedBox(height: 56, child: CustomPaint(painter: ToranaPainter(color: Palette.gold, strokeWidth: 3, scallops: 15)))),
-                  if (photos.length > 1)
-                    Positioned(
-                      right: 16,
-                      bottom: 16,
-                      child: Row(
-                        children: [
-                          for (var i = 0; i < photos.length; i++)
-                            Container(
-                              width: i == _photo ? 16 : 6,
-                              height: 6,
-                              margin: const EdgeInsets.only(left: 4),
-                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: i == _photo ? 1 : 0.5), borderRadius: BorderRadius.circular(3)),
-                            ),
-                        ],
-                      ),
-                    ),
-                  if (photos.isNotEmpty && photos[_photo].credit != null)
-                    Positioned(left: 16, bottom: 14, child: Text('© ${photos[_photo].credit}', style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70))),
-                ],
-              ),
-            ),
-          ),
+          _Hero(temple: t, photos: photos, index: _photo, onPage: (i) => setState(() => _photo = i), day: day, saved: saved, onSave: () => favs.toggle(t), onOpenPhoto: (i) => _openViewer(photos, i)),
+          SliverPersistentHeader(pinned: true, delegate: _AnchorBar(day: day, onTap: _jump, labels: [s('overview'), s('gallery'), s('songs_videos'), s('darshan'), s('seva')])),
+          // ---- Overview -------------------------------------------------
           SliverToBoxAdapter(
+            key: _keys[_Section.overview],
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -155,7 +134,11 @@ class _TempleScreenState extends State<TempleScreen> {
                     children: [
                       Expanded(child: Text(t.name, style: theme.textTheme.headlineSmall)),
                       const SizedBox(width: 12),
-                      MotifIcon(day.motif, size: 40, color: day.accent, secondary: day.secondary),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: day.accent.withValues(alpha: 0.12), border: Border.all(color: day.accent.withValues(alpha: 0.4))),
+                        child: MotifIcon(day.motif, size: 34, color: day.accent, secondary: day.secondary),
+                      ),
                     ],
                   ),
                   if (d != null && d.alternateNames.isNotEmpty) ...[
@@ -181,11 +164,8 @@ class _TempleScreenState extends State<TempleScreen> {
                       Expanded(child: Text([d?.summary.location.address, t.location.city, t.location.district, t.location.state].where((e) => e != null && e.isNotEmpty).toSet().join(', '), style: theme.textTheme.bodyMedium)),
                     ],
                   ),
-                  if (d?.isClosedToday == true) ...[
-                    const SizedBox(height: 12),
-                    _Banner(icon: Icons.door_front_door_rounded, text: s('closed_today'), color: Palette.kumkum),
-                  ],
-                  if (_detail?.isOffline == true) ...[const SizedBox(height: 8), const Padding(padding: EdgeInsets.zero, child: OfflineNote())],
+                  if (d?.isClosedToday == true) ...[const SizedBox(height: 12), _Banner(icon: Icons.door_front_door_rounded, text: s('closed_today'), color: Palette.kumkum)],
+                  if (_detail?.isOffline == true) const Padding(padding: EdgeInsets.only(top: 8), child: OfflineNote()),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -202,16 +182,13 @@ class _TempleScreenState extends State<TempleScreen> {
                       const SizedBox(width: 6),
                       if (t.location.hasCoordinates)
                         IconButton.filledTonal(
-                          tooltip: 'Directions',
+                          tooltip: s('directions'),
                           onPressed: () => launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${t.location.latitude},${t.location.longitude}'), mode: LaunchMode.externalApplication),
                           icon: const Icon(Icons.directions_rounded),
                         ),
                     ],
                   ),
-                  if (visited) ...[
-                    const SizedBox(height: 16),
-                    Center(child: StampWidget(visit: passport.firstVisit(t.slug)!, size: 120)),
-                  ],
+                  if (visited) ...[const SizedBox(height: 16), Center(child: StampWidget(visit: passport.firstVisit(t.slug)!, size: 120))],
                 ],
               ),
             ),
@@ -221,8 +198,10 @@ class _TempleScreenState extends State<TempleScreen> {
           else if (d == null)
             SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(20), child: _Banner(icon: Icons.cloud_off_rounded, text: _error!, color: Palette.saffron)))
           else ...[
+            SliverToBoxAdapter(child: SectionHeader(title: s('quick_facts'), motif: Motif.om)),
+            SliverToBoxAdapter(child: _QuickFacts(detail: d, day: day)),
             if (t.shortDescription != null || d.history != null || d.significance != null) ...[
-              SliverToBoxAdapter(child: SectionHeader(title: s('about'), motif: Motif.om)),
+              SliverToBoxAdapter(child: SectionHeader(title: s('about'), motif: Motif.bell)),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverToBoxAdapter(
@@ -232,24 +211,67 @@ class _TempleScreenState extends State<TempleScreen> {
                       if (t.shortDescription != null) Text(t.shortDescription!, style: theme.textTheme.bodyLarge?.copyWith(fontFamily: 'NotoSerif', height: 1.5)),
                       if (d.history != null && d.history != t.shortDescription) ...[const SizedBox(height: 10), Text(d.history!, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5))],
                       if (d.significance != null) ...[const SizedBox(height: 10), Text(d.significance!, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5))],
-                      if (d.architectureStyle != null || d.builtPeriod != null) ...[
-                        const SizedBox(height: 10),
-                        Wrap(spacing: 8, children: [
-                          if (d.architectureStyle != null) Chip(avatar: const Icon(Icons.account_balance_rounded, size: 16), label: Text(d.architectureStyle!)),
-                          if (d.builtPeriod != null) Chip(avatar: const Icon(Icons.history_rounded, size: 16), label: Text(d.builtPeriod!)),
-                        ]),
-                      ],
                     ],
                   ),
                 ),
               ),
             ],
-            if (d.timings.isNotEmpty) ...[
-              SliverToBoxAdapter(child: SectionHeader(title: s('timings'), motif: Motif.bell)),
-              SliverPadding(padding: const EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: _TimingsTable(timings: d.timings, accent: day.accent))),
+            SliverPadding(padding: const EdgeInsets.fromLTRB(20, 24, 20, 0), sliver: SliverToBoxAdapter(child: MantraCard(day: day, title: s('blessing')))),
+            // ---- Gallery ----------------------------------------------
+            SliverToBoxAdapter(key: _keys[_Section.gallery], child: SectionHeader(title: s('gallery'), motif: Motif.lotus, subtitle: photos.isEmpty ? null : '${photos.length} photos')),
+            if (photos.isEmpty)
+              SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _EmptyLine(icon: Icons.photo_library_outlined, text: s('no_photos'))))
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverGrid.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 6, crossAxisSpacing: 6),
+                  itemCount: photos.length,
+                  itemBuilder: (context, i) => GestureDetector(
+                    onTap: () => _openViewer(photos, i),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          TempleImage(url: photos[i].thumbnail ?? photos[i].best, deitySlug: t.deity?.slug, motifSize: 28),
+                          if (photos[i].category != null)
+                            Positioned(left: 6, bottom: 6, child: _Pill(text: photos[i].category!, color: Colors.black54)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            // ---- Songs & videos -----------------------------------------
+            SliverToBoxAdapter(key: _keys[_Section.media], child: SectionHeader(title: s('songs_videos'), motif: Motif.bell, subtitle: t.deity != null ? '${s('temples_of')} ${t.deity!.name}'.replaceFirst(s('temples_of'), 'For').trim() : null)),
+            if (_media == null)
+              const SliverToBoxAdapter(child: SizedBox(height: 80, child: DiyaLoader(size: 36)))
+            else if (media.isEmpty)
+              SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _EmptyLine(icon: Icons.music_off_rounded, text: s('no_media'))))
+            else ...[
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 206,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: media.where((m) => m.type == 'video').length.clamp(0, 8),
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) => MediaCard(media: media.where((m) => m.type == 'video').elementAt(i), day: day, width: 150),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(child: MediaSections(media: media.where((m) => m.type != 'video').toList(), day: day)),
             ],
+            // ---- Darshan ------------------------------------------------
+            SliverToBoxAdapter(key: _keys[_Section.darshan], child: SectionHeader(title: s('timings'), motif: Motif.sun)),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverToBoxAdapter(child: d.timings.isEmpty ? const _EmptyLine(icon: Icons.schedule_rounded, text: 'Timings not published yet. Check with the temple before travelling.') : _TimingsTable(timings: d.timings, accent: day.accent)),
+            ),
             if (d.closures.isNotEmpty) ...[
-              const SliverToBoxAdapter(child: SectionHeader(title: 'Upcoming closures', motif: Motif.diya)),
+              SliverToBoxAdapter(child: SectionHeader(title: s('closures'), motif: Motif.diya)),
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverList.builder(
@@ -266,13 +288,6 @@ class _TempleScreenState extends State<TempleScreen> {
                 ),
               ),
             ],
-            if (d.pujas.isNotEmpty) ...[
-              SliverToBoxAdapter(child: SectionHeader(title: s('pujas'), motif: Motif.kalasha)),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverList.separated(itemCount: d.pujas.length, separatorBuilder: (_, __) => const SizedBox(height: 10), itemBuilder: (context, i) => _PujaCard(puja: d.pujas[i], accent: day.accent)),
-              ),
-            ],
             if (d.events.isNotEmpty) ...[
               SliverToBoxAdapter(child: SectionHeader(title: s('festivals'), motif: Motif.bell)),
               SliverPadding(
@@ -281,15 +296,53 @@ class _TempleScreenState extends State<TempleScreen> {
                   itemCount: d.events.length,
                   itemBuilder: (context, i) => Card(
                     margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      leading: Icon(Icons.celebration_rounded, color: day.accent),
-                      title: Text(d.events[i].title, style: const TextStyle(fontFamily: 'NotoSerif')),
-                      subtitle: Text(d.events[i].dateLabel ?? d.events[i].startsOn ?? ''),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (d.events[i].imageUrl != null) AspectRatio(aspectRatio: 16 / 7, child: TempleImage(url: d.events[i].imageUrl, deitySlug: t.deity?.slug)),
+                        ListTile(
+                          leading: Icon(Icons.celebration_rounded, color: day.accent),
+                          title: Text(d.events[i].title, style: const TextStyle(fontFamily: 'NotoSerif')),
+                          subtitle: Text([d.events[i].dateLabel ?? d.events[i].startsOn, d.events[i].description].whereType<String>().join('\n')),
+                          isThreeLine: d.events[i].description != null,
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ],
+            if (d.visitorRules.isNotEmpty) ...[
+              SliverToBoxAdapter(child: SectionHeader(title: s('visitor_rules'), motif: Motif.namam)),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverToBoxAdapter(
+                  child: Container(
+                    decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18), border: Border.all(color: theme.colorScheme.outlineVariant)),
+                    child: Column(
+                      children: [
+                        for (final e in d.visitorRules.entries)
+                          ListTile(
+                            dense: true,
+                            leading: Icon(_ruleIcon(e.key), color: day.accent),
+                            title: Text(_ruleLabel(e.key), style: theme.textTheme.labelLarge?.copyWith(letterSpacing: 0.5)),
+                            subtitle: Text(e.value),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            // ---- Seva ---------------------------------------------------
+            SliverToBoxAdapter(key: _keys[_Section.seva], child: SectionHeader(title: s('pujas'), motif: Motif.kalasha)),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: d.pujas.isEmpty
+                  ? const SliverToBoxAdapter(child: _EmptyLine(icon: Icons.local_fire_department_outlined, text: 'No pujas or sevas published yet.'))
+                  : SliverList.separated(itemCount: d.pujas.length, separatorBuilder: (_, __) => const SizedBox(height: 10), itemBuilder: (context, i) => _PujaCard(puja: d.pujas[i], accent: day.accent)),
+            ),
             if (d.facilities.isNotEmpty) ...[
               SliverToBoxAdapter(child: SectionHeader(title: s('facilities'), motif: Motif.lotus)),
               SliverPadding(
@@ -300,30 +353,7 @@ class _TempleScreenState extends State<TempleScreen> {
                     runSpacing: 8,
                     children: [
                       for (final f in d.facilities)
-                        Chip(
-                          avatar: Icon(f.isVerified ? Icons.check_circle_rounded : Icons.circle_outlined, size: 16, color: f.isVerified ? Palette.tulsi : theme.colorScheme.outline),
-                          label: Text(f.name),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-            if (d.visitorRules.isNotEmpty) ...[
-              SliverToBoxAdapter(child: SectionHeader(title: s('visitor_rules'), motif: Motif.namam)),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    children: [
-                      for (final e in d.visitorRules.entries)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          leading: Icon(_ruleIcon(e.key), color: day.accent),
-                          title: Text(_ruleLabel(e.key), style: theme.textTheme.labelLarge?.copyWith(letterSpacing: 0.5)),
-                          subtitle: Text(e.value),
-                        ),
+                        Chip(avatar: Icon(f.isVerified ? Icons.check_circle_rounded : Icons.circle_outlined, size: 16, color: f.isVerified ? Palette.tulsi : theme.colorScheme.outline), label: Text(f.name)),
                     ],
                   ),
                 ),
@@ -351,13 +381,15 @@ class _TempleScreenState extends State<TempleScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
                 child: Column(
                   children: [
+                    SizedBox(height: 70, width: double.infinity, child: CustomPaint(painter: GopuramPainter(color: day.accent, opacity: 0.22, tiers: 6))),
+                    const SizedBox(height: 6),
                     const KolamDivider(),
                     const SizedBox(height: 10),
                     Text(
                       [
                         '${t.trust.label ?? t.trust.level.label} record',
                         if (t.trust.sourceName != null) 'Source: ${t.trust.sourceName}',
-                        if (t.trust.lastVerifiedAt != null) 'Last verified ${t.trust.lastVerifiedAt}' else 'Not yet verified against a primary source',
+                        if (t.trust.lastVerifiedAt != null) 'Last verified ${t.trust.lastVerifiedAt}' else s('source_note'),
                       ].join(' · '),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
@@ -370,6 +402,11 @@ class _TempleScreenState extends State<TempleScreen> {
         ],
       ),
     );
+  }
+
+  void _openViewer(List<Photo> photos, int i) {
+    if (photos.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => PhotoViewer(photos: photos, initial: i, deitySlug: _summary.deity?.slug), fullscreenDialog: true));
   }
 
   static IconData _ruleIcon(String key) => switch (key) {
@@ -516,6 +553,201 @@ class _TempleScreenState extends State<TempleScreen> {
   }
 }
 
+enum _Section { overview, gallery, media, darshan, seva }
+
+/// Collapsing hero: a swipeable gallery under a torana, with the trust badge
+/// and the save button.
+class _Hero extends StatelessWidget {
+  const _Hero({required this.temple, required this.photos, required this.index, required this.onPage, required this.day, required this.saved, required this.onSave, required this.onOpenPhoto});
+
+  final TempleSummary temple;
+  final List<Photo> photos;
+  final int index;
+  final ValueChanged<int> onPage;
+  final DayTheme day;
+  final bool saved;
+  final VoidCallback onSave;
+  final ValueChanged<int> onOpenPhoto;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SliverAppBar(
+      expandedHeight: 340,
+      pinned: true,
+      stretch: true,
+      backgroundColor: day.accent,
+      foregroundColor: day.onAccent(),
+      title: LayoutBuilder(builder: (context, c) => Text(temple.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: day.onAccent()))),
+      actions: [IconButton(tooltip: saved ? S.of(context)('saved') : S.of(context)('save'), onPressed: onSave, icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded))],
+      flexibleSpace: FlexibleSpaceBar(
+        stretchModes: const [StretchMode.zoomBackground],
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (photos.isEmpty)
+              TempleImage(deitySlug: temple.deity?.slug, motifSize: 110)
+            else
+              PageView.builder(
+                itemCount: photos.length,
+                onPageChanged: onPage,
+                itemBuilder: (_, i) => GestureDetector(onTap: () => onOpenPhoto(i), child: TempleImage(url: photos[i].best, deitySlug: temple.deity?.slug, motifSize: 110)),
+              ),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.45, 1], colors: [Colors.black.withValues(alpha: 0.4), Colors.transparent, Colors.black.withValues(alpha: 0.55)]),
+                  ),
+                ),
+              ),
+            ),
+            const Positioned(left: 0, right: 0, bottom: 0, child: IgnorePointer(child: SizedBox(height: 56, child: CustomPaint(painter: ToranaPainter(color: Palette.gold, strokeWidth: 3, scallops: 15))))),
+            Positioned(left: 16, bottom: 18, child: TrustBadge(trust: temple.trust)),
+            if (photos.length > 1)
+              Positioned(
+                right: 16,
+                bottom: 18,
+                child: Row(
+                  children: [
+                    for (var i = 0; i < photos.length; i++)
+                      Container(width: i == index ? 16 : 6, height: 6, margin: const EdgeInsets.only(left: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: i == index ? 1 : 0.5), borderRadius: BorderRadius.circular(3))),
+                  ],
+                ),
+              ),
+            if (photos.isNotEmpty && photos[index].credit != null)
+              Positioned(left: 16, bottom: 44, child: Text('© ${photos[index].credit}', style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pinned row of section anchors under the hero.
+class _AnchorBar extends SliverPersistentHeaderDelegate {
+  const _AnchorBar({required this.day, required this.onTap, required this.labels});
+
+  final DayTheme day;
+  final ValueChanged<_Section> onTap;
+  final List<String> labels;
+
+  @override
+  double get minExtent => 52;
+  @override
+  double get maxExtent => 52;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final theme = Theme.of(context);
+    return Container(
+      color: theme.scaffoldBackgroundColor,
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+              itemCount: labels.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 6),
+              itemBuilder: (context, i) => ActionChip(
+                label: Text(labels[i]),
+                avatar: Icon(_icons[i], size: 16, color: day.accent),
+                side: BorderSide(color: day.accent.withValues(alpha: 0.35)),
+                onPressed: () => onTap(_Section.values[i]),
+              ),
+            ),
+          ),
+          Container(height: 1, color: theme.colorScheme.outlineVariant),
+        ],
+      ),
+    );
+  }
+
+  static const _icons = [Icons.temple_hindu_rounded, Icons.photo_library_rounded, Icons.music_note_rounded, Icons.schedule_rounded, Icons.local_fire_department_rounded];
+
+  @override
+  bool shouldRebuild(_AnchorBar old) => old.day != day || old.labels != labels;
+}
+
+class _QuickFacts extends StatelessWidget {
+  const _QuickFacts({required this.detail, required this.day});
+
+  final TempleDetail detail;
+  final DayTheme day;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = detail.summary;
+    final facts = <(IconData, String, String)>[
+      if (t.deity != null) (Icons.auto_awesome_rounded, 'Deity', t.deity!.name),
+      if (t.location.state != null) (Icons.map_rounded, 'State', t.location.state!),
+      if (detail.builtPeriod != null) (Icons.history_rounded, 'Built', detail.builtPeriod!),
+      if (detail.architectureStyle != null) (Icons.account_balance_rounded, 'Style', detail.architectureStyle!),
+      for (final c in detail.categories.take(2)) (Icons.hub_rounded, c.kind ?? 'Circuit', c.name),
+      if (t.location.hasCoordinates) (Icons.my_location_rounded, 'Coordinates', '${t.location.latitude!.toStringAsFixed(3)}, ${t.location.longitude!.toStringAsFixed(3)}'),
+    ];
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 92,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: facts.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, i) => Container(
+          width: 150,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: day.accent.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [Icon(facts[i].$1, size: 14, color: day.accent), const SizedBox(width: 6), Text(facts[i].$2.toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: day.accent))]),
+              const Spacer(),
+              Text(facts[i].$3, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyLine extends StatelessWidget {
+  const _EmptyLine({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.outlineVariant)),
+      child: Row(children: [Icon(icon, color: theme.colorScheme.outline), const SizedBox(width: 10), Expanded(child: Text(text, style: theme.textTheme.bodySmall))]),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(999)),
+        child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+      );
+}
+
 class _Banner extends StatelessWidget {
   const _Banner({required this.icon, required this.text, required this.color});
 
@@ -626,11 +858,7 @@ class _PujaCard extends StatelessWidget {
                     Icon(b.isOfficial ? Icons.verified_rounded : Icons.info_outline_rounded, size: 16, color: b.isOfficial ? Palette.tulsi : theme.colorScheme.outline),
                     const SizedBox(width: 6),
                     Expanded(child: Text(b.label ?? (b.isOfficial ? 'Official booking' : 'Book at the temple'), style: theme.textTheme.bodySmall?.copyWith(color: b.isOfficial ? Palette.tulsi : null))),
-                    if (b.url != null)
-                      TextButton(
-                        onPressed: () => launchUrl(Uri.parse(b.url!), mode: LaunchMode.externalApplication),
-                        child: Text(b.isOfficial ? 'Book' : 'Open link'),
-                      ),
+                    if (b.url != null) TextButton(onPressed: () => launchUrl(Uri.parse(b.url!), mode: LaunchMode.externalApplication), child: Text(b.isOfficial ? 'Book' : 'Open link')),
                   ],
                 ),
                 if (b.note != null) Text(b.note!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),

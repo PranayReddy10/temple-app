@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/temple_repository.dart';
 import '../../core/l10n/strings.dart';
@@ -9,6 +8,7 @@ import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/theme/day_theme.dart';
+import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../explore/search_screen.dart';
@@ -28,12 +28,16 @@ class DayScreen extends StatefulWidget {
 class _DayScreenState extends State<DayScreen> {
   Result<List<DevotionalDay>>? _days;
   late int _weekday = widget.weekday;
+  // Cached here because dispose() may not look up ancestors through context.
+  late final DayController _dayCtl = context.read<DayController>();
 
   @override
   void initState() {
     super.initState();
     _load();
-    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<DayController>().preview(DayTheme.all[_weekday]));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _dayCtl.preview(DayTheme.all[_weekday]);
+    });
   }
 
   Future<void> _load() async {
@@ -44,16 +48,18 @@ class _DayScreenState extends State<DayScreen> {
 
   void _switch(int w) {
     setState(() => _weekday = w);
-    context.read<DayController>().preview(DayTheme.all[w]);
+    _dayCtl
+      ..endPreview()
+      ..preview(DayTheme.all[w]);
     _load();
   }
 
   @override
   void dispose() {
-    // Restoring the theme after the route is gone avoids a flash of colour
+    // Ending the preview after the route is gone avoids a flash of colour
     // mid-transition; the door closes in this day's colour.
-    final ctl = context.read<DayController>();
-    WidgetsBinding.instance.addPostFrameCallback((_) => ctl.resetToToday());
+    final ctl = _dayCtl;
+    WidgetsBinding.instance.addPostFrameCallback((_) => ctl.endPreview());
     super.dispose();
   }
 
@@ -149,11 +155,20 @@ class _DayScreenState extends State<DayScreen> {
             ),
           ],
           if (lead != null && lead.media.isNotEmpty) ...[
-            const SliverToBoxAdapter(child: SectionHeader(title: 'Bhajans & darshan', motif: Motif.bell, subtitle: 'Credited to their artists, under the licence shown')),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList.builder(itemCount: lead.media.length, itemBuilder: (context, i) => _MediaTile(media: lead.media[i], accent: day.accent)),
+            SliverToBoxAdapter(child: SectionHeader(title: s('songs_videos'), motif: Motif.bell, subtitle: 'For ${lead.deity?.name ?? day.deityName}')),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 206,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: lead.media.take(8).length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) => MediaCard(media: lead.media[i], day: day, width: 150),
+                ),
+              ),
             ),
+            SliverToBoxAdapter(child: MediaSections(media: lead.media, day: day)),
           ],
           SliverToBoxAdapter(
             child: SectionHeader(
@@ -245,41 +260,6 @@ class _InfoTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(body, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
         ],
-      ),
-    );
-  }
-}
-
-class _MediaTile extends StatelessWidget {
-  const _MediaTile({required this.media, required this.accent});
-
-  final DevotionalMedia media;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final icon = switch (media.type) {
-      'video' => Icons.play_circle_fill_rounded,
-      'song' || 'audio' => Icons.music_note_rounded,
-      _ => Icons.image_rounded,
-    };
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(color: accent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-          child: Icon(icon, color: accent),
-        ),
-        title: Text(media.title, style: const TextStyle(fontFamily: 'NotoSerif')),
-        subtitle: Text(
-          [media.artist, media.durationLabel, media.license].where((e) => e != null && e.isNotEmpty).join(' · '),
-          style: theme.textTheme.bodySmall,
-        ),
-        trailing: media.sourceType == 'external' ? const Icon(Icons.open_in_new_rounded, size: 18) : const Icon(Icons.chevron_right_rounded),
-        onTap: media.url == null ? null : () => launchUrl(Uri.parse(media.url!), mode: LaunchMode.externalApplication),
       ),
     );
   }

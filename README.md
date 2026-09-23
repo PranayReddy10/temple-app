@@ -23,11 +23,13 @@ working version:
 | Home: today's deity, mantra, week strip, nearby, popular, festivals | `features/home/` |
 | Day pages: one sanctum per weekday with mantra, offering, vrat, media, temples | `features/days/` |
 | Explore: lamp map of India, circuits, deities, states, search with filters and nearby | `features/explore/` |
-| Temple profile: gallery, timings, pujas, facilities, rules, contact, trust | `features/temple/` |
+| Temple profile: hero gallery with viewer, section anchors, at-a-glance facts, deity mantra, songs, chants and videos, timings, closures, events, pujas, facilities, rules, contact, trust | `features/temple/` |
+| Songs, chants and darshan videos per deity, on Home, on each day page and on every temple | `core/data/sample_media.dart`, `core/widgets/media_widgets.dart` |
 | Passport: stamps, visits, circuit collections, achievements, manual check-in | `features/passport/` |
 | Photo Stamp: memory card with the passport stamp, share sheet | `features/photo_stamp/` |
 | Favourites and Yatra planner: days, stops, reorder, Yatra mode, route in Maps | `features/yatra/` |
 | Devotee accounts against `/api/v1/auth` and `/api/v1/me` | `features/auth/` |
+| Complete profile: photo, name, email, phone, home state, date of birth, language; memories gallery; saved temples as cards | `features/profile/` |
 | English, Telugu and Hindi interface strings | `core/l10n/` |
 
 Works with **no backend**: when the API is unreachable the app falls back to
@@ -139,6 +141,16 @@ lib/
 └── main.dart
 ```
 
+## Media and rights
+
+Recordings are copyrighted even when the composition is centuries old. The
+bundled catalogue therefore never links to a specific upload: each song,
+chant or video opens a search on the platform where it is officially
+published, and the rights line says so. When the API publishes media for a
+day (with the licence and credit the schema requires), the app shows that
+instead. Gallery photos from the API carry their credit and licence into the
+viewer.
+
 ## Fonts
 
 Noto Serif, Noto Sans, Noto Sans Devanagari and Noto Sans Telugu are bundled
@@ -156,3 +168,7 @@ Captured from the web build with no backend attached (bundled records).
 | Passport | Yatra | Profile |
 | --- | --- | --- |
 | ![](docs/screenshots/04-passport.png) | ![](docs/screenshots/05-yatra.png) | ![](docs/screenshots/06-profile.png) |
+
+| Temple | Songs & videos |
+| --- | --- |
+| ![](docs/screenshots/07-temple.png) | ![](docs/screenshots/08-temple-media.png) |

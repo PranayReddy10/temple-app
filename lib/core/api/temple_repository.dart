@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../data/sample_data.dart';
+import '../data/sample_media.dart';
 import '../models/models.dart';
 import 'api_client.dart';
 
@@ -219,6 +220,22 @@ class TempleRepository {
         () async => ((await api.get('days'))['data'] as List).map((e) => DevotionalDay.fromJson(e as Map<String, dynamic>)).toList(),
         () => [for (var w = 0; w < 7; w++) ...SampleData.daysFor(w)],
       );
+
+  Result<List<DevotionalDay>>? _week;
+
+  /// Songs, chants and videos for a temple: whatever the API has published
+  /// for its deity's day, else the bundled catalogue.
+  Future<Result<List<DevotionalMedia>>> templeMedia(TempleSummary temple) async {
+    final deity = temple.deity?.slug;
+    try {
+      _week ??= await week();
+      if (!_week!.isOffline) {
+        final live = [for (final d in _week!.data) if (d.deity?.slug == deity) ...d.media];
+        if (live.isNotEmpty) return Result(live, DataSource.live);
+      }
+    } catch (_) {}
+    return Result(SampleMedia.forTemple(temple.name, deity), DataSource.offline);
+  }
 
   /// Great-circle distance, matching the server's ST_Distance_Sphere.
   static double distanceKm(double lat1, double lng1, double lat2, double lng2) {

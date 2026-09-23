@@ -10,6 +10,7 @@ import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/theme/day_theme.dart';
+import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../days/day_screen.dart';
@@ -29,7 +30,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Result<Paged<TempleSummary>>? _popular;
   Result<List<TempleEvent>>? _events;
   Result<Paged<TempleSummary>>? _nearby;
@@ -39,7 +40,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Coming back to the app after midnight should show the new day.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) context.read<DayController>().refreshToday();
   }
 
   Future<void> _load() async {
@@ -84,7 +98,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final s = S.of(context);
     final dayCtl = context.watch<DayController>();
-    final day = dayCtl.theme;
+    // Home is always today, whatever page is previewing another deity.
+    final day = dayCtl.todayTheme;
     final theme = Theme.of(context);
     final todayData = dayCtl.today;
     final lead = todayData.firstOrNull;
@@ -105,6 +120,21 @@ class _HomeScreenState extends State<HomeScreen> {
           if (dayCtl.loaded && dayCtl.offline) const SliverToBoxAdapter(child: OfflineNote()),
           SliverToBoxAdapter(child: SectionHeader(title: s('week'), motif: Motif.bell)),
           SliverToBoxAdapter(child: _WeekStrip(current: day)),
+          if (dayCtl.todayMedia.isNotEmpty) ...[
+            SliverToBoxAdapter(child: SectionHeader(title: s('today_media'), motif: day.motif, actionLabel: s('see_all'), onAction: () => enterTemple(context, DayScreen(weekday: day.weekday), accent: day.accent))),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 200,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: dayCtl.todayMedia.take(10).length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) => MediaCard(media: dayCtl.todayMedia[i], day: day, width: 140),
+                ),
+              ),
+            ),
+          ],
           SliverToBoxAdapter(child: SectionHeader(title: s('nearby'), motif: Motif.diya, actionLabel: _nearby == null ? null : s('see_all'), onAction: widget.onExplore)),
           SliverToBoxAdapter(child: _NearbySection(result: _nearby, error: _nearbyError, locating: _locating, onLocate: _locate, onOpen: _open)),
           if (lead != null && lead.temples.isNotEmpty) ...[
@@ -308,6 +338,7 @@ class _NearbySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final s = S.of(context);
     if (locating) return const SizedBox(height: 120, child: DiyaLoader(label: 'Finding temples around you'));
     if (result != null && result!.data.items.isNotEmpty) return _Carousel(temples: result!.data.items, onOpen: onOpen);
     return Padding(
@@ -325,12 +356,12 @@ class _NearbySection extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                error ?? (result == null ? 'Find darshan within reach of where you stand.' : 'No temples within 300 km in our records yet.'),
+                error ?? (result == null ? s('nearby_prompt') : 'No temples within 300 km in our records yet.'),
                 style: theme.textTheme.bodyMedium,
               ),
             ),
             const SizedBox(width: 8),
-            FilledButton(onPressed: onLocate, child: const Text('Locate')),
+            FilledButton(onPressed: onLocate, child: Text(s('locate'))),
           ],
         ),
       ),
