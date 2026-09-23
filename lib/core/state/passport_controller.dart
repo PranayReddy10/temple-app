@@ -13,7 +13,22 @@ import '../models/models.dart';
 enum Verification { manual, gps, qr }
 
 class Visit {
-  const Visit({required this.templeSlug, required this.templeName, required this.deitySlug, required this.visitedAt, this.note, this.photoPath, this.city, this.state, this.verification = Verification.manual, this.members = const []});
+  Visit({required this.templeSlug, required this.templeName, required this.deitySlug, required this.visitedAt, this.note, this.photoPath, this.city, this.state, this.verification = Verification.manual, this.members = const [], String? localKey, this.remoteId, this.remoteVerified, this.remotePhoto, this.latitude, this.longitude, this.templeId})
+      : localKey = localKey ?? '$templeSlug@${visitedAt.microsecondsSinceEpoch}';
+
+  /// Stable device-side identity, used to match the server's copy.
+  final String localKey;
+
+  /// Set once `/temples/{slug}/visits` has accepted it.
+  final int? remoteId;
+
+  /// The server's verdict: only a GPS or QR check-in within its radius
+  /// counts as a stamp there. Null until synced.
+  final bool? remoteVerified;
+  final VisitPhoto? remotePhoto;
+  final double? latitude;
+  final double? longitude;
+  final int? templeId;
 
   final String templeSlug;
   final String templeName;
@@ -39,6 +54,13 @@ class Visit {
         'state': state,
         'verification': verification.name,
         'members': members,
+        'key': localKey,
+        'remote_id': remoteId,
+        'remote_verified': remoteVerified,
+        'remote_photo': remotePhoto == null ? null : {'id': remotePhoto!.id, 'original_url': remotePhoto!.originalUrl, 'stamp_url': remotePhoto!.stampUrl, 'status': {'value': remotePhoto!.status, 'label': remotePhoto!.statusLabel}, 'moderation_note': remotePhoto!.moderationNote, 'is_public': remotePhoto!.isPublic},
+        'lat': latitude,
+        'lng': longitude,
+        'temple_id': templeId,
       };
 
   factory Visit.fromJson(Map<String, dynamic> j) => Visit(
@@ -52,9 +74,20 @@ class Visit {
         state: j['state']?.toString(),
         verification: Verification.values.firstWhere((v) => v.name == j['verification'], orElse: () => Verification.manual),
         members: (j['members'] as List? ?? const []).map((e) => '$e').toList(),
+        localKey: j['key']?.toString(),
+        remoteId: (j['remote_id'] as num?)?.toInt(),
+        remoteVerified: j['remote_verified'] as bool?,
+        remotePhoto: j['remote_photo'] is Map ? VisitPhoto.fromJson(Map<String, dynamic>.from(j['remote_photo'] as Map)) : null,
+        latitude: (j['lat'] as num?)?.toDouble(),
+        longitude: (j['lng'] as num?)?.toDouble(),
+        templeId: (j['temple_id'] as num?)?.toInt(),
       );
 
-  Visit copyWith({String? note, String? photoPath}) => Visit(
+  /// Whether the passport may call this a stamp: the server's verdict once
+  /// synced, the device's verification before that.
+  bool get isVerified => remoteVerified ?? (verification != Verification.manual);
+
+  Visit copyWith({String? note, String? photoPath, int? remoteId, bool? remoteVerified, VisitPhoto? remotePhoto}) => Visit(
         templeSlug: templeSlug,
         templeName: templeName,
         deitySlug: deitySlug,
@@ -65,6 +98,13 @@ class Visit {
         state: state,
         verification: verification,
         members: members,
+        localKey: localKey,
+        remoteId: remoteId ?? this.remoteId,
+        remoteVerified: remoteVerified ?? this.remoteVerified,
+        remotePhoto: remotePhoto ?? this.remotePhoto,
+        latitude: latitude,
+        longitude: longitude,
+        templeId: templeId,
       );
 }
 
@@ -122,7 +162,15 @@ class PassportController extends ChangeNotifier {
   final SharedPreferences _prefs;
   final List<Visit> _visits = [];
 
+  /// Called after a visit is recorded, so the sync layer can queue it.
+  Future<void> Function(Visit visit)? onVisitCreated;
+
+  /// `GET /me/passport`, when signed in and reachable.
+  PassportSummary? summary;
+
   List<Visit> get visits => List.unmodifiable(_visits.reversed);
+  Visit? byKey(String key) => _visits.where((v) => v.localKey == key).firstOrNull;
+  List<Visit> get unsynced => _visits.where((v) => v.remoteId == null).toList();
 
   /// Unique temples, first visit only: the stamp book.
   List<Visit> get stamps {
@@ -139,8 +187,8 @@ class PassportController extends ChangeNotifier {
 
   List<Achievement> get earned => Achievement.all.where((a) => a.test(this)).toList();
 
-  Future<void> checkIn(TempleSummary temple, {String? note, String? photoPath, Verification verification = Verification.manual, List<String> members = const []}) async {
-    _visits.add(Visit(
+  Future<Visit> checkIn(TempleSummary temple, {String? note, String? photoPath, Verification verification = Verification.manual, List<String> members = const [], double? latitude, double? longitude}) async {
+    final v = Visit(
       templeSlug: temple.slug,
       templeName: temple.name,
       deitySlug: temple.deity?.slug,
@@ -151,8 +199,71 @@ class PassportController extends ChangeNotifier {
       state: temple.location.state,
       verification: verification,
       members: members,
-    ));
+      latitude: latitude,
+      longitude: longitude,
+      templeId: temple.id,
+    );
+    _visits.add(v);
     await _save();
+    await onVisitCreated?.call(v);
+    return v;
+  }
+
+  int get verifiedStamps => stamps.where((v) => v.isVerified).length;
+
+  Future<void> setRemote(String localKey, RemoteVisit remote) async {
+    final i = _visits.indexWhere((v) => v.localKey == localKey);
+    if (i < 0) return;
+    _visits[i] = _visits[i].copyWith(remoteId: remote.id, remoteVerified: remote.isVerified);
+    await _save();
+  }
+
+  Future<void> setRemotePhoto(String localKey, VisitPhoto photo) async {
+    final i = _visits.indexWhere((v) => v.localKey == localKey);
+    if (i < 0) return;
+    _visits[i] = _visits[i].copyWith(remotePhoto: photo);
+    await _save();
+  }
+
+  /// Brings in visits recorded on other devices or before this one was
+  /// signed in. Matched by remote id, then by temple and day.
+  Future<void> mergeRemote(List<RemoteVisit> remote, {String? Function(String slug)? deityOf}) async {
+    var changed = false;
+    for (final r in remote) {
+      final byId = _visits.indexWhere((v) => v.remoteId == r.id);
+      if (byId >= 0) {
+        if (_visits[byId].remoteVerified != r.isVerified) {
+          _visits[byId] = _visits[byId].copyWith(remoteVerified: r.isVerified);
+          changed = true;
+        }
+        continue;
+      }
+      final day = r.visitedOn;
+      final byDay = _visits.indexWhere((v) => v.remoteId == null && v.templeSlug == r.templeSlug && day != null && v.visitedAt.toIso8601String().startsWith(day));
+      if (byDay >= 0) {
+        _visits[byDay] = _visits[byDay].copyWith(remoteId: r.id, remoteVerified: r.isVerified);
+        changed = true;
+        continue;
+      }
+      final when = DateTime.tryParse('${r.visitedOn ?? ''}T${r.visitedAt ?? '12:00'}:00') ?? DateTime.now();
+      _visits.add(Visit(
+        templeSlug: r.templeSlug,
+        templeName: r.templeName,
+        deitySlug: deityOf?.call(r.templeSlug),
+        visitedAt: when,
+        note: r.note,
+        city: r.city,
+        verification: switch (r.method) { 'gps' => Verification.gps, 'qr' => Verification.qr, _ => Verification.manual },
+        localKey: 'remote-${r.id}',
+        remoteId: r.id,
+        remoteVerified: r.isVerified,
+        remotePhoto: r.photos.firstOrNull,
+        templeId: r.templeId,
+      ));
+      changed = true;
+    }
+    _visits.sort((a, b) => a.visitedAt.compareTo(b.visitedAt));
+    if (changed) await _save();
   }
 
   int get verifiedCount => _visits.where((v) => v.verification != Verification.manual).length;

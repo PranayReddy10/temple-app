@@ -11,10 +11,12 @@ import 'package:temple_app/core/state/bookings_controller.dart';
 import 'package:temple_app/core/state/day_controller.dart';
 import 'package:temple_app/core/state/family_controller.dart';
 import 'package:temple_app/core/state/favourites_controller.dart';
+import 'package:temple_app/core/state/memories_controller.dart';
 import 'package:temple_app/core/state/offline_pack_controller.dart';
 import 'package:temple_app/core/state/passport_controller.dart';
 import 'package:temple_app/core/state/reminders_controller.dart';
 import 'package:temple_app/core/state/submissions_controller.dart';
+import 'package:temple_app/core/state/sync_service.dart';
 import 'package:temple_app/core/state/yatra_controller.dart';
 import 'package:temple_app/core/theme/app_theme.dart';
 import 'package:temple_app/core/theme/day_theme.dart';
@@ -29,21 +31,29 @@ Future<Widget> harness(Widget child) async {
   final api = ApiClient(baseUrl: 'http://localhost:1', timeout: const Duration(milliseconds: 50));
   final auth = AuthController(prefs, api);
   final repo = TempleRepository(api);
+  final settings = AppSettings(prefs, api);
+  final passport = PassportController(prefs);
+  final yatras = YatraController(prefs);
+  final memories = MemoriesController(prefs);
+  final submissions = SubmissionsController(prefs);
+  final sync = SyncService(prefs: prefs, api: api, auth: auth, settings: settings, passport: passport, yatras: yatras, memories: memories, submissions: submissions);
   return MultiProvider(
     providers: [
       Provider<ApiClient>.value(value: api),
       Provider<TempleRepository>.value(value: repo),
-      ChangeNotifierProvider(create: (_) => AppSettings(prefs, api)),
+      ChangeNotifierProvider.value(value: settings),
       ChangeNotifierProvider.value(value: auth),
       ChangeNotifierProvider(create: (_) => DayController(repo)),
-      ChangeNotifierProvider(create: (_) => PassportController(prefs)),
+      ChangeNotifierProvider.value(value: passport),
       ChangeNotifierProvider(create: (_) => FavouritesController(prefs, auth)),
-      ChangeNotifierProvider(create: (_) => YatraController(prefs)),
+      ChangeNotifierProvider.value(value: yatras),
+      ChangeNotifierProvider.value(value: memories),
+      ChangeNotifierProvider.value(value: sync),
       ChangeNotifierProvider(create: (_) => FamilyController(prefs)),
       ChangeNotifierProvider(create: (_) => RemindersController(prefs)),
       ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
       ChangeNotifierProvider(create: (_) => BookingsController(prefs)),
-      ChangeNotifierProvider(create: (_) => SubmissionsController(prefs)),
+      ChangeNotifierProvider.value(value: submissions),
     ],
     child: MaterialApp(theme: AppTheme.light(DayTheme.today()), home: child),
   );

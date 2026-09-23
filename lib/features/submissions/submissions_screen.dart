@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../core/brand.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/motif.dart';
+import '../../core/state/auth_controller.dart';
 import '../../core/state/submissions_controller.dart';
+import '../../core/state/sync_service.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
 
-/// Community contributions: corrections and new temples, kept on the device
-/// and sent to the editors by email until the submissions API lands.
+/// Reports and suggestions, filed through `/support`. Filing needs no
+/// account; a report written with no signal is sent when the device is next
+/// online, and the reference the editors return is shown once it is.
 class SubmissionsScreen extends StatelessWidget {
   const SubmissionsScreen({super.key});
 
@@ -20,27 +21,45 @@ class SubmissionsScreen extends StatelessWidget {
     final s = S.of(context);
     final theme = Theme.of(context);
     final ctl = context.watch<SubmissionsController>();
+    final sync = context.watch<SyncService>();
     return Scaffold(
-      appBar: AppBar(title: Text(s('submissions'))),
+      appBar: AppBar(
+        title: Text(s('submissions')),
+        actions: [IconButton(tooltip: 'Send pending and refresh', onPressed: sync.isFlushing ? null : () => sync.sync(), icon: sync.isFlushing ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync_rounded))],
+      ),
       floatingActionButton: FloatingActionButton.extended(onPressed: () => submit(context), icon: const Icon(Icons.add_location_alt_rounded), label: Text(s('add_temple'))),
       body: ctl.all.isEmpty
-          ? const EmptyShrine(motif: Motif.lotus, message: 'Know a temple we are missing, or a timing that changed? Suggest it from any temple page, or add a new temple here. Editors check every contribution against a source before it is published.')
+          ? const EmptyShrine(motif: Motif.lotus, message: 'Know a temple we are missing, or a timing that changed? Report it from any temple page, or suggest a new temple here. Editors check every report against a source before anything is published.')
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
               itemCount: ctl.all.length,
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, i) {
                 final sub = ctl.all[i];
+                final answered = sub.replies.any((m) => m.fromStaff) || sub.resolution != null;
                 return Card(
-                  child: ListTile(
-                    leading: Icon(sub.kind == 'new_temple' ? Icons.add_location_alt_rounded : Icons.edit_note_rounded, color: theme.colorScheme.primary),
-                    title: Text(sub.templeName, style: const TextStyle(fontFamily: 'NotoSerif')),
-                    subtitle: Text('${sub.field}\n${sub.text}', maxLines: 3, overflow: TextOverflow.ellipsis),
-                    isThreeLine: true,
-                    trailing: sub.sent
-                        ? const Tooltip(message: 'Sent to editors', child: Icon(Icons.mark_email_read_rounded, color: Palette.tulsi))
-                        : IconButton(tooltip: 'Send to editors', icon: const Icon(Icons.send_rounded), onPressed: () => _send(context, sub)),
-                    onLongPress: () => ctl.remove(sub.id),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        leading: Icon(sub.kind == 'new_temple' ? Icons.add_location_alt_rounded : Icons.flag_rounded, color: theme.colorScheme.primary),
+                        title: Text(sub.subject, style: const TextStyle(fontFamily: 'NotoSerif')),
+                        subtitle: Text(sub.text, maxLines: 3, overflow: TextOverflow.ellipsis),
+                        trailing: sub.sent
+                            ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(answered ? Icons.mark_email_read_rounded : Icons.check_circle_outline_rounded, color: answered ? Palette.tulsi : theme.colorScheme.primary), Text(sub.reference!, style: theme.textTheme.labelSmall)])
+                            : const Tooltip(message: 'Waiting to send', child: Icon(Icons.schedule_send_rounded)),
+                        onLongPress: () => ctl.remove(sub.id),
+                      ),
+                      if (sub.statusLabel != null || !sub.sent)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                          child: Text(sub.sent ? 'Status: ${sub.statusLabel}' : 'Kept on this device. It is sent the next time the app is online.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+                        ),
+                      if (sub.resolution != null)
+                        Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 10), child: Text('Editors: ${sub.resolution}', style: theme.textTheme.bodySmall?.copyWith(color: Palette.tulsi))),
+                      for (final m in sub.replies.where((m) => m.fromStaff))
+                        Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 10), child: Text('${m.author ?? 'Editors'}: ${m.body}', style: theme.textTheme.bodySmall)),
+                    ],
                   ),
                 );
               },
@@ -48,26 +67,15 @@ class SubmissionsScreen extends StatelessWidget {
     );
   }
 
-  static Future<void> _send(BuildContext context, Submission sub) async {
-    final body = [
-      'Kind: ${sub.kind}',
-      'Temple: ${sub.templeName}${sub.templeSlug != null ? ' (${sub.templeSlug})' : ''}',
-      'Field: ${sub.field}',
-      '',
-      sub.text,
-      '',
-      'Sent from ${Brand.name} app · ${sub.createdAt.toIso8601String()}',
-    ].join('\n');
-    final uri = Uri(scheme: 'mailto', path: Brand.supportEmail, queryParameters: {'subject': '[${Brand.name}] ${sub.kind == 'new_temple' ? 'New temple' : 'Correction'}: ${sub.templeName}', 'body': body});
-    final ok = await launchUrl(uri);
-    if (ok && context.mounted) await context.read<SubmissionsController>().markSent(sub.id);
-  }
-
-  /// Opens the form. With [temple] it is a correction; without, a new temple.
+  /// Opens the form. With [temple] it is a report about that record;
+  /// without, a suggestion for a temple we do not have.
   static Future<void> submit(BuildContext context, {TempleSummary? temple}) async {
     final ctl = context.read<SubmissionsController>();
+    final auth = context.read<AuthController>();
     final name = TextEditingController(text: temple?.name);
     final text = TextEditingController();
+    final who = TextEditingController(text: auth.devotee?.name);
+    final email = TextEditingController(text: auth.devotee?.email);
     var field = temple == null ? 'Other' : Submission.fields.first;
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -82,15 +90,21 @@ class SubmissionsScreen extends StatelessWidget {
               children: [
                 Text(temple == null ? S.of(context)('add_temple') : S.of(context)('suggest_edit'), style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 4),
-                Text('Editors verify every contribution against an official or primary source before it is published. Community submissions are never shown as official.', style: Theme.of(context).textTheme.bodySmall),
+                Text('Editors verify every report against an official or primary source before anything is published. Community reports are never shown as official.', style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 12),
                 TextField(controller: name, readOnly: temple != null, decoration: const InputDecoration(labelText: 'Temple name and place')),
                 const SizedBox(height: 10),
                 if (temple != null) Wrap(spacing: 8, runSpacing: 6, children: [for (final f in Submission.fields) ChoiceChip(label: Text(f), selected: field == f, onSelected: (_) => setSheet(() => field = f))]),
                 const SizedBox(height: 10),
-                TextField(controller: text, maxLines: 5, decoration: InputDecoration(labelText: temple == null ? 'Deity, location, timings, anything you know, and where it can be checked' : 'What should change, and where it can be checked')),
+                TextField(controller: text, maxLines: 5, decoration: InputDecoration(labelText: temple == null ? 'Deity, location, timings, anything you know, and where it can be checked' : 'What is wrong, what it should say, and where it can be checked')),
+                if (!auth.isSignedIn) ...[
+                  const SizedBox(height: 10),
+                  TextField(controller: who, decoration: const InputDecoration(labelText: 'Your name')),
+                  const SizedBox(height: 10),
+                  TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email, if you want a reply (optional)')),
+                ],
                 const SizedBox(height: 16),
-                FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save submission')),
+                FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Send to editors')),
               ],
             ),
           ),
@@ -98,16 +112,16 @@ class SubmissionsScreen extends StatelessWidget {
       ),
     );
     if (ok != true || name.text.trim().isEmpty || text.text.trim().isEmpty) return;
-    final sub = await ctl.add(kind: temple == null ? 'new_temple' : 'correction', templeSlug: temple?.slug, templeName: name.text.trim(), field: temple == null ? 'New temple' : field, text: text.text.trim());
-    if (!context.mounted) return;
-    final send = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Saved'),
-        content: const Text('Send it to the editors now by email? You can also send it later from My submissions.'),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Later')), FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Send'))],
-      ),
+    await ctl.add(
+      kind: temple == null ? 'new_temple' : 'correction',
+      templeSlug: temple?.slug,
+      templeId: temple?.id,
+      templeName: name.text.trim(),
+      field: temple == null ? 'New temple' : field,
+      text: text.text.trim(),
+      reporterName: who.text.trim().isEmpty ? null : who.text.trim(),
+      reporterEmail: email.text.trim().isEmpty ? null : email.text.trim(),
     );
-    if (send == true && context.mounted) await _send(context, sub);
+    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved. It goes to the editors as soon as the app is online.')));
   }
 }

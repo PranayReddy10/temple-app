@@ -184,7 +184,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (final l in const [('en', 'English'), ('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('ta', 'தமிழ்'), ('kn', 'ಕನ್ನಡ')])
+                    for (final l in LanguageInfo.bundled.map((x) => (x.code, x.nativeName)))
                       ChoiceChip(label: Text(l.$2), selected: _locale == l.$1, onSelected: (_) => setState(() => _locale = l.$1)),
                   ],
                 ),

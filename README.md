@@ -36,6 +36,11 @@ working version:
 | Offline trip packs, route optimisation and automatic day splitting | `core/state/offline_pack_controller.dart`, `core/state/yatra_controller.dart` |
 | Community submissions, seva booking notes, stay & travel links | `features/submissions/`, `features/bookings/` |
 | Temple guide grounded in the app's records | `features/guide/` |
+| Account sync: visits, photos, memories, trips and reports through an outbox that survives being offline | `core/state/sync_service.dart` |
+
+Signed in, everything the device records (visits, photos, memories, trips,
+reports) reaches the account through an outbox, and the account's records
+merge back onto the device. See the Account sync section of the roadmap.
 
 Works with **no backend**: when the API is unreachable the app falls back to
 the bundled sample set (the same records the backend seeds) and says so on

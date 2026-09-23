@@ -10,6 +10,7 @@ import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/passport_controller.dart';
+import '../../core/state/sync_service.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_door.dart';
@@ -46,6 +47,8 @@ class _PassportScreenState extends State<PassportScreen> with SingleTickerProvid
     final theme = Theme.of(context);
     final passport = context.watch<PassportController>();
     final devotee = context.watch<AuthController>().devotee;
+    final sync = context.watch<SyncService>();
+    final summary = passport.summary;
     final top = MediaQuery.paddingOf(context).top;
 
     return Column(
@@ -87,12 +90,23 @@ class _PassportScreenState extends State<PassportScreen> with SingleTickerProvid
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _Stat(value: '${passport.stampCount}', label: s('stamps')),
-                      _Stat(value: '${passport.visits.length}', label: s('visits')),
-                      _Stat(value: '${passport.statesVisited.length}', label: 'States'),
-                      _Stat(value: '${passport.earned.length}', label: s('achievements')),
+                      _Stat(value: '${summary?.stamps ?? passport.verifiedStamps}', label: 'Verified'),
+                      _Stat(value: '${summary?.templesVisited ?? passport.stampCount}', label: 'Temples'),
+                      _Stat(value: '${summary?.visitsRecorded ?? passport.visits.length}', label: s('visits')),
+                      _Stat(value: '${summary?.statesCovered ?? passport.statesVisited.length}', label: 'States'),
                     ],
                   ),
+                  if (devotee != null || sync.pendingCount > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(sync.pendingCount > 0 ? Icons.cloud_upload_outlined : Icons.cloud_done_rounded, size: 13, color: Palette.gold),
+                        const SizedBox(width: 5),
+                        Expanded(child: Text(sync.pendingCount > 0 ? '${sync.pendingCount} waiting to reach your account' : devotee == null ? '' : 'In sync with your account', style: theme.textTheme.labelSmall?.copyWith(color: Palette.sandal.withValues(alpha: 0.8)))),
+                        if (devotee != null) InkWell(onTap: sync.isFlushing ? null : () => sync.sync(), child: const Icon(Icons.sync_rounded, size: 16, color: Palette.gold)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -259,6 +273,41 @@ class _CollectionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final server = passport.summary?.circuits;
+    if (server != null && server.isNotEmpty) {
+      return ListView.separated(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        itemCount: server.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, i) {
+          if (i == server.length) return Text('Counted against verified visits, and against the temples recorded so far, not the whole circuit.', style: theme.textTheme.bodySmall);
+          final c = server[i];
+          final accent = switch (c.slug) { 'jyotirlinga' => DayTheme.all[1].accent, 'shakti-peetha' => DayTheme.all[5].accent, 'divya-desam' => DayTheme.all[4].accent, _ => theme.colorScheme.primary };
+          final motif = switch (c.slug) { 'jyotirlinga' => Motif.trishul, 'shakti-peetha' => Motif.lotus, 'divya-desam' => Motif.shankhaChakra, 'sapta-puri' => Motif.om, _ => Motif.kalasha };
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(20), border: Border.all(color: accent.withValues(alpha: 0.4))),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    MotifIcon(motif, size: 36, color: accent),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(c.name, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif'))),
+                    Text('${c.collected} / ${c.recorded}', style: theme.textTheme.titleMedium?.copyWith(color: accent)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('${c.collected} of ${c.recorded} recorded${c.total != null ? ' · ${c.total} in all' : ''}', style: theme.textTheme.bodySmall),
+                const SizedBox(height: 10),
+                ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: c.recorded == 0 ? 0 : c.collected / c.recorded, minHeight: 8, color: accent, backgroundColor: accent.withValues(alpha: 0.15))),
+              ],
+            ),
+          );
+        },
+      );
+    }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
       itemCount: Collection.all.length,
