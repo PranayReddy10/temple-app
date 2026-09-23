@@ -94,7 +94,7 @@ class AuthController extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> updateProfile({String? name, String? email, String? phone, String? locale, int? homeStateId, bool clearHomeState = false, String? dateOfBirth, bool clearDateOfBirth = false}) async {
+  Future<void> updateProfile({String? name, String? email, String? phone, String? locale, int? homeStateId, bool clearHomeState = false, String? dateOfBirth, bool clearDateOfBirth = false, String? gender, bool clearGender = false}) async {
     final json = await api.patch('me', {
       if (name != null) 'name': name,
       if (email != null) 'email': email.isEmpty ? null : email,
@@ -104,6 +104,8 @@ class AuthController extends ChangeNotifier {
       if (clearHomeState) 'home_state_id': null,
       if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
       if (clearDateOfBirth) 'date_of_birth': null,
+      if (gender != null) 'gender': gender,
+      if (clearGender) 'gender': null,
     });
     await _store(Devotee.fromJson(json['data'] as Map<String, dynamic>), api.token!);
   }

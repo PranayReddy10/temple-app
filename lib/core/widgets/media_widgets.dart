@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../l10n/strings.dart';
@@ -9,6 +8,7 @@ import '../motifs/architecture.dart';
 import '../motifs/motif.dart';
 import '../state/mantra_player.dart';
 import '../theme/day_theme.dart';
+import '../../features/media/in_app_browser.dart';
 import '../../features/media/media_player_screen.dart';
 import '../theme/palette.dart';
 import 'app_image.dart';
@@ -28,17 +28,17 @@ IconData mediaIcon(String? type) => switch (type) {
 /// available, a non-YouTube link opens in a new tab instead.
 Future<void> openMedia(BuildContext context, DevotionalMedia m, {DayTheme? day}) async {
   if (m.url == null) return;
+  // Everything plays inside the app: a video in the embedded player, audio
+  // in the app's own player, and a search or any other page in the in-app
+  // browser. Only the web build, which has no web view, opens a new tab.
   final isYoutube = m.url!.contains('youtube.com') || m.url!.contains('youtu.be');
-  // A YouTube search or channel link has no single video to embed; the
-  // YouTube app (or site) is where it works, so send it there.
-  if (isYoutube && m.playback.youtubeId == null && YoutubePlayerController.convertUrlToId(m.url!) == null) {
-    final ok = await launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open YouTube.')));
+  final hasVideo = m.playback.youtubeId != null || YoutubePlayerController.convertUrlToId(m.url!) != null;
+  if (isYoutube && !hasVideo) {
+    await InAppBrowserScreen.open(context, m.url!, title: m.title);
     return;
   }
   if (kIsWeb && !isYoutube && !isDirectAudio(m.url, m.sourceType)) {
-    final ok = await launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open this link.')));
+    await InAppBrowserScreen.open(context, m.url!, title: m.title);
     return;
   }
   await Navigator.of(context).push(MaterialPageRoute(builder: (_) => MediaPlayerScreen(media: m, day: day ?? DayTheme.today())));
@@ -66,7 +66,7 @@ class MediaTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall,
         ),
-        trailing: Icon(media.sourceType == 'external' ? Icons.open_in_new_rounded : Icons.chevron_right_rounded, size: 18),
+        trailing: const Icon(Icons.play_circle_outline_rounded, size: 20),
         onTap: media.url == null ? null : () => openMedia(context, media, day: day),
       ),
     );

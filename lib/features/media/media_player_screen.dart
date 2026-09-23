@@ -4,7 +4,6 @@ import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
@@ -13,6 +12,7 @@ import '../../core/state/mantra_player.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/media_widgets.dart';
+import 'in_app_browser.dart';
 
 /// Plays a song, chant or video inside the app.
 ///
@@ -66,6 +66,26 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
         autoPlay: true,
         params: YoutubePlayerParams(showFullscreenButton: true, strictRelatedVideos: true, mute: _mantra.muted, origin: embedHost, playsInline: true),
       );
+      // The package opens the YouTube app or the browser when the title or
+      // logo is tapped. Its navigation handling is replaced so that a related
+      // video plays here and any other link opens in the in-app browser.
+      if (!kIsWeb) {
+        // The package offers no hook for this; its web view is the only way
+        // in. Re-check on a youtube_player_iframe upgrade.
+        // ignore: invalid_use_of_internal_member
+        _yt!.webViewController.setNavigationDelegate(NavigationDelegate(onNavigationRequest: (r) {
+          final u = Uri.tryParse(r.url);
+          if (u == null) return NavigationDecision.prevent;
+          if (!r.isMainFrame || u.scheme == 'about' || u.scheme == 'data' || u.host == Uri.parse(embedHost).host) return NavigationDecision.navigate;
+          final id = u.queryParameters['v'] ?? YoutubePlayerController.convertUrlToId(r.url);
+          if (id != null) {
+            _yt!.loadVideoById(videoId: id);
+          } else if (InAppBrowserScreenState.isWebUri(u) && mounted) {
+            InAppBrowserScreen.open(context, r.url);
+          }
+          return NavigationDecision.prevent;
+        }));
+      }
       _ytSub = _yt!.stream.listen((v) {
         if (v.error != _ytError && mounted) setState(() => _ytError = v.error);
       });
@@ -82,6 +102,7 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
       _web = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..setBackgroundColor(Palette.ebony)
+        ..setNavigationDelegate(NavigationDelegate(onNavigationRequest: (r) => InAppBrowserScreenState.isWebUri(Uri.tryParse(r.url)) ? NavigationDecision.navigate : NavigationDecision.prevent))
         ..loadRequest(Uri.parse(widget.media.playback.embedUrl ?? url));
     }
   }
@@ -163,8 +184,8 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
             children: [
               MediaArt(media: m, day: day, size: 160, radius: 24),
               const SizedBox(height: 16),
-              Text(m.url == null ? 'This item has no link yet.' : 'This link opens in your browser on this platform.', textAlign: TextAlign.center),
-              if (m.url != null) ...[const SizedBox(height: 12), FilledButton.icon(onPressed: () => launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication), icon: const Icon(Icons.open_in_new_rounded), label: const Text('Open'))],
+              Text(m.url == null ? 'This item has no link yet.' : 'This one plays on its own page.', textAlign: TextAlign.center),
+              if (m.url != null) ...[const SizedBox(height: 12), FilledButton.icon(onPressed: () => InAppBrowserScreen.open(context, m.url!, title: m.title), icon: const Icon(Icons.play_arrow_rounded), label: const Text('Play'))],
             ],
           ),
         ),
@@ -178,8 +199,6 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
             final muted = context.watch<MantraPlayer>().muted;
             return IconButton(tooltip: muted ? 'Unmute' : 'Mute', onPressed: () => context.read<MantraPlayer>().toggleMuted(), icon: Icon(muted ? Icons.volume_off_rounded : Icons.volume_up_rounded));
           }),
-          if (m.url != null)
-            IconButton(tooltip: 'Open outside the app', onPressed: () => launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication), icon: const Icon(Icons.open_in_new_rounded)),
         ],
       ),
       body: body,
@@ -220,7 +239,7 @@ class _Details extends StatelessWidget {
 
 /// Shown under the player when YouTube refuses to play the video here.
 /// Most often the owner has disabled embedding, which no player can get
-/// around; the video still plays in the YouTube app.
+/// around; its YouTube page still plays it, here in the app.
 class _Unavailable extends StatelessWidget {
   const _Unavailable({required this.error, required this.url});
 
@@ -247,7 +266,7 @@ class _Unavailable extends StatelessWidget {
           const SizedBox(height: 4),
           Text(why, style: theme.textTheme.bodySmall),
           const SizedBox(height: 10),
-          FilledButton.icon(onPressed: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication), icon: const Icon(Icons.play_circle_outline_rounded), label: const Text('Watch on YouTube')),
+          FilledButton.icon(onPressed: () => InAppBrowserScreen.open(context, url), icon: const Icon(Icons.play_circle_outline_rounded), label: const Text('Watch on its YouTube page')),
         ],
       ),
     );

@@ -36,6 +36,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   List<StateRef> _states = const [];
   StateRef? _homeState;
   DateTime? _dob;
+  late String? _gender = _auth.devotee?.gender;
   late String _locale = _auth.devotee?.locale ?? context.read<AppSettings>().locale.languageCode;
   String? _avatar;
   bool _saving = false;
@@ -91,6 +92,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         clearHomeState: _homeState == null && _auth.devotee?.homeState != null,
         dateOfBirth: _dob?.toIso8601String().substring(0, 10),
         clearDateOfBirth: _dob == null && _auth.devotee?.dateOfBirth != null,
+        gender: _gender,
+        clearGender: _gender == null && _auth.devotee?.gender != null,
       );
       if (!mounted) return;
       await context.read<AppSettings>().setLocale(Locale(_locale));
@@ -163,10 +166,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<StateRef?>(
                   initialValue: _homeState,
+                  // Without this the button sizes to its widest item, and
+                  // "Dadra and Nagar Haveli and Daman and Diu" overflows.
+                  isExpanded: true,
                   decoration: InputDecoration(labelText: s('home_state'), errorText: _err('home_state_id'), prefixIcon: const Icon(Icons.map_outlined), helperText: canSetState ? null : 'Server does not accept a home state yet'),
                   items: [
                     const DropdownMenuItem<StateRef?>(value: null, child: Text('Not set')),
-                    for (final st in _states) DropdownMenuItem<StateRef?>(value: st, child: Text(st.name)),
+                    for (final st in _states) DropdownMenuItem<StateRef?>(value: st, child: Text(st.name, maxLines: 1, overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: canSetState ? (v) => setState(() => _homeState = v) : null,
                 ),
@@ -187,6 +193,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                Text(s('gender'), style: theme.textTheme.labelLarge),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final g in const [('male', 'gender_male'), ('female', 'gender_female'), ('other', 'gender_other'), ('prefer_not_to_say', 'gender_unsaid')])
+                      ChoiceChip(label: Text(s(g.$2)), selected: _gender == g.$1, onSelected: (on) => setState(() => _gender = on ? g.$1 : null)),
+                  ],
+                ),
+                if (_err('gender') != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_err('gender')!, style: TextStyle(color: theme.colorScheme.error, fontSize: 12))),
                 const SizedBox(height: 16),
                 Text(s('language'), style: theme.textTheme.labelLarge),
                 const SizedBox(height: 8),

@@ -25,6 +25,7 @@ import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../bookings/bookings_screen.dart';
 import '../family/family_screen.dart';
+import '../media/in_app_browser.dart';
 import '../passport/stamp_widget.dart';
 import '../qr/qr_screens.dart';
 import '../submissions/submissions_screen.dart';
@@ -37,10 +38,13 @@ import '../photo_stamp/photo_stamp_screen.dart';
 /// Songs & videos, Darshan, Seva) rather than separate tabs, so a devotee at
 /// the gate can flick from timings to the aarti video without losing place.
 class TempleScreen extends StatefulWidget {
-  const TempleScreen({super.key, required this.slug, this.preview});
+  const TempleScreen({super.key, required this.slug, this.preview, this.initialQr});
 
   final String slug;
   final TempleSummary? preview;
+
+  /// A code already scanned for this temple: the check-in opens with it.
+  final QrScanResult? initialQr;
 
   @override
   State<TempleScreen> createState() => _TempleScreenState();
@@ -52,6 +56,7 @@ class _TempleScreenState extends State<TempleScreen> {
   String? _error;
   int _photo = 0;
   bool _previewing = false;
+  bool _qrOffered = false;
   final _keys = {for (final k in _Section.values) k: GlobalKey()};
   // Cached here because dispose() may not look up ancestors through context.
   late final DayController _dayCtl = context.read<DayController>();
@@ -87,6 +92,12 @@ class _TempleScreenState extends State<TempleScreen> {
       final r = await context.read<TempleRepository>().temple(widget.slug);
       if (!mounted) return;
       setState(() => _detail = r);
+      if (widget.initialQr != null && !_qrOffered) {
+        _qrOffered = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _checkIn(r.data.summary, preset: widget.initialQr);
+        });
+      }
       final slug = r.data.summary.deity?.slug;
       if (slug != null) _startPreview(slug);
       if (widget.preview == null) _loadMedia(r.data.summary);
@@ -397,7 +408,7 @@ class _TempleScreenState extends State<TempleScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      if (d.website != null) ActionChip(avatar: const Icon(Icons.language_rounded, size: 16), label: const Text('Website'), onPressed: () => launchUrl(Uri.parse(d.website!), mode: LaunchMode.externalApplication)),
+                      if (d.website != null) ActionChip(avatar: const Icon(Icons.language_rounded, size: 16), label: const Text('Website'), onPressed: () => InAppBrowserScreen.open(context, d.website!, title: t.name)),
                       if (d.phone != null) ActionChip(avatar: const Icon(Icons.call_rounded, size: 16), label: Text(d.phone!), onPressed: () => launchUrl(Uri.parse('tel:${d.phone}'))),
                       if (d.email != null) ActionChip(avatar: const Icon(Icons.mail_rounded, size: 16), label: Text(d.email!), onPressed: () => launchUrl(Uri.parse('mailto:${d.email}'))),
                     ],
@@ -414,9 +425,9 @@ class _TempleScreenState extends State<TempleScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      ActionChip(avatar: const Icon(Icons.hotel_rounded, size: 16), label: Text(s('hotels_nearby')), onPressed: () => launchUrl(Uri.parse('https://www.google.com/maps/search/hotels/@${t.location.latitude},${t.location.longitude},13z'), mode: LaunchMode.externalApplication)),
+                      ActionChip(avatar: const Icon(Icons.hotel_rounded, size: 16), label: Text(s('hotels_nearby')), onPressed: () => InAppBrowserScreen.open(context, 'https://www.google.com/maps/search/hotels/@${t.location.latitude},${t.location.longitude},13z', title: s('hotels_nearby'))),
                       ActionChip(avatar: const Icon(Icons.directions_bus_rounded, size: 16), label: Text(s('trains_buses')), onPressed: () => launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${t.location.latitude},${t.location.longitude}&travelmode=transit'), mode: LaunchMode.externalApplication)),
-                      ActionChip(avatar: const Icon(Icons.restaurant_rounded, size: 16), label: const Text('Food nearby'), onPressed: () => launchUrl(Uri.parse('https://www.google.com/maps/search/vegetarian+restaurants/@${t.location.latitude},${t.location.longitude},14z'), mode: LaunchMode.externalApplication)),
+                      ActionChip(avatar: const Icon(Icons.restaurant_rounded, size: 16), label: const Text('Food nearby'), onPressed: () => InAppBrowserScreen.open(context, 'https://www.google.com/maps/search/vegetarian+restaurants/@${t.location.latitude},${t.location.longitude},14z', title: 'Food nearby')),
                     ],
                   ),
                 ),
@@ -484,13 +495,14 @@ class _TempleScreenState extends State<TempleScreen> {
   /// Distance within which a GPS check-in counts as verified.
   static const double gpsRangeKm = 2.0;
 
-  Future<void> _checkIn(TempleSummary t) async {
+  Future<void> _checkIn(TempleSummary t, {QrScanResult? preset}) async {
     final passport = context.read<PassportController>();
     final family = context.read<FamilyController>();
     final note = TextEditingController();
     String? photoPath;
-    var verification = Verification.manual;
-    String? verifyNote;
+    var verification = preset == null ? Verification.manual : Verification.qr;
+    String? qrCode = preset?.raw;
+    String? verifyNote = preset == null ? null : preset.verified == true ? 'Genuine temple code. Verified by temple QR.' : 'Temple code scanned offline. It is checked when you are back online.';
     bool verifying = false;
     double? lat;
     double? lng;
@@ -527,11 +539,12 @@ class _TempleScreenState extends State<TempleScreen> {
           }
 
           Future<void> qr() async {
-            final slug = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => QrScanScreen(expectedSlug: t.slug)));
-            if (slug == t.slug) {
+            final r = await Navigator.of(context).push<QrScanResult>(MaterialPageRoute(builder: (_) => QrScanScreen(expectedSlug: t.slug)));
+            if (r != null && r.slug == t.slug) {
               setSheet(() {
                 verification = Verification.qr;
-                verifyNote = 'Temple code matched. Verified by temple QR.';
+                qrCode = r.raw;
+                verifyNote = r.verified == true ? 'Genuine temple code. Verified by temple QR.' : 'Temple code scanned offline. It is checked when you are back online.';
               });
             }
           }
@@ -610,7 +623,7 @@ class _TempleScreenState extends State<TempleScreen> {
     );
     if (confirmed != true || !mounted) return;
     final first = !passport.hasVisited(t.slug);
-    final visit = await passport.checkIn(t, note: note.text.trim().isEmpty ? null : note.text.trim(), photoPath: photoPath, verification: verification, members: members.toList(), latitude: lat, longitude: lng);
+    final visit = await passport.checkIn(t, note: note.text.trim().isEmpty ? null : note.text.trim(), photoPath: photoPath, verification: verification, members: members.toList(), latitude: lat, longitude: lng, qrCode: verification == Verification.qr ? qrCode : null);
     if (photoPath != null && mounted && context.read<AuthController>().isSignedIn) {
       await context.read<SyncService>().queuePhoto(visit, photoPath: photoPath!);
     }
@@ -1169,7 +1182,7 @@ class _PujaCard extends StatelessWidget {
                     Icon(b.isOfficial ? Icons.verified_rounded : Icons.info_outline_rounded, size: 16, color: b.isOfficial ? Palette.tulsi : theme.colorScheme.outline),
                     const SizedBox(width: 6),
                     Expanded(child: Text(b.label ?? (b.isOfficial ? 'Official booking' : 'Book at the temple'), style: theme.textTheme.bodySmall?.copyWith(color: b.isOfficial ? Palette.tulsi : null))),
-                    if (b.url != null) TextButton(onPressed: () => launchUrl(Uri.parse(b.url!), mode: LaunchMode.externalApplication), child: Text(b.isOfficial ? 'Book' : 'Open link')),
+                    if (b.url != null) TextButton(onPressed: () => InAppBrowserScreen.open(context, b.url!), child: Text(b.isOfficial ? 'Book' : 'Open link')),
                   ],
                 ),
                 if (b.note != null) Text(b.note!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),

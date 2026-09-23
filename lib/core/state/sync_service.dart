@@ -207,6 +207,7 @@ class SyncService extends ChangeNotifier {
           if (v.latitude != null) 'latitude': v.latitude,
           if (v.longitude != null) 'longitude': v.longitude,
           if (v.note != null) 'note': v.note,
+          if (v.qrCode != null) 'qr_code': v.qrCode,
           'is_public': true,
         });
         await passport.setRemote(v.localKey, RemoteVisit.fromJson(json['data'] as Map<String, dynamic>));

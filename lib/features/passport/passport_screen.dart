@@ -20,6 +20,7 @@ import '../family/family_screen.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
 import '../qr/qr_screens.dart';
 import '../temple/temple_screen.dart';
+import 'passport_book.dart';
 import 'stamp_widget.dart';
 
 /// The Passport: a stamp book of temples visited, the visit log, circuit
@@ -83,7 +84,7 @@ class _PassportScreenState extends State<PassportScreen> with SingleTickerProvid
                           ],
                         ),
                       ),
-                      IconButton(tooltip: s('scan_qr'), color: Palette.gold, onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QrScanScreen())), icon: const Icon(Icons.qr_code_scanner_rounded)),
+                      IconButton(tooltip: s('scan_qr'), color: Palette.gold, onPressed: () => scanTempleAndCheckIn(context), icon: const Icon(Icons.qr_code_scanner_rounded)),
                       IconButton(tooltip: s('my_qr'), color: Palette.gold, onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyQrScreen())), icon: const Icon(Icons.qr_code_2_rounded)),
                     ],
                   ),
@@ -117,13 +118,15 @@ class _PassportScreenState extends State<PassportScreen> with SingleTickerProvid
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           labelStyle: theme.textTheme.labelLarge,
-          tabs: [Tab(text: s('stamps')), Tab(text: s('visits')), Tab(text: s('collections')), Tab(text: s('achievements')), Tab(text: s('family')), Tab(text: s('certificates'))],
+          tabs: [Tab(text: s('passport_book')), Tab(text: s('visits')), Tab(text: s('collections')), Tab(text: s('achievements')), Tab(text: s('family')), Tab(text: s('certificates'))],
         ),
         Expanded(
           child: TabBarView(
             controller: _tabs,
+            // The book turns its own pages; a swipe there must not change tab.
+            physics: const NeverScrollableScrollPhysics(),
             children: [
-              _StampsPage(passport: passport),
+              PassportBook(passport: passport),
               _VisitsPage(passport: passport),
               _CollectionsPage(passport: passport),
               _AchievementsPage(passport: passport),
@@ -152,45 +155,6 @@ class _Stat extends StatelessWidget {
           ],
         ),
       );
-}
-
-class _StampsPage extends StatelessWidget {
-  const _StampsPage({required this.passport});
-
-  final PassportController passport;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = S.of(context);
-    final stamps = passport.stamps;
-    if (stamps.isEmpty) return EmptyShrine(motif: Motif.kalasha, message: s('no_stamps'));
-    // The page: sandal paper with faint lattice, stamps in a loose grid.
-    return Container(
-      color: Theme.of(context).brightness == Brightness.dark ? Palette.darkStone : Palette.ivory,
-      child: Stack(
-        children: [
-          const Positioned.fill(child: Opacity(opacity: 0.25, child: CustomPaint(painter: LatticePainter(color: Palette.stone, cell: 40)))),
-          GridView.builder(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 20, crossAxisSpacing: 12, childAspectRatio: 0.92),
-            itemCount: stamps.length,
-            itemBuilder: (context, i) {
-              final v = stamps[i];
-              return GestureDetector(
-                onTap: () => enterTemple(context, TempleScreen(slug: v.templeSlug, preview: SampleData.bySlug(v.templeSlug)), accent: DayTheme.forDeity(v.deitySlug).accent),
-                child: Column(
-                  children: [
-                    Expanded(child: Center(child: StampWidget(visit: v, size: 140))),
-                    Text(v.templeName, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.labelMedium?.copyWith(fontFamily: 'NotoSerif')),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _VisitsPage extends StatelessWidget {
