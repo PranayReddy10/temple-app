@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/strings.dart';
-import '../state/mantra_player.dart';
 import '../models/models.dart';
+import '../state/mantra_player.dart';
+import '../../features/media/media_player_screen.dart';
 import '../motifs/architecture.dart';
 import '../motifs/motif.dart';
 import '../theme/day_theme.dart';
@@ -406,7 +407,7 @@ class StoneTile extends StatelessWidget {
 
 /// A mantra in Devanagari with its transliteration, framed by a torana.
 class MantraCard extends StatelessWidget {
-  const MantraCard({super.key, required this.day, this.mantra, this.transliteration, this.title, this.meaning, this.playKey, this.audioUrl});
+  const MantraCard({super.key, required this.day, this.mantra, this.transliteration, this.title, this.meaning, this.playKey, this.audioUrl, this.audio});
 
   final DayTheme day;
   final String? title;
@@ -418,6 +419,9 @@ class MantraCard extends StatelessWidget {
   final String? audioUrl;
   final String? mantra;
   final String? transliteration;
+
+  /// The recording attached in the admin panel, when there is one.
+  final DevotionalMedia? audio;
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +455,12 @@ class MantraCard extends StatelessWidget {
               ],
               if (playKey != null) ...[
                 const SizedBox(height: 12),
-                MantraControls(playKey: playKey!, text: mantra ?? day.mantra, audioUrl: audioUrl, accent: day.accent),
+                MantraControls(playKey: playKey!, text: mantra ?? day.mantra, audioUrl: audioUrl, audio: audio, accent: day.accent, day: day),
+                if (audio != null && (audio!.artist != null || audio!.license != null))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text([audio!.title, audio!.artist, audio!.license].whereType<String>().where((e) => e.isNotEmpty).join(' · '), textAlign: TextAlign.center, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                  ),
               ],
             ],
           ),
@@ -516,21 +525,40 @@ class DeityPortrait extends StatelessWidget {
 
 /// Play / stop and mute for a mantra, bound to the app-wide [MantraPlayer].
 class MantraControls extends StatelessWidget {
-  const MantraControls({super.key, required this.playKey, required this.text, this.audioUrl, required this.accent, this.compact = false, this.onColor});
+  const MantraControls({super.key, required this.playKey, required this.text, this.audioUrl, this.audio, required this.accent, this.compact = false, this.onColor, this.day});
 
   final String playKey;
   final String text;
+
+  /// A direct audio URL, when the caller found one itself.
   final String? audioUrl;
+
+  /// The recording from the API. An audio file plays here and loops; a
+  /// YouTube or Vimeo recording opens in the embedded player; anything
+  /// else falls back to the device voice.
+  final DevotionalMedia? audio;
   final Color accent;
   final bool compact;
   final Color? onColor;
+  final DayTheme? day;
 
   @override
   Widget build(BuildContext context) {
     final player = context.watch<MantraPlayer>();
     final playing = player.isPlayingKey(playKey);
     final fg = onColor ?? accent;
-    final label = playing ? 'Stop' : audioUrl != null ? 'Play recording' : 'Chant';
+    final kind = audio?.playback.kind;
+    final direct = kind == 'audio' ? audio!.url : (audioUrl ?? (kind == null && audio?.playback.isPlayable == true ? audio!.url : null));
+    final embeds = audio != null && (audio!.playback.needsEmbed || kind == 'video') && audio!.url != null;
+    final label = playing ? 'Stop' : embeds ? 'Play recording' : direct != null ? 'Play recording' : 'Chant';
+    void onPressed() {
+      if (embeds && !playing) {
+        player.stop();
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => MediaPlayerScreen(media: audio!, day: day ?? DayTheme.today())));
+        return;
+      }
+      player.toggle(key: playKey, text: text, audioUrl: direct);
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -539,14 +567,14 @@ class MantraControls extends StatelessWidget {
           IconButton(
             tooltip: label,
             style: IconButton.styleFrom(foregroundColor: fg, side: BorderSide(color: fg.withValues(alpha: 0.5))),
-            onPressed: () => player.toggle(key: playKey, text: text, audioUrl: audioUrl),
-            icon: Icon(playing ? Icons.stop_rounded : Icons.play_arrow_rounded),
+            onPressed: onPressed,
+            icon: Icon(playing ? Icons.stop_rounded : embeds ? Icons.play_circle_fill_rounded : Icons.play_arrow_rounded),
           )
         else
           FilledButton.tonalIcon(
             style: FilledButton.styleFrom(foregroundColor: fg, backgroundColor: fg.withValues(alpha: 0.12)),
-            onPressed: () => player.toggle(key: playKey, text: text, audioUrl: audioUrl),
-            icon: Icon(playing ? Icons.stop_rounded : Icons.play_arrow_rounded),
+            onPressed: onPressed,
+            icon: Icon(playing ? Icons.stop_rounded : embeds ? Icons.play_circle_fill_rounded : Icons.play_arrow_rounded),
             label: Text(label),
           ),
         const SizedBox(width: 6),

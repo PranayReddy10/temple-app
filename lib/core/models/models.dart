@@ -266,15 +266,77 @@ class TempleSummary {
 
 /// A temple's verse: its own, or its deity's when it has none.
 class Mantra {
-  const Mantra({this.text, this.transliteration, this.isTempleSpecific = false});
+  const Mantra({this.text, this.transliteration, this.meaning, this.isOwn = false, this.audio});
 
   final String? text;
   final String? transliteration;
-  final bool isTempleSpecific;
+  final String? meaning;
+
+  /// Whether the verse is the owner's own, or its deity's. The app renders
+  /// the two differently.
+  final bool isOwn;
+
+  /// The recording attached in the admin panel, or null: the normal case.
+  final DevotionalMedia? audio;
 
   bool get isEmpty => text == null || text!.isEmpty;
 
-  factory Mantra.fromJson(Map<String, dynamic> j) => Mantra(text: _s(j['text']), transliteration: _s(j['transliteration']), isTempleSpecific: _b(j['is_temple_specific']));
+  factory Mantra.fromJson(Map<String, dynamic> j) => Mantra(
+        text: _s(j['text']),
+        transliteration: _s(j['transliteration']),
+        meaning: _s(j['meaning']),
+        isOwn: _b(j['is_own']) || _b(j['is_temple_specific']),
+        audio: j['audio'] is Map ? DevotionalMedia.fromJson(_m(j['audio'])) : null,
+      );
+}
+
+/// How the server says a media item plays. Classified there so a released
+/// build never has to pattern-match hosts it was compiled before seeing.
+class Playback {
+  const Playback({this.kind = 'link', this.isPlayable = false, this.needsEmbed = false, this.embedUrl, this.youtubeId});
+
+  /// One of audio, video, youtube, vimeo, link.
+  final String kind;
+  final bool isPlayable;
+  final bool needsEmbed;
+  final String? embedUrl;
+  final String? youtubeId;
+
+  factory Playback.fromJson(Map<String, dynamic> j) => Playback(
+        kind: _s(j['kind']) ?? 'link',
+        isPlayable: _b(j['is_playable']),
+        needsEmbed: _b(j['needs_embed']),
+        embedUrl: _s(j['embed_url']),
+        youtubeId: _s(j['youtube_id']),
+      );
+
+  /// A best guess for payloads that predate the block, and for the bundled
+  /// catalogue.
+  static Playback guess(String? url, String? sourceType) {
+    if (url == null) return const Playback();
+    final u = Uri.tryParse(url);
+    final host = (u?.host ?? '').toLowerCase().replaceFirst('www.', '');
+    if (host == 'youtu.be' || host.endsWith('youtube.com') || host == 'youtube-nocookie.com') {
+      String? id;
+      if (host == 'youtu.be') {
+        id = u!.pathSegments.firstOrNull;
+      } else if (u!.queryParameters['v'] != null) {
+        id = u.queryParameters['v'];
+      } else if (u.pathSegments.length >= 2 && const ['embed', 'shorts', 'live', 'v'].contains(u.pathSegments.first)) {
+        id = u.pathSegments[1];
+      }
+      id = id == null || !RegExp(r'^[A-Za-z0-9_-]{6,}$').hasMatch(id) ? null : id;
+      return Playback(kind: 'youtube', needsEmbed: true, embedUrl: id == null ? null : 'https://www.youtube.com/embed/$id', youtubeId: id);
+    }
+    if (host == 'vimeo.com' || host == 'player.vimeo.com') {
+      final id = u!.pathSegments.lastOrNull;
+      return Playback(kind: 'vimeo', needsEmbed: true, embedUrl: id == null ? null : 'https://player.vimeo.com/video/$id');
+    }
+    final ext = (u?.path ?? url).split('?').first.split('.').last.toLowerCase();
+    if (const ['mp3', 'm4a', 'aac', 'ogg', 'oga', 'opus', 'wav', 'flac'].contains(ext)) return const Playback(kind: 'audio', isPlayable: true);
+    if (const ['mp4', 'webm', 'mov', 'm4v'].contains(ext)) return const Playback(kind: 'video', isPlayable: true);
+    return const Playback();
+  }
 }
 
 class Timing {
@@ -513,7 +575,10 @@ class TempleDetail {
     final rules = _m(j['visitor_rules']);
     final contact = _m(j['contact']);
     final photos = _l(j['photos']).map((e) => Photo.fromJson(_m(e))).toList();
-    final primary = photos.where((p) => p.isPrimary).firstOrNull ?? photos.firstOrNull;
+    final cover = j['primary_photo'] is Map ? Photo.fromJson(_m(j['primary_photo'])) : null;
+    final primary = cover ?? photos.where((p) => p.isPrimary).firstOrNull ?? photos.firstOrNull;
+    // The cover leads the gallery even when it is not among the published rows.
+    if (cover != null && !photos.any((p) => p.id == cover.id)) photos.insert(0, cover);
     return TempleDetail(
       summary: TempleSummary(
         id: _i(j['id']),
@@ -567,7 +632,16 @@ class DevotionalMedia {
     this.credit,
     this.license,
     this.licenseUrl,
-  });
+    Playback? playback,
+  }) : _playback = playback;
+
+  final Playback? _playback;
+
+  /// The server's classification when it sent one, a guess otherwise.
+  Playback get playback => _playback ?? Playback.guess(url, sourceType);
+
+  /// A poster for YouTube items that carry no thumbnail of their own.
+  String? get posterUrl => thumbnailUrl ?? (playback.youtubeId == null ? null : 'https://img.youtube.com/vi/${playback.youtubeId}/hqdefault.jpg');
 
   final String? type;
   final String title;
@@ -593,6 +667,7 @@ class DevotionalMedia {
         credit: _s(j['credit']),
         license: _s(j['license']),
         licenseUrl: _s(j['license_url']),
+        playback: j['playback'] is Map ? Playback.fromJson(_m(j['playback'])) : null,
       );
 }
 
@@ -609,7 +684,11 @@ class DevotionalDay {
     this.deity,
     this.media = const [],
     this.temples = const [],
+    this.mantraAudio,
   });
+
+  /// The day's mantra with its recording, falling back to the deity's.
+  final Mantra? mantraAudio;
 
   final int weekday;
   final String? weekdayName;
@@ -635,6 +714,7 @@ class DevotionalDay {
         deity: j['deity'] is Map ? DeityRef.fromJson(_m(j['deity'])) : null,
         media: _l(j['media']).map((e) => DevotionalMedia.fromJson(_m(e))).toList(),
         temples: _l(j['temples']).map((e) => TempleSummary.fromJson(_m(e))).toList(),
+        mantraAudio: j['mantra_audio'] is Map ? Mantra.fromJson(_m(j['mantra_audio'])) : null,
       );
 }
 

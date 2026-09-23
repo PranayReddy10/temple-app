@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:temple_app/core/models/models.dart';
 
 void main() {
+  _playbackTests();
   group('Fee contract', () {
     test('an unpriced puja is not free', () {
       final fee = Fee.fromJson({'is_free': false, 'amount': null, 'label': 'No published price'});
@@ -92,5 +93,40 @@ void main() {
     expect(day.deity?.slug, 'shiva');
     expect(day.media.single.license, 'CC BY');
     expect(day.temples.single.slug, 'somnath-temple');
+  });
+}
+
+void _playbackTests() {
+  test('playback comes from the server when sent, and is guessed otherwise', () {
+    final served = DevotionalMedia.fromJson({'type': 'song', 'title': 'x', 'url': 'https://youtu.be/dQw4w9WgXcQ', 'playback': {'kind': 'youtube', 'is_playable': false, 'needs_embed': true, 'embed_url': 'https://www.youtube.com/embed/dQw4w9WgXcQ', 'youtube_id': 'dQw4w9WgXcQ'}});
+    expect(served.playback.youtubeId, 'dQw4w9WgXcQ');
+    expect(served.posterUrl, contains('img.youtube.com/vi/dQw4w9WgXcQ'));
+
+    final guessedYt = DevotionalMedia.fromJson({'title': 'x', 'url': 'https://www.youtube.com/watch?v=abc123def45&t=10'});
+    expect(guessedYt.playback.kind, 'youtube');
+    expect(guessedYt.playback.youtubeId, 'abc123def45');
+    final search = DevotionalMedia.fromJson({'title': 'x', 'url': 'https://www.youtube.com/results?search_query=om'});
+    expect(search.playback.kind, 'youtube');
+    expect(search.playback.embedUrl, isNull, reason: 'a search page has no video to embed');
+    final mp3 = DevotionalMedia.fromJson({'title': 'x', 'url': 'https://cdn.example/chant.mp3?sig=1'});
+    expect(mp3.playback.kind, 'audio');
+    expect(mp3.playback.isPlayable, isTrue);
+  });
+
+  test('a mantra carries its recording and falls back field by field', () {
+    final m = Mantra.fromJson({'text': 'ॐ नमः शिवाय', 'transliteration': 'Om Namah Shivaya', 'meaning': 'Salutations to Shiva.', 'is_own': false, 'audio': {'type': 'chant', 'title': 'Chant', 'url': 'https://cdn.example/om.mp3', 'playback': {'kind': 'audio', 'is_playable': true}}});
+    expect(m.isOwn, isFalse);
+    expect(m.meaning, 'Salutations to Shiva.');
+    expect(m.audio!.playback.kind, 'audio');
+    final day = DevotionalDay.fromJson({'weekday': 1, 'title': 't', 'mantra_audio': {'text': 'x', 'is_own': true, 'audio': null}});
+    expect(day.mantraAudio!.isOwn, isTrue);
+    expect(day.mantraAudio!.audio, isNull);
+  });
+
+  test('the cover leads the gallery even when not among the published rows', () {
+    final d = TempleDetail.fromJson({'slug': 'x', 'name': 'X', 'location': {}, 'trust': {}, 'photos': [{'id': 2, 'urls': {'medium': 'https://x/2.jpg'}}], 'primary_photo': {'id': 9, 'is_primary': true, 'urls': {'medium': 'https://x/cover.jpg'}}});
+    expect(d.summary.primaryPhoto!.best, 'https://x/cover.jpg');
+    expect(d.photos.first.id, 9);
+    expect(d.photos, hasLength(2));
   });
 }

@@ -12,6 +12,10 @@ import '../../features/media/media_player_screen.dart';
 import '../theme/palette.dart';
 import 'app_image.dart';
 
+/// Items that show as a video poster strip: anything that embeds or is a
+/// video file, whatever type the editor filed it under.
+bool isVideoLike(DevotionalMedia m) => m.type == 'video' || m.playback.needsEmbed || m.playback.kind == 'video';
+
 IconData mediaIcon(String? type) => switch (type) {
       'video' => Icons.play_circle_fill_rounded,
       'chant' => Icons.self_improvement_rounded,
@@ -91,12 +95,12 @@ class MediaArt extends StatelessWidget {
       child: SizedBox(
         width: size,
         height: size,
-        child: media.thumbnailUrl == null
+        child: media.posterUrl == null
             ? painted
             : Stack(
                 fit: StackFit.expand,
                 children: [
-                  AppImage(media.thumbnailUrl!, placeholder: painted, decodeWidth: 400),
+                  AppImage(media.posterUrl!, placeholder: painted, decodeWidth: 400),
                   Center(child: Icon(mediaIcon(media.type), color: Colors.white, size: size * 0.36, shadows: const [Shadow(blurRadius: 8, color: Colors.black54)])),
                 ],
               ),
