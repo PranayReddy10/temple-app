@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/passport_controller.dart';
+import '../../core/l10n/strings.dart';
 import '../../core/theme/day_theme.dart';
+import '../../core/theme/palette.dart';
 
 /// A circular ink stamp for one temple: serrated ring, ring text with the
 /// temple's name, the deity's motif in the centre and the date below.
@@ -89,4 +91,28 @@ class _StampLandingState extends State<StampLanding> with SingleTickerProviderSt
         },
         child: StampWidget(visit: widget.visit, size: widget.size),
       );
+}
+
+/// How a visit was confirmed, as a small pill. Manual stays visually distinct
+/// from GPS and QR: the passport never dresses up a word as a proof.
+class VerificationBadge extends StatelessWidget {
+  const VerificationBadge({super.key, required this.verification, this.compact = false});
+
+  final Verification verification;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final (Color color, IconData icon, String label) = switch (verification) {
+      Verification.gps => (Palette.tulsi, Icons.my_location_rounded, s('verified_gps')),
+      Verification.qr => (const Color(0xFF1F5F8B), Icons.qr_code_2_rounded, s('verified_qr')),
+      Verification.manual => (Palette.stone, Icons.edit_rounded, s('manual_checkin')),
+    };
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 7 : 10, vertical: compact ? 3 : 5),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999), border: Border.all(color: color.withValues(alpha: 0.5))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: compact ? 12 : 14, color: color), const SizedBox(width: 4), Text(label, style: TextStyle(color: color, fontSize: compact ? 10 : 12, fontWeight: FontWeight.w700))]),
+    );
+  }
 }

@@ -14,7 +14,10 @@ import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../certificates/certificates_screen.dart';
+import '../family/family_screen.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
+import '../qr/qr_screens.dart';
 import '../temple/temple_screen.dart';
 import 'stamp_widget.dart';
 
@@ -29,7 +32,7 @@ class PassportScreen extends StatefulWidget {
 }
 
 class _PassportScreenState extends State<PassportScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 6, vsync: this);
 
   @override
   void dispose() {
@@ -77,6 +80,8 @@ class _PassportScreenState extends State<PassportScreen> with SingleTickerProvid
                           ],
                         ),
                       ),
+                      IconButton(tooltip: s('scan_qr'), color: Palette.gold, onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QrScanScreen())), icon: const Icon(Icons.qr_code_scanner_rounded)),
+                      IconButton(tooltip: s('my_qr'), color: Palette.gold, onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyQrScreen())), icon: const Icon(Icons.qr_code_2_rounded)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -98,7 +103,7 @@ class _PassportScreenState extends State<PassportScreen> with SingleTickerProvid
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           labelStyle: theme.textTheme.labelLarge,
-          tabs: [Tab(text: s('stamps')), Tab(text: s('visits')), Tab(text: s('collections')), Tab(text: s('achievements'))],
+          tabs: [Tab(text: s('stamps')), Tab(text: s('visits')), Tab(text: s('collections')), Tab(text: s('achievements')), Tab(text: s('family')), Tab(text: s('certificates'))],
         ),
         Expanded(
           child: TabBarView(
@@ -108,6 +113,8 @@ class _PassportScreenState extends State<PassportScreen> with SingleTickerProvid
               _VisitsPage(passport: passport),
               _CollectionsPage(passport: passport),
               _AchievementsPage(passport: passport),
+              const FamilyScreen(embedded: true),
+              const CertificatesScreen(embedded: true),
             ],
           ),
         ),
@@ -127,7 +134,7 @@ class _Stat extends StatelessWidget {
         child: Column(
           children: [
             Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Palette.gold)),
-            Text(label.toUpperCase(), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Palette.sandal.withValues(alpha: 0.8), letterSpacing: 1.2)),
+            FittedBox(fit: BoxFit.scaleDown, child: Text(label.toUpperCase(), maxLines: 1, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Palette.sandal.withValues(alpha: 0.8), letterSpacing: 1.2))),
           ],
         ),
       );
@@ -219,8 +226,15 @@ class _VisitsPage extends StatelessWidget {
                   ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(v.photoPath!), width: 52, height: 52, fit: BoxFit.cover, errorBuilder: (_, __, ___) => MotifIcon(day.motif, size: 40, color: day.accent)))
                   : MotifIcon(day.motif, size: 40, color: day.accent, secondary: day.secondary),
               title: Text(v.templeName, style: const TextStyle(fontFamily: 'NotoSerif')),
-              subtitle: Text('${_date(v.visitedAt)}${v.city != null ? ' · ${v.city}' : ''}${v.note != null ? '\n${v.note}' : ''}'),
-              isThreeLine: v.note != null,
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${_date(v.visitedAt)}${v.city != null ? ' · ${v.city}' : ''}${v.note != null ? '\n${v.note}' : ''}'),
+                  const SizedBox(height: 4),
+                  Row(children: [VerificationBadge(verification: v.verification, compact: true), if (v.members.isNotEmpty) ...[const SizedBox(width: 6), Icon(Icons.group_rounded, size: 14, color: theme.colorScheme.outline), Text(' ${v.members.length}', style: theme.textTheme.labelSmall)]]),
+                ],
+              ),
+              isThreeLine: true,
               trailing: IconButton(
                 tooltip: s('photo_stamp'),
                 icon: const Icon(Icons.auto_awesome_rounded),

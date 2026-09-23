@@ -10,7 +10,10 @@ import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/app_settings.dart';
 import '../../core/state/auth_controller.dart';
+import '../../core/state/bookings_controller.dart';
 import '../../core/state/favourites_controller.dart';
+import '../../core/state/offline_pack_controller.dart';
+import '../../core/state/submissions_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
 import '../../core/theme/day_theme.dart';
@@ -18,6 +21,11 @@ import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../auth/auth_screen.dart';
+import '../bookings/bookings_screen.dart';
+import '../certificates/certificates_screen.dart';
+import '../family/family_screen.dart';
+import '../qr/qr_screens.dart';
+import '../submissions/submissions_screen.dart';
 import '../temple/temple_screen.dart';
 import 'edit_profile_screen.dart';
 import 'memories_screen.dart';
@@ -136,6 +144,21 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
         ),
+        // Pilgrimage tools.
+        const SectionHeader(title: 'Pilgrimage tools', motif: Motif.kalasha),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: [
+              _ToolTile(icon: Icons.group_rounded, title: s('family_passport'), subtitle: 'Stamps for everyone who travels with you', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen()))),
+              _ToolTile(icon: Icons.workspace_premium_rounded, title: s('certificates'), subtitle: 'Completed circuits and yatras', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CertificatesScreen()))),
+              _ToolTile(icon: Icons.local_fire_department_rounded, title: s('bookings'), subtitle: '${context.watch<BookingsController>().upcoming.length} upcoming', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BookingsScreen()))),
+              _ToolTile(icon: Icons.qr_code_2_rounded, title: s('my_qr'), subtitle: 'For temple counters on the QR network', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyQrScreen()))),
+              _ToolTile(icon: Icons.offline_pin_rounded, title: s('offline_pack'), subtitle: '${context.watch<OfflinePackController>().totalPacked} temples saved for offline, from your yatras', onTap: null),
+              _ToolTile(icon: Icons.edit_note_rounded, title: s('submissions'), subtitle: '${context.watch<SubmissionsController>().all.length} contributions', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubmissionsScreen()))),
+            ],
+          ),
+        ),
         // Memories.
         SectionHeader(
           title: s('memories'),
@@ -197,17 +220,20 @@ class ProfileScreen extends StatelessWidget {
         SectionHeader(title: s('language'), motif: Motif.om),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'en', label: Text('English')),
-              ButtonSegment(value: 'te', label: Text('తెలుగు')),
-              ButtonSegment(value: 'hi', label: Text('हिन्दी')),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final l in const [('en', 'English'), ('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('ta', 'தமிழ்'), ('kn', 'ಕನ್ನಡ')])
+                ChoiceChip(
+                  label: Text(l.$2),
+                  selected: settings.locale.languageCode == l.$1,
+                  onSelected: (_) {
+                    settings.setLocale(Locale(l.$1));
+                    if (auth.isSignedIn) auth.updateProfile(locale: l.$1).catchError((_) {});
+                  },
+                ),
             ],
-            selected: {settings.locale.languageCode},
-            onSelectionChanged: (v) {
-              settings.setLocale(Locale(v.first));
-              if (auth.isSignedIn) auth.updateProfile(locale: v.first).catchError((_) {});
-            },
           ),
         ),
         // Appearance.
@@ -267,7 +293,7 @@ class ProfileScreen extends StatelessWidget {
             children: [
               SizedBox(height: 60, width: double.infinity, child: CustomPaint(painter: GopuramPainter(color: theme.colorScheme.primary, opacity: 0.25, tiers: 5))),
               const SizedBox(height: 8),
-              Text('${Brand.name} · v0.2 · Phase 1', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
+              Text('${Brand.name} · v0.4 · Phases 1–4', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
               Text(s('trust_note'), textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
             ],
           ),
@@ -281,6 +307,8 @@ class ProfileScreen extends StatelessWidget {
   static String _localeName(String code) => switch (code) {
         'te' => 'తెలుగు',
         'hi' => 'हिन्दी',
+        'ta' => 'தமிழ்',
+        'kn' => 'ಕನ್ನಡ',
         _ => 'English',
       };
 
@@ -375,6 +403,30 @@ class _Placeholder extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.4))),
       child: Row(children: [Icon(icon, color: theme.colorScheme.primary), const SizedBox(width: 10), Expanded(child: Text(text, style: theme.textTheme.bodySmall))]),
+    );
+  }
+}
+
+class _ToolTile extends StatelessWidget {
+  const _ToolTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(icon, color: theme.colorScheme.primary),
+        title: Text(title, style: const TextStyle(fontFamily: 'NotoSerif')),
+        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: onTap == null ? null : const Icon(Icons.chevron_right_rounded),
+        onTap: onTap,
+      ),
     );
   }
 }

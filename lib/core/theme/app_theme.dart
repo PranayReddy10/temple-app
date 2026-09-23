@@ -13,7 +13,7 @@ class AppTheme {
 
   static const _serif = 'NotoSerif';
   static const _sans = 'NotoSans';
-  static const fallback = ['NotoSansDevanagari', 'NotoSansTelugu'];
+  static const fallback = ['NotoSansDevanagari', 'NotoSansTelugu', 'NotoSansTamil', 'NotoSansKannada'];
 
   static ThemeData light(DayTheme day) => _build(Brightness.light, day);
   static ThemeData dark(DayTheme day) => _build(Brightness.dark, day);

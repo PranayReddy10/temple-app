@@ -13,6 +13,9 @@ class Brand {
     defaultValue: 'Your digital pilgrimage companion',
   );
 
+  /// Where community submissions go until the submissions API exists.
+  static const String supportEmail = String.fromEnvironment('BRAND_SUPPORT_EMAIL', defaultValue: 'support@example.com');
+
   /// Base URL of the Laravel API, without the `/api/v1` suffix.
   static const String defaultApiBase =
       String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');

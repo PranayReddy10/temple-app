@@ -7,6 +7,7 @@ import '../../core/data/sample_data.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/motif.dart';
+import '../../core/state/offline_pack_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
 import '../../core/theme/day_theme.dart';
@@ -260,6 +261,8 @@ class YatraDetailScreen extends StatelessWidget {
     if (y == null) return Scaffold(appBar: AppBar(), body: const EmptyShrine(motif: Motif.diya, message: 'This yatra was removed.'));
     final day = DayTheme.forDeity(y.deitySlug);
     final passport = context.watch<PassportController>();
+    final packs = context.watch<OfflinePackController>();
+    final located = y.allStops.where((st) => st.lat != null).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -310,7 +313,7 @@ class YatraDetailScreen extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${y.stopCount} temples · ${y.days.length} days', style: theme.textTheme.bodyMedium?.copyWith(color: day.onAccent().withValues(alpha: 0.9))),
+                    Text('${y.stopCount} temples · ${y.days.length} days${y.distanceKm > 0 ? ' · ~${y.distanceKm.toStringAsFixed(0)} km straight-line' : ''}', style: theme.textTheme.bodyMedium?.copyWith(color: day.onAccent().withValues(alpha: 0.9))),
                     const SizedBox(height: 8),
                     ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: y.progress, minHeight: 8, color: day.onAccent(), backgroundColor: day.onAccent().withValues(alpha: 0.25))),
                     const SizedBox(height: 12),
@@ -332,6 +335,40 @@ class YatraDetailScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.alt_route_rounded, size: 16),
+                label: Text(s('optimise_route')),
+                onPressed: located < 3 ? null : () async {
+                  await ctl.optimise(y);
+                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Reordered to the shortest route: ~${y.distanceKm.toStringAsFixed(0)} km.')));
+                },
+              ),
+              ActionChip(avatar: const Icon(Icons.calendar_view_week_rounded, size: 16), label: Text(s('auto_plan_days')), onPressed: y.stopCount < 2 ? null : () => _autoPlan(context, ctl, y)),
+              ActionChip(
+                avatar: packs.isDownloading(y.id)
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Icon(packs.hasPack(y.id) ? Icons.offline_pin_rounded : Icons.download_for_offline_outlined, size: 16, color: packs.hasPack(y.id) ? Palette.tulsi : null),
+                label: Text(packs.hasPack(y.id) ? '${s('pack_ready')} · ${packs.packedTemples(y.id)}/${y.stopCount}' : s('download_pack')),
+                onPressed: packs.isDownloading(y.id) || y.stopCount == 0
+                    ? null
+                    : () async {
+                        if (packs.hasPack(y.id)) {
+                          await packs.remove(y.id);
+                          return;
+                        }
+                        final failed = await packs.download(y);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failed == 0 ? 'Every temple on this yatra is saved for offline.' : '$failed of ${y.stopCount} could not be fetched. Bundled records will stand in for them.')));
+                        }
+                      },
+              ),
+            ],
+          ),
           if (y.isComplete)
             Padding(
               padding: const EdgeInsets.only(top: 16),
@@ -345,7 +382,10 @@ class YatraDetailScreen extends StatelessWidget {
             SectionHeader(
               title: y.days[di].title,
               motif: Motif.sun,
-              subtitle: y.startDate != null ? _date(y.startDate!.add(Duration(days: di))) : null,
+              subtitle: [
+                if (y.startDate != null) _date(y.startDate!.add(Duration(days: di))),
+                if (y.days[di].stops.length > 1) '~${y.days[di].distanceKm.toStringAsFixed(0)} km',
+              ].join(' · ').ifEmptyNull,
               actionLabel: y.days.length > 1 ? 'Remove day' : null,
               onAction: () => ctl.removeDay(y, di),
             ),
@@ -409,6 +449,36 @@ class YatraDetailScreen extends StatelessWidget {
 
   static String _date(DateTime d) => '${d.day}/${d.month}/${d.year}';
 
+  static Future<void> _autoPlan(BuildContext context, YatraController ctl, Yatra y) async {
+    var perDay = 3;
+    var km = 250.0;
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(S.of(context)('auto_plan_days'), style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text('Orders every stop into the shortest route, then starts a new day when a day would pass the limits below. Distances are straight-line estimates.', style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 12),
+              Text('Temples per day: $perDay'),
+              Slider(value: perDay.toDouble(), min: 1, max: 6, divisions: 5, onChanged: (v) => setSheet(() => perDay = v.round())),
+              Text('Distance per day: ${km.round()} km'),
+              Slider(value: km, min: 50, max: 600, divisions: 11, onChanged: (v) => setSheet(() => km = v)),
+              const SizedBox(height: 8),
+              FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Re-plan')),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (ok == true) await ctl.autoPlan(y, maxKmPerDay: km, maxStopsPerDay: perDay);
+  }
+
   static Future<void> _rename(BuildContext context, YatraController ctl, Yatra y) async {
     final c = TextEditingController(text: y.name);
     final ok = await showDialog<bool>(
@@ -424,4 +494,8 @@ class YatraDetailScreen extends StatelessWidget {
       await ctl.save();
     }
   }
+}
+
+extension on String {
+  String? get ifEmptyNull => isEmpty ? null : this;
 }

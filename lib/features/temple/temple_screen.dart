@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,6 +11,7 @@ import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
+import '../../core/state/family_controller.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
@@ -17,7 +19,11 @@ import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../bookings/bookings_screen.dart';
+import '../family/family_screen.dart';
 import '../passport/stamp_widget.dart';
+import '../qr/qr_screens.dart';
+import '../submissions/submissions_screen.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
 
 /// The full temple profile. Entered through the temple door, and while open
@@ -341,7 +347,7 @@ class _TempleScreenState extends State<TempleScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: d.pujas.isEmpty
                   ? const SliverToBoxAdapter(child: _EmptyLine(icon: Icons.local_fire_department_outlined, text: 'No pujas or sevas published yet.'))
-                  : SliverList.separated(itemCount: d.pujas.length, separatorBuilder: (_, __) => const SizedBox(height: 10), itemBuilder: (context, i) => _PujaCard(puja: d.pujas[i], accent: day.accent)),
+                  : SliverList.separated(itemCount: d.pujas.length, separatorBuilder: (_, __) => const SizedBox(height: 10), itemBuilder: (context, i) => _PujaCard(puja: d.pujas[i], accent: day.accent, onBooked: () => BookingsScreen.record(context, t, d.pujas[i]))),
             ),
             if (d.facilities.isNotEmpty) ...[
               SliverToBoxAdapter(child: SectionHeader(title: s('facilities'), motif: Motif.lotus)),
@@ -376,6 +382,29 @@ class _TempleScreenState extends State<TempleScreen> {
                 ),
               ),
             ],
+            if (t.location.hasCoordinates) ...[
+              SliverToBoxAdapter(child: SectionHeader(title: s('stay_travel'), motif: Motif.diya, subtitle: 'Opens in Maps; partner stays arrive in a later phase')),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverToBoxAdapter(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ActionChip(avatar: const Icon(Icons.hotel_rounded, size: 16), label: Text(s('hotels_nearby')), onPressed: () => launchUrl(Uri.parse('https://www.google.com/maps/search/hotels/@${t.location.latitude},${t.location.longitude},13z'), mode: LaunchMode.externalApplication)),
+                      ActionChip(avatar: const Icon(Icons.directions_bus_rounded, size: 16), label: Text(s('trains_buses')), onPressed: () => launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${t.location.latitude},${t.location.longitude}&travelmode=transit'), mode: LaunchMode.externalApplication)),
+                      ActionChip(avatar: const Icon(Icons.restaurant_rounded, size: 16), label: const Text('Food nearby'), onPressed: () => launchUrl(Uri.parse('https://www.google.com/maps/search/vegetarian+restaurants/@${t.location.latitude},${t.location.longitude},14z'), mode: LaunchMode.externalApplication)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: OutlinedButton.icon(onPressed: () => SubmissionsScreen.submit(context, temple: t), icon: const Icon(Icons.edit_note_rounded), label: Text(s('suggest_edit'))),
+              ),
+            ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 28, 20, 40),
@@ -429,48 +458,132 @@ class _TempleScreenState extends State<TempleScreen> {
         _ => key,
       };
 
+  /// Distance within which a GPS check-in counts as verified.
+  static const double gpsRangeKm = 2.0;
+
   Future<void> _checkIn(TempleSummary t) async {
     final passport = context.read<PassportController>();
+    final family = context.read<FamilyController>();
     final note = TextEditingController();
     String? photoPath;
+    var verification = Verification.manual;
+    String? verifyNote;
+    bool verifying = false;
+    final members = <String>{};
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setSheet) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Check in at ${t.name}', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text('A manual check-in records your darshan and inks a stamp in your passport. GPS and QR verification arrive in a later phase.', style: Theme.of(context).textTheme.bodySmall),
-              const SizedBox(height: 16),
-              TextField(controller: note, maxLines: 2, decoration: const InputDecoration(hintText: 'A line to remember this visit by (optional)')),
-              const SizedBox(height: 12),
-              Row(
+        builder: (context, setSheet) {
+          Future<void> gps() async {
+            setSheet(() => verifying = true);
+            try {
+              var p = await Geolocator.checkPermission();
+              if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
+              if (p == LocationPermission.denied || p == LocationPermission.deniedForever) throw 'Location permission is needed to verify.';
+              if (!t.location.hasCoordinates) throw 'This temple has no coordinates on record yet.';
+              final pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+              final km = TempleRepository.distanceKm(pos.latitude, pos.longitude, t.location.latitude!, t.location.longitude!);
+              if (km <= gpsRangeKm) {
+                setSheet(() {
+                  verification = Verification.gps;
+                  verifyNote = 'You are ${(km * 1000).round()} m from the temple. Verified by GPS.';
+                });
+              } else {
+                setSheet(() => verifyNote = 'You are ${km.toStringAsFixed(km < 10 ? 1 : 0)} km away, outside the ${gpsRangeKm.toStringAsFixed(0)} km range. The visit will be recorded as manual.');
+              }
+            } catch (e) {
+              setSheet(() => verifyNote = '$e');
+            } finally {
+              setSheet(() => verifying = false);
+            }
+          }
+
+          Future<void> qr() async {
+            final slug = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => QrScanScreen(expectedSlug: t.slug)));
+            if (slug == t.slug) {
+              setSheet(() {
+                verification = Verification.qr;
+                verifyNote = 'Temple code matched. Verified by temple QR.';
+              });
+            }
+          }
+
+          final s = S.of(context);
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 2000);
-                      if (x != null) setSheet(() => photoPath = x.path);
-                    },
-                    icon: Icon(photoPath == null ? Icons.add_a_photo_rounded : Icons.check_rounded),
-                    label: Text(photoPath == null ? 'Add a photo' : 'Photo added'),
+                  Text('Check in at ${t.name}', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 4),
+                  Text('Verify with your location or the temple\'s QR code, or record the visit on your word. The passport shows which.', style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: verifying || verification != Verification.manual ? null : gps,
+                          icon: verifying ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(verification == Verification.gps ? Icons.verified_rounded : Icons.my_location_rounded),
+                          label: Text(verification == Verification.gps ? s('verified_gps') : 'Verify by GPS'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: verification != Verification.manual ? null : qr,
+                          icon: Icon(verification == Verification.qr ? Icons.verified_rounded : Icons.qr_code_scanner_rounded),
+                          label: Text(verification == Verification.qr ? s('verified_qr') : s('scan_qr')),
+                        ),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  FilledButton.icon(onPressed: () => Navigator.of(context).pop(true), icon: const Icon(Icons.approval_rounded), label: const Text('Stamp it')),
+                  if (verifyNote != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(verifyNote!, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: verification == Verification.manual ? Theme.of(context).colorScheme.error : Palette.tulsi))),
+                  if (family.members.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Text(s('who_came'), style: Theme.of(context).textTheme.labelLarge),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: [
+                        for (final m in family.members)
+                          GestureDetector(
+                            onTap: () => setSheet(() => members.contains(m.id) ? members.remove(m.id) : members.add(m.id)),
+                            child: Column(mainAxisSize: MainAxisSize.min, children: [MemberAvatar(member: m, size: 44, selected: members.contains(m.id)), const SizedBox(height: 3), Text(m.name.split(' ').first, style: Theme.of(context).textTheme.labelSmall)]),
+                          ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  TextField(controller: note, maxLines: 2, decoration: const InputDecoration(hintText: 'A line to remember this visit by (optional)')),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 2000);
+                          if (x != null) setSheet(() => photoPath = x.path);
+                        },
+                        icon: Icon(photoPath == null ? Icons.add_a_photo_rounded : Icons.check_rounded),
+                        label: Text(photoPath == null ? 'Add a photo' : 'Photo added'),
+                      ),
+                      const Spacer(),
+                      FilledButton.icon(onPressed: () => Navigator.of(context).pop(true), icon: const Icon(Icons.approval_rounded), label: const Text('Stamp it')),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
     if (confirmed != true || !mounted) return;
     final first = !passport.hasVisited(t.slug);
-    await passport.checkIn(t, note: note.text.trim().isEmpty ? null : note.text.trim(), photoPath: photoPath);
+    await passport.checkIn(t, note: note.text.trim().isEmpty ? null : note.text.trim(), photoPath: photoPath, verification: verification, members: members.toList());
     if (!mounted) return;
     final visit = passport.visits.first;
     await showDialog<void>(
@@ -485,7 +598,9 @@ class _TempleScreenState extends State<TempleScreen> {
               Text(first ? 'Stamp earned' : 'Darshan recorded', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 20),
               StampLanding(visit: visit),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              VerificationBadge(verification: visit.verification),
+              const SizedBox(height: 12),
               Text(first ? 'Your passport now carries ${t.name}.' : 'Another visit to a temple already in your passport.', textAlign: TextAlign.center),
               const SizedBox(height: 16),
               Row(
@@ -809,10 +924,11 @@ class _TimingsTable extends StatelessWidget {
 /// label verbatim (an unpriced puja is not free), and a link called official
 /// only when `is_official` says so.
 class _PujaCard extends StatelessWidget {
-  const _PujaCard({required this.puja, required this.accent});
+  const _PujaCard({required this.puja, required this.accent, required this.onBooked});
 
   final Puja puja;
   final Color accent;
+  final VoidCallback onBooked;
 
   @override
   Widget build(BuildContext context) {
@@ -862,6 +978,7 @@ class _PujaCard extends StatelessWidget {
                   ],
                 ),
                 if (b.note != null) Text(b.note!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
+                Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: onBooked, icon: const Icon(Icons.bookmark_add_outlined, size: 16), label: const Text('I booked this'))),
               ],
             ),
           ),

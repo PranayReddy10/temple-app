@@ -7,9 +7,14 @@ import 'package:temple_app/core/api/temple_repository.dart';
 import 'package:temple_app/core/motifs/architecture.dart';
 import 'package:temple_app/core/state/app_settings.dart';
 import 'package:temple_app/core/state/auth_controller.dart';
+import 'package:temple_app/core/state/bookings_controller.dart';
 import 'package:temple_app/core/state/day_controller.dart';
+import 'package:temple_app/core/state/family_controller.dart';
 import 'package:temple_app/core/state/favourites_controller.dart';
+import 'package:temple_app/core/state/offline_pack_controller.dart';
 import 'package:temple_app/core/state/passport_controller.dart';
+import 'package:temple_app/core/state/reminders_controller.dart';
+import 'package:temple_app/core/state/submissions_controller.dart';
 import 'package:temple_app/core/state/yatra_controller.dart';
 import 'package:temple_app/core/theme/app_theme.dart';
 import 'package:temple_app/core/theme/day_theme.dart';
@@ -34,6 +39,11 @@ Future<Widget> harness(Widget child) async {
       ChangeNotifierProvider(create: (_) => PassportController(prefs)),
       ChangeNotifierProvider(create: (_) => FavouritesController(prefs, auth)),
       ChangeNotifierProvider(create: (_) => YatraController(prefs)),
+      ChangeNotifierProvider(create: (_) => FamilyController(prefs)),
+      ChangeNotifierProvider(create: (_) => RemindersController(prefs)),
+      ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
+      ChangeNotifierProvider(create: (_) => BookingsController(prefs)),
+      ChangeNotifierProvider(create: (_) => SubmissionsController(prefs)),
     ],
     child: MaterialApp(theme: AppTheme.light(DayTheme.today()), home: child),
   );

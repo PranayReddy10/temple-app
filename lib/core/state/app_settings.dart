@@ -25,7 +25,7 @@ class AppSettings extends ChangeNotifier {
   bool get doorAnimations => _doorAnimations;
   String get apiBase => api.baseUrl;
 
-  static const supportedLocales = [Locale('en'), Locale('te'), Locale('hi')];
+  static const supportedLocales = [Locale('en'), Locale('te'), Locale('hi'), Locale('ta'), Locale('kn')];
 
   Future<void> setLocale(Locale l) async {
     _locale = l;

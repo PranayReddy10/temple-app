@@ -104,68 +104,36 @@ leaves the system in a working state. **Nothing is built all at once.**
 | 9 | **Favourites + basic Yatra planner** | Saved temples (synced to the account), itinerary by days, reorder, Yatra mode, route in Maps | ✅ **Done** |
 | 10 | **Languages: EN / TE / HI** | Interface strings in three languages with bundled Indic fonts; alternate temple names come from the API | ✅ **Done** |
 
-### Phase 2 — Scale and trust
+### Phase 2 — Profile and media  ✅ **Done** (app)
 
-Community submissions and moderation · GPS + QR visit verification ·
-advanced Yatra planner · festival calendar and notifications · Family
-Passport · certificates and achievements · offline trip packs · hotel and
-travel partnerships · Temple Admin SaaS · official QR Passport network ·
-authorized puja/seva/prasadam · AI assistant grounded in verified temple data.
+Complete devotee profile, memories, songs, chants and darshan videos on
+Home, on each weekday page and on every temple, galleries with a viewer,
+and the redesigned temple page.
 
----
+### Phase 3 — Scale and trust  ✅ **Done** (app side)
 
-## Notes on the Phase 2 slices
+| Feature | What shipped in the app | Still needs backend |
+| --- | --- | --- |
+| GPS visit verification | Check-in verifies the device is within 2 km of the temple's coordinates; the passport shows GPS, QR or manual on every visit | Server-side attestation |
+| QR visit verification | Scans a temple-issued code (`templepassport://checkin/<slug>`, a temple URL, or the slug) and refuses a code for another temple | Signed codes and the official QR network |
+| Festival calendar and notifications | Month grid with the weekday deity on every cell, festival dots, reminders that surface on Home, "Add to calendar" | Push notifications |
+| Family Passport | Family members with their own colour; check-ins name who came; per-member stamps | Account-linked family |
+| Certificates and achievements | Certificates for completed circuits and yatras, rendered and shareable; two new achievements | — |
+| Offline trip packs | Every temple on a yatra saved to the device, served before the bundled sample when offline | — |
+| Advanced Yatra planner | Straight-line distances per day, shortest-route ordering (nearest neighbour + 2-opt), automatic split into days by stop count and distance | Road routing |
+| Community submissions | Corrections from any temple page and new temples, kept locally and sent to editors by email | Submissions API and moderation queue |
+| Temple authority verification, hotel and travel partnerships | Stay & travel links (hotels, transit, food) open in Maps | Partner integrations |
 
-### Slice 6 — Temple authority portal
+### Phase 4 — Ecosystem  ✅ **Done** (app side)
 
-Section 19 of the project plan. A temple claims its profile, the claim is
-verified by staff, and only then can the temple team edit anything.
-
-The security requirement is narrow and absolute: **a temple admin must not be
-able to read or write any temple outside their own.** That is enforced by
-scoping every query in the panel through `temple_user`, not by hiding
-navigation links.
-
-Temple-edited fields stay separated from editorial ones. A temple correcting
-its own darshan timings should not be able to overwrite a sourced history
-section, and changes they make are recorded so staff can review them.
-
-### Slice 7 — Events and programs
-
-Temple-published content raises a moderation question that needs an answer
-before the feature ships: a verified temple publishing to thousands of devotees
-without review is the point of the feature, but an unverified one doing the
-same is a spam vector. The proposal is that verification level decides —
-`official` and `verified` temples publish directly, everyone else queues for
-review.
-
-### Slice 9 — Daily devotional content
-
-The traditional weekday associations are the backbone:
-
-| Day | Commonly associated with |
-| --- | --- |
-| Monday | Shiva |
-| Tuesday | Hanuman, Ganesha |
-| Wednesday | Krishna, Vithoba |
-| Thursday | Vishnu, Dattatreya, Guru |
-| Friday | Devi, Lakshmi |
-| Saturday | Shani, Venkateswara, Hanuman |
-| Sunday | Surya |
-
-Regional traditions differ, so the mapping is data in a table rather than
-constants in code, and more than one deity per day is allowed.
-
-> **Songs and videos are copyrighted, and this is the one slice with legal
-> exposure.** A devotional recording is owned by its performer or label even
-> when the composition is centuries old. The schema therefore requires a
-> licence and a source on every media row, the same way temple facts require a
-> source. Three workable routes: license recordings directly, use
-> public-domain or Creative Commons recordings with attribution, or embed
-> official YouTube uploads rather than hosting audio. Hosting ripped audio is
-> not one of them.
-
----
+| Feature | What shipped in the app | Still needs backend |
+| --- | --- | --- |
+| Official QR Passport network | The devotee's own Passport QR for temple counters; temple-code scanning | The network itself |
+| Authorized puja / seva / prasadam | "I booked this" on every puja records the devotee's own booking note against the official route; My seva bookings | Booking integrations |
+| AI assistant grounded in verified temple data | The temple guide: a retrieval engine over the app's records (timings, pujas, rules, contact, deities, circuits, nearby, weekday) that never invents a fact and names the record's trust level | A server-side assistant on the same data |
+| Expanded Indian-language support | Tamil and Kannada interface strings with bundled Noto fonts, alongside English, Telugu and Hindi | Content translations |
+| 100,000+ temple records | Paginated search, offline packs | The records |
+| Temple Admin SaaS | — | Backend product |
 
 ## Data quality is the product
 

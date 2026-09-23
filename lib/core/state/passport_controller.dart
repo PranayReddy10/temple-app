@@ -7,8 +7,13 @@ import '../models/models.dart';
 
 /// One recorded visit to a temple. A temple may be visited many times; the
 /// stamp is earned on the first.
+/// How a visit was confirmed. GPS means the device was within range of the
+/// temple's coordinates; QR means a temple-issued code was scanned. Manual
+/// is the devotee's word, and the passport says so.
+enum Verification { manual, gps, qr }
+
 class Visit {
-  const Visit({required this.templeSlug, required this.templeName, required this.deitySlug, required this.visitedAt, this.note, this.photoPath, this.city, this.state});
+  const Visit({required this.templeSlug, required this.templeName, required this.deitySlug, required this.visitedAt, this.note, this.photoPath, this.city, this.state, this.verification = Verification.manual, this.members = const []});
 
   final String templeSlug;
   final String templeName;
@@ -18,6 +23,10 @@ class Visit {
   final String? photoPath;
   final String? city;
   final String? state;
+  final Verification verification;
+
+  /// Family member ids who came along.
+  final List<String> members;
 
   Map<String, dynamic> toJson() => {
         'slug': templeSlug,
@@ -28,6 +37,8 @@ class Visit {
         'photo': photoPath,
         'city': city,
         'state': state,
+        'verification': verification.name,
+        'members': members,
       };
 
   factory Visit.fromJson(Map<String, dynamic> j) => Visit(
@@ -39,6 +50,8 @@ class Visit {
         photoPath: j['photo']?.toString(),
         city: j['city']?.toString(),
         state: j['state']?.toString(),
+        verification: Verification.values.firstWhere((v) => v.name == j['verification'], orElse: () => Verification.manual),
+        members: (j['members'] as List? ?? const []).map((e) => '$e').toList(),
       );
 
   Visit copyWith({String? note, String? photoPath}) => Visit(
@@ -50,6 +63,8 @@ class Visit {
         photoPath: photoPath ?? this.photoPath,
         city: city,
         state: state,
+        verification: verification,
+        members: members,
       );
 }
 
@@ -89,6 +104,8 @@ class Achievement {
     Achievement(slug: 'trishul', title: 'Trishul', description: 'Three Shiva temples.', test: (p) => p.visitsByDeity('shiva') >= 3),
     Achievement(slug: 'three-states', title: 'Desha Yatri', description: 'Temples in three states.', test: (p) => p.statesVisited.length >= 3),
     Achievement(slug: 'memory-keeper', title: 'Memory Keeper', description: 'Saved a photo with a visit.', test: (p) => p.visits.any((v) => v.photoPath != null)),
+    Achievement(slug: 'pramana', title: 'Pramana', description: 'A visit verified by GPS or temple QR.', test: (p) => p.verifiedCount >= 1),
+    Achievement(slug: 'kutumba', title: 'Kutumba', description: 'A visit shared with family.', test: (p) => p.visits.any((v) => v.members.isNotEmpty)),
   ];
 }
 
@@ -122,7 +139,7 @@ class PassportController extends ChangeNotifier {
 
   List<Achievement> get earned => Achievement.all.where((a) => a.test(this)).toList();
 
-  Future<void> checkIn(TempleSummary temple, {String? note, String? photoPath}) async {
+  Future<void> checkIn(TempleSummary temple, {String? note, String? photoPath, Verification verification = Verification.manual, List<String> members = const []}) async {
     _visits.add(Visit(
       templeSlug: temple.slug,
       templeName: temple.name,
@@ -132,9 +149,23 @@ class PassportController extends ChangeNotifier {
       photoPath: photoPath,
       city: temple.location.city,
       state: temple.location.state,
+      verification: verification,
+      members: members,
     ));
     await _save();
   }
+
+  int get verifiedCount => _visits.where((v) => v.verification != Verification.manual).length;
+
+  /// Stamps that a given family member shared.
+  List<Visit> stampsFor(String memberId) {
+    final seen = <String>{};
+    return [for (final v in _visits) if (v.members.contains(memberId) && seen.add(v.templeSlug)) v];
+  }
+
+  /// Circuit stamps, resolved with the caller's category lookup.
+  int circuitProgress(Collection c, List<String> Function(String slug) categoriesOf) =>
+      stamps.where((v) => categoriesOf(v.templeSlug).contains(c.categorySlug)).length;
 
   Future<void> attachPhoto(Visit visit, String path) async {
     final i = _visits.indexOf(visit);

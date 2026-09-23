@@ -106,6 +106,23 @@ class TempleRepository {
   final ApiClient api;
 
   final Map<String, TempleDetail> _detailCache = {};
+
+  /// Raw temple payloads saved by offline packs, keyed by slug. Consulted
+  /// before the bundled sample when the API is unreachable.
+  final Map<String, Map<String, dynamic>> packed = {};
+
+  /// Fetches a temple's raw payload into [packed]. Returns false on failure.
+  Future<bool> fetchRaw(String slug) async {
+    try {
+      final json = await api.get('temples/$slug');
+      packed[slug] = json['data'] as Map<String, dynamic>;
+      _detailCache.remove(slug);
+      return true;
+    } catch (_) {
+      // Keep whatever was packed before; the sample set is not a pack.
+      return packed.containsKey(slug);
+    }
+  }
   Result<List<DeityRef>>? _deities;
   Result<List<CategoryRef>>? _categories;
   Result<List<StateRef>>? _states;
@@ -176,6 +193,8 @@ class TempleRepository {
         return d;
       },
       () {
+        final raw = packed[slug];
+        if (raw != null) return TempleDetail.fromJson(raw);
         final d = SampleData.detail(slug);
         if (d == null) throw const ApiException('Temple not found', statusCode: 404);
         return d;
