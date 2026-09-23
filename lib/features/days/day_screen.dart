@@ -7,6 +7,7 @@ import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
+import '../../core/state/mantra_player.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
@@ -80,7 +81,7 @@ class _DayScreenState extends State<DayScreen> {
             pinned: true,
             backgroundColor: day.accent,
             foregroundColor: on,
-            title: Text('${day.sanskritDay} · ${day.dayName}', style: TextStyle(color: on)),
+            title: CollapsedTitle(text: '${day.sanskritDay} · ${day.dayName}', color: on, expandedHeight: 300),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
@@ -112,7 +113,16 @@ class _DayScreenState extends State<DayScreen> {
           if (_days?.isOffline == true) const SliverToBoxAdapter(child: OfflineNote()),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
-            sliver: SliverToBoxAdapter(child: MantraCard(day: day, mantra: lead?.mantra, transliteration: lead?.mantraTransliteration, meaning: lead?.deity?.mantraMeaning)),
+            sliver: SliverToBoxAdapter(
+              child: MantraCard(
+                day: day,
+                mantra: lead?.mantra,
+                transliteration: lead?.mantraTransliteration,
+                meaning: lead?.deity?.mantraMeaning,
+                playKey: 'day-${day.weekday}',
+                audioUrl: lead?.media.where((m) => m.type == 'chant' && isDirectAudio(m.url, m.sourceType)).firstOrNull?.url,
+              ),
+            ),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -158,7 +168,7 @@ class _DayScreenState extends State<DayScreen> {
             SliverToBoxAdapter(child: SectionHeader(title: s('songs_videos'), motif: Motif.bell, subtitle: 'For ${lead.deity?.name ?? day.deityName}')),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 206,
+                height: scaledHeight(context, 206),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -256,7 +266,7 @@ class _InfoTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [Icon(icon, size: 16, color: color), const SizedBox(width: 6), Text(title.toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: color))]),
+          Row(children: [Icon(icon, size: 16, color: color), const SizedBox(width: 6), Expanded(child: Text(title.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: color)))]),
           const SizedBox(height: 8),
           Text(body, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
         ],

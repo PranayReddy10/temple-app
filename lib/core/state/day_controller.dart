@@ -72,7 +72,17 @@ class DayController extends ChangeNotifier {
 
   void endPreview() {
     if (_previews.isNotEmpty) _previews.removeLast();
-    notifyListeners();
+    // A screen's dispose() ends its preview a frame later; by then the
+    // controller itself may be gone (a test tearing the tree down).
+    if (!_disposed) notifyListeners();
+  }
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   /// Re-evaluates today, for a midnight rollover while the app is open.

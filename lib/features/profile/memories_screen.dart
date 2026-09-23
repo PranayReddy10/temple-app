@@ -13,6 +13,7 @@ import '../../core/state/passport_controller.dart';
 import '../../core/state/sync_service.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
+import '../../core/widgets/app_image.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../explore/search_screen.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
@@ -199,9 +200,9 @@ class _PhotoTile extends StatelessWidget {
     final remote = visit.remotePhoto;
     Widget image;
     if (visit.photoPath != null && !kIsWeb) {
-      image = Image.file(File(visit.photoPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => remote?.originalUrl != null ? Image.network(remote!.originalUrl!, fit: BoxFit.cover) : TempleImage(deitySlug: visit.deitySlug));
+      image = Image.file(File(visit.photoPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => remote?.originalUrl != null ? AppImage(remote!.originalUrl!, placeholder: TempleImage(deitySlug: visit.deitySlug)) : TempleImage(deitySlug: visit.deitySlug));
     } else if (remote?.originalUrl != null) {
-      image = Image.network(remote!.originalUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => TempleImage(deitySlug: visit.deitySlug));
+      image = AppImage(remote!.originalUrl!, placeholder: TempleImage(deitySlug: visit.deitySlug), decodeWidth: 600);
     } else {
       image = TempleImage(deitySlug: visit.deitySlug);
     }

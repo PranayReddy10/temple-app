@@ -92,7 +92,9 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
             sliver: _categories == null
                 ? const SliverToBoxAdapter(child: SizedBox(height: 100, child: DiyaLoader()))
                 : SliverGrid.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.45),
+                    // A fixed row height that grows with the font, rather than
+                    // an aspect ratio that a larger text setting overflows.
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: 12, mainAxisExtent: scaledHeight(context, 136)),
                     itemCount: _categories!.data.length,
                     itemBuilder: (context, i) {
                       final c = _categories!.data[i];
@@ -108,7 +110,7 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
           SliverToBoxAdapter(child: SectionHeader(title: s('by_deity'), motif: Motif.om)),
           SliverToBoxAdapter(
             child: SizedBox(
-              height: 118,
+              height: scaledHeight(context, 122),
               child: _deities == null
                   ? const DiyaLoader()
                   : ListView.separated(
@@ -134,9 +136,9 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                                 ),
                                 child: Center(child: MotifIcon(dt.deitySlug == d.slug ? dt.motif : Motif.om, size: 38, color: dt.onAccent(), secondary: dt.secondary)),
                               ),
-                              const SizedBox(height: 6),
-                              SizedBox(width: 80, child: Text(d.name, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(fontFamily: 'NotoSerif'))),
-                              if (d.templeCount != null) Text('${d.templeCount}', style: theme.textTheme.labelSmall?.copyWith(color: dt.accent)),
+                              const SizedBox(height: 4),
+                              SizedBox(width: 80, child: FittedBox(fit: BoxFit.scaleDown, child: Text(d.name, textAlign: TextAlign.center, maxLines: 1, style: theme.textTheme.labelMedium?.copyWith(fontFamily: 'NotoSerif')))),
+                              if (d.templeCount != null) Flexible(child: Text('${d.templeCount}', style: theme.textTheme.labelSmall?.copyWith(color: dt.accent))),
                             ],
                           ),
                         );

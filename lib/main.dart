@@ -12,6 +12,7 @@ import 'core/state/bookings_controller.dart';
 import 'core/state/day_controller.dart';
 import 'core/state/family_controller.dart';
 import 'core/state/favourites_controller.dart';
+import 'core/state/mantra_player.dart';
 import 'core/state/memories_controller.dart';
 import 'core/state/offline_pack_controller.dart';
 import 'core/state/passport_controller.dart';
@@ -49,6 +50,7 @@ Future<void> main() async {
         ChangeNotifierProvider<MemoriesController>.value(value: memories),
         ChangeNotifierProvider<SyncService>.value(value: sync),
         ChangeNotifierProvider(create: (_) => FamilyController(prefs)),
+        ChangeNotifierProvider(create: (_) => MantraPlayer(prefs)),
         ChangeNotifierProvider(create: (_) => RemindersController(prefs)),
         ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
         ChangeNotifierProvider(create: (_) => BookingsController(prefs)),
