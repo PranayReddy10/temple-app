@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/models/models.dart';
 import '../../core/state/mantra_player.dart';
 import '../../core/theme/day_theme.dart';
@@ -30,6 +29,9 @@ class MediaPlayerScreen extends StatefulWidget {
   @override
   State<MediaPlayerScreen> createState() => _MediaPlayerScreenState();
 }
+
+/// Where the YouTube player is loaded from. See [_MediaPlayerScreenState.initState].
+const String embedHost = 'https://www.youtube-nocookie.com';
 
 class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
   YoutubePlayerController? _yt;
@@ -53,14 +55,16 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
     if (url == null) return;
     final kind = widget.media.playback.kind;
     if (_videoId != null) {
-      // The embed's origin must be a real https site. Left at the package
-      // default of www.youtube.com, YouTube answers "video unavailable" for
-      // a great many videos; the API's own host is a site we control.
-      final origin = _httpsOrigin(context.read<ApiClient>().baseUrl);
+      // youtube_player_iframe uses `origin` three ways: as the page's base
+      // URL (the Referer YouTube checks), as the player's origin, and as the
+      // host the iframe is loaded from. So it must be a YouTube embed host:
+      // our API host answered /embed/<id> with a 404, and without a real
+      // https referrer YouTube refuses to play (error 152/153).
+      // youtube-nocookie.com satisfies all three.
       _yt = YoutubePlayerController.fromVideoId(
         videoId: _videoId!,
         autoPlay: true,
-        params: YoutubePlayerParams(showFullscreenButton: true, strictRelatedVideos: true, mute: _mantra.muted, origin: origin, playsInline: true),
+        params: YoutubePlayerParams(showFullscreenButton: true, strictRelatedVideos: true, mute: _mantra.muted, origin: embedHost, playsInline: true),
       );
       _ytSub = _yt!.stream.listen((v) {
         if (v.error != _ytError && mounted) setState(() => _ytError = v.error);
@@ -86,12 +90,6 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
   void _applyMute() {
     if (_yt != null) _mantra.muted ? _yt!.mute() : _yt!.unMute();
     _audio?.setVolume(_mantra.muted ? 0 : 1);
-  }
-
-  static String _httpsOrigin(String base) {
-    final u = Uri.tryParse(base);
-    if (u == null || u.host.isEmpty || u.host == 'localhost' || u.host == '127.0.0.1') return 'https://www.youtube.com';
-    return Uri(scheme: 'https', host: u.host, port: u.hasPort && u.port != 80 && u.port != 443 ? u.port : null).toString();
   }
 
   @override

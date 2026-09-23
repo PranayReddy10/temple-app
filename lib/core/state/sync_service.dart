@@ -114,8 +114,28 @@ class SyncService extends ChangeNotifier {
 
   /// Flush the outbox, then pull the account. Safe to call often.
   Future<void> sync() async {
+    _requeueSupport();
     await flush();
     await pull();
+  }
+
+  /// Support requests not yet filed but no longer in the outbox (an older
+  /// build dropped them after a refusal) go back in, so none is stranded as
+  /// "waiting to send".
+  void _requeueSupport() {
+    for (final s in submissions.pending) {
+      if (!_outbox.any((o) => o.type == 'support_create' && o.payload['local_id'] == s.id)) {
+        _outbox.add(SyncOp(id: '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-${s.id}', type: 'support_create', payload: {'local_id': s.id}));
+      }
+    }
+  }
+
+  /// Sends one support request again now, clearing the last refusal.
+  Future<void> resendSupport(String localId) async {
+    await submissions.setError(localId, null);
+    _requeueSupport();
+    await _persist();
+    await flush();
   }
 
   /// Sends queued writes in order. Stops at the first network failure and
@@ -154,6 +174,7 @@ class SyncService extends ChangeNotifier {
           // The server will never accept this one; keep the device record.
           _outbox.removeAt(i);
           lastError = '${op.type}: ${e.message}';
+          if (op.type == 'support_create') await submissions.setError('${op.payload['local_id']}', _describe(e));
         } catch (e) {
           op.attempts++;
           op.lastError = '$e';
@@ -167,6 +188,11 @@ class SyncService extends ChangeNotifier {
       _flushing = false;
       notifyListeners();
     }
+  }
+
+  static String _describe(ApiException e) {
+    final first = e.errors.values.expand((v) => v).firstOrNull;
+    return first ?? e.message;
   }
 
   Future<bool> _execute(SyncOp op) async {
@@ -256,18 +282,36 @@ class SyncService extends ChangeNotifier {
         await submissions.setTicket(s.id, SupportTicket.fromJson(json['data'] as Map<String, dynamic>));
         return true;
       case 'support_create':
-        final s = submissions.all.where((x) => x.id == '${op.payload['local_id']}').firstOrNull;
+        final s = submissions.byId('${op.payload['local_id']}');
         if (s == null || s.sent) return true;
-        final json = await api.post('support', {
+        // Name and email go along even when signed in: a server that does
+        // not recognise the token on this open route still files it, and one
+        // that does ignores them in favour of the account's own.
+        final name = s.reporterName ?? auth.devotee?.name;
+        final email = s.reporterEmail ?? auth.devotee?.email;
+        final body = <String, dynamic>{
           'kind': s.kind == 'correction' && s.templeId != null ? 'report' : 'support',
           'category': s.category,
-          'subject': s.subject,
+          'subject': s.subject.length > 200 ? s.subject.substring(0, 200) : s.subject,
           'body': s.text,
-          if (!auth.isSignedIn) 'name': s.reporterName ?? 'Devotee',
-          if (!auth.isSignedIn && s.reporterEmail != null) 'email': s.reporterEmail,
+          'name': (name == null || name.trim().isEmpty) ? 'Devotee' : name,
+          if (email != null && email.trim().isNotEmpty) 'email': email,
           if (s.templeId != null) 'about_type': 'temple',
           if (s.templeId != null) 'about_id': s.templeId,
-        });
+        };
+        Map<String, dynamic> json;
+        try {
+          json = await api.post('support', body);
+        } on ApiException catch (e) {
+          // A temple known only to the bundled catalogue has no server id to
+          // point at; file the report as plain support rather than lose it.
+          if (!e.isNotFound || s.templeId == null) rethrow;
+          body
+            ..remove('about_type')
+            ..remove('about_id')
+            ..['kind'] = 'support';
+          json = await api.post('support', body);
+        }
         await submissions.setTicket(s.id, SupportTicket.fromJson(json['data'] as Map<String, dynamic>));
         return true;
       default:

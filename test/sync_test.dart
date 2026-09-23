@@ -208,6 +208,38 @@ void main() {
     expect(rejecting.requests, isEmpty);
   });
 
+  test('a signed-in support request still carries a name, for a server that does not see the token', () async {
+    final t = await build();
+    await t.submissions.add(kind: 'support', templeName: '', field: 'Something is broken', text: 'Stuck.', category: 'app_problem', subject: 'Stuck');
+    await t.sync.flush();
+    final body = jsonDecode(t.server.requests.where((r) => r.url.path == '/api/v1/support').single.body) as Map<String, dynamic>;
+    expect(body['name'], 'Anu');
+    expect(t.submissions.pending, isEmpty);
+  });
+
+  test('a refused support request says why, and sends again once the server accepts it', () async {
+    SharedPreferences.setMockInitialValues({'devotee_token': 't', 'devotee': jsonEncode({'id': 1, 'name': 'Anu'})});
+    final prefs = await SharedPreferences.getInstance();
+    var refuse = true;
+    final server = FakeServer();
+    final api = ApiClient(baseUrl: 'http://api.test', client: MockClient((r) async {
+      if (refuse && r.url.path == '/api/v1/support') return http.Response(jsonEncode({'message': 'The name field is required.', 'errors': {'name': ['The name field is required.']}}), 422);
+      return server.handle(r);
+    }));
+    final submissions = SubmissionsController(prefs);
+    final sync = SyncService(prefs: prefs, api: api, auth: AuthController(prefs, api), settings: AppSettings(prefs, api), passport: PassportController(prefs), yatras: YatraController(prefs), memories: MemoriesController(prefs), submissions: submissions);
+    final s = await submissions.add(kind: 'support', templeName: '', field: 'x', text: 'Help', category: 'other', subject: 'Help');
+    await sync.flush();
+    expect(submissions.byId(s.id)!.sent, isFalse);
+    expect(submissions.byId(s.id)!.sendError, 'The name field is required.');
+    expect(sync.pendingCount, 0);
+
+    refuse = false;
+    await sync.resendSupport(s.id);
+    expect(submissions.byId(s.id)!.reference, 'TP-ABC123');
+    expect(submissions.byId(s.id)!.sendError, isNull);
+  });
+
   test('temple detail parses the mantra and its own media first', () {
     final d = TempleDetail.fromJson({
       'slug': 'x', 'name': 'X', 'location': {}, 'trust': {},
