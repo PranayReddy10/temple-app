@@ -13,7 +13,9 @@ import '../../core/brand.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
+import '../../core/state/auth_controller.dart';
 import '../../core/state/passport_controller.dart';
+import '../../core/state/sync_service.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
@@ -44,16 +46,26 @@ class _PhotoStampScreenState extends State<PhotoStampScreen> {
     await context.read<PassportController>().attachPhoto(widget.visit, x.path);
   }
 
-  Future<File?> _render() async {
+  Future<File?> _render({bool keep = false}) async {
     final boundary = _cardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     if (boundary == null) return null;
     final image = await boundary.toImage(pixelRatio: 3);
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     if (bytes == null) return null;
-    final dir = await getTemporaryDirectory();
+    final dir = keep ? await getApplicationDocumentsDirectory() : await getTemporaryDirectory();
     final file = File('${dir.path}/stamp-${widget.visit.templeSlug}-${DateTime.now().millisecondsSinceEpoch}.png');
     await file.writeAsBytes(bytes.buffer.asUint8List());
     return file;
+  }
+
+  /// Queues the original and the card for `/temples/{slug}/photos`. Both are
+  /// kept separately on the server; the original is never altered.
+  Future<void> _saveToAccount() async {
+    if (_photoPath == null) return;
+    final card = await _render(keep: true);
+    if (!mounted) return;
+    await context.read<SyncService>().queuePhoto(widget.visit, photoPath: _photoPath!, stampPath: card?.path);
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Queued for your account. Photos are reviewed before anyone else can see them.')));
   }
 
   Future<void> _share() async {
@@ -111,6 +123,20 @@ class _PhotoStampScreenState extends State<PhotoStampScreen> {
             icon: _sharing ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.ios_share_rounded),
             label: Text(s('share')),
           ),
+          if (context.watch<AuthController>().isSignedIn) ...[
+            const SizedBox(height: 10),
+            Builder(builder: (context) {
+              final remote = context.watch<PassportController>().byKey(widget.visit.localKey)?.remotePhoto;
+              if (remote != null) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: theme.colorScheme.outlineVariant)),
+                  child: Row(children: [Icon(remote.status == 'approved' ? Icons.verified_rounded : Icons.hourglass_top_rounded, color: theme.colorScheme.primary), const SizedBox(width: 10), Expanded(child: Text('On your account · ${remote.statusLabel ?? remote.status}${remote.moderationNote != null ? '\n${remote.moderationNote}' : ''}', style: theme.textTheme.bodySmall))]),
+                );
+              }
+              return OutlinedButton.icon(onPressed: _photoPath == null ? null : _saveToAccount, icon: const Icon(Icons.cloud_upload_outlined), label: const Text('Save to my account'));
+            }),
+          ],
           const SizedBox(height: 12),
           Text('Your original photo is kept untouched. The card is rendered separately and can be shared or saved from the share sheet.', style: theme.textTheme.bodySmall),
         ],

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/brand.dart';
 import '../../core/l10n/strings.dart';
+import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/app_settings.dart';
@@ -14,6 +15,7 @@ import '../../core/state/bookings_controller.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/state/offline_pack_controller.dart';
 import '../../core/state/submissions_controller.dart';
+import '../../core/state/sync_service.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
 import '../../core/theme/day_theme.dart';
@@ -216,15 +218,33 @@ class ProfileScreen extends StatelessWidget {
               },
             ),
           ),
+        // Account sync.
+        if (d != null) ...[
+          const SectionHeader(title: 'Account sync', motif: Motif.shankhaChakra),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Builder(builder: (context) {
+              final sync = context.watch<SyncService>();
+              return Card(
+                child: ListTile(
+                  leading: Icon(sync.pendingCount > 0 ? Icons.cloud_upload_outlined : Icons.cloud_done_rounded, color: sync.pendingCount > 0 ? theme.colorScheme.primary : Palette.tulsi),
+                  title: Text(sync.pendingCount > 0 ? '${sync.pendingCount} change${sync.pendingCount == 1 ? '' : 's'} waiting' : 'Everything is on your account'),
+                  subtitle: Text(sync.lastError != null ? 'Last attempt: ${sync.lastError}' : sync.lastPulledAt != null ? 'Last synced ${sync.lastPulledAt!.hour.toString().padLeft(2, '0')}:${sync.lastPulledAt!.minute.toString().padLeft(2, '0')}' : 'Visits, trips, memories and reports sync when online'),
+                  trailing: sync.isFlushing ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : IconButton(icon: const Icon(Icons.sync_rounded), onPressed: () => sync.sync()),
+                ),
+              );
+            }),
+          ),
+        ],
         // Language.
-        SectionHeader(title: s('language'), motif: Motif.om),
+        SectionHeader(title: s('language'), motif: Motif.om, subtitle: LanguageInfo.bundled.where((l) => !settings.contentAvailable(l.code)).isEmpty ? null : 'Temple content is served in ${LanguageInfo.bundled.where((l) => settings.contentAvailable(l.code)).map((l) => l.nativeName).join(', ')}; others cover the app itself'),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final l in const [('en', 'English'), ('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('ta', 'தமிழ்'), ('kn', 'ಕನ್ನಡ')])
+              for (final l in LanguageInfo.bundled.map((x) => (x.code, x.nativeName)))
                 ChoiceChip(
                   label: Text(l.$2),
                   selected: settings.locale.languageCode == l.$1,

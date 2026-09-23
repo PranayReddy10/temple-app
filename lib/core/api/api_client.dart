@@ -32,6 +32,13 @@ class ApiClient {
   final Duration timeout;
   String? token;
 
+  /// Language every request is answered in (`?lang=` plus `Accept-Language`).
+  String language = 'en';
+
+  /// Recorded against each sign-in for the analytics screen.
+  String platform = 'flutter';
+  String appVersion = '0.5.0';
+
   String get baseUrl => _baseUrl;
   set baseUrl(String v) => _baseUrl = _trim(v);
 
@@ -45,6 +52,7 @@ class ApiClient {
 
   Uri _uri(String path, [Map<String, String?>? query]) {
     final q = <String, String>{
+      'lang': language,
       if (query != null)
         for (final e in query.entries)
           if (e.value != null && e.value!.isNotEmpty) e.key: e.value!,
@@ -55,8 +63,23 @@ class ApiClient {
   Map<String, String> get _headers => {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        'Accept-Language': language,
+        'X-Platform': platform,
+        'X-App-Version': appVersion,
         if (token != null) 'Authorization': 'Bearer $token',
       };
+
+  /// Multipart upload for Photo Stamp: named files plus plain fields.
+  Future<Map<String, dynamic>> upload(String path, {required Map<String, String> files, Map<String, String> fields = const {}}) async {
+    final req = http.MultipartRequest('POST', _uri(path))
+      ..headers.addAll({..._headers}..remove('Content-Type'))
+      ..fields.addAll(fields);
+    for (final e in files.entries) {
+      req.files.add(await http.MultipartFile.fromPath(e.key, e.value));
+    }
+    final streamed = await _http.send(req).timeout(const Duration(seconds: 60));
+    return _decode(await http.Response.fromStream(streamed));
+  }
 
   Future<Map<String, dynamic>> get(String path, [Map<String, String?>? query]) async {
     final res = await _http.get(_uri(path, query), headers: _headers).timeout(timeout);

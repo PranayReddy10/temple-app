@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/temple_repository.dart';
+import '../models/models.dart';
 
 /// One stop on a yatra: a temple by slug, with its display name kept so the
 /// plan is readable offline.
@@ -51,10 +52,13 @@ class YatraDay {
 }
 
 class Yatra {
-  Yatra({required this.id, required this.name, required this.createdAt, this.startDate, List<YatraDay>? days, this.deitySlug, this.active = false})
+  Yatra({required this.id, required this.name, required this.createdAt, this.startDate, List<YatraDay>? days, this.deitySlug, this.active = false, this.remoteId})
       : days = days ?? [YatraDay(title: 'Day 1')];
 
   final String id;
+
+  /// Set once `/me/yatras` holds it.
+  int? remoteId;
   String name;
   final DateTime createdAt;
   DateTime? startDate;
@@ -77,7 +81,11 @@ class Yatra {
         'days': days.map((d) => d.toJson()).toList(),
         'deity': deitySlug,
         'active': active,
+        'remote_id': remoteId,
       };
+
+  /// The server's status word for this trip.
+  String get serverStatus => isComplete ? 'completed' : active ? 'in_progress' : 'planning';
 
   factory Yatra.fromJson(Map<String, dynamic> j) => Yatra(
         id: '${j['id']}',
@@ -87,6 +95,7 @@ class Yatra {
         days: (j['days'] as List? ?? const []).map((e) => YatraDay.fromJson(e as Map<String, dynamic>)).toList(),
         deitySlug: j['deity']?.toString(),
         active: j['active'] == true,
+        remoteId: (j['remote_id'] as num?)?.toInt(),
       );
 }
 
@@ -188,6 +197,10 @@ class YatraController extends ChangeNotifier {
   final SharedPreferences _prefs;
   final List<Yatra> _yatras = [];
 
+  /// Sync hooks: a trip changed (create, edit, stops), a trip was deleted.
+  Future<void> Function(Yatra y)? onChanged;
+  Future<void> Function(int remoteId)? onDeleted;
+
   List<Yatra> get yatras => List.unmodifiable(_yatras);
   Yatra? get active => _yatras.where((y) => y.active).firstOrNull;
   Yatra? byId(String id) => _yatras.where((y) => y.id == id).firstOrNull;
@@ -195,26 +208,70 @@ class YatraController extends ChangeNotifier {
   Future<Yatra> create(String name, {String? deitySlug, DateTime? startDate}) async {
     final y = Yatra(id: DateTime.now().microsecondsSinceEpoch.toRadixString(36), name: name, createdAt: DateTime.now(), deitySlug: deitySlug, startDate: startDate);
     _yatras.add(y);
-    await save();
+    await save(changed: y);
     return y;
   }
 
   Future<void> delete(Yatra y) async {
     _yatras.remove(y);
     await save();
+    if (y.remoteId != null) await onDeleted?.call(y.remoteId!);
+  }
+
+  Future<void> setRemoteId(String localId, int remoteId) async {
+    byId(localId)?.remoteId = remoteId;
+    await _persist();
+  }
+
+  /// Imports trips the account has that this device does not, and lets the
+  /// server mark stops done where it has recorded the visit.
+  Future<void> mergeRemote(List<RemoteYatra> remote) async {
+    var changed = false;
+    for (final r in remote) {
+      final local = _yatras.where((y) => y.remoteId == r.id).firstOrNull;
+      if (local != null) {
+        for (final d in local.days) {
+          for (var i = 0; i < d.stops.length; i++) {
+            final rs = r.stops.where((x) => x.templeSlug == d.stops[i].slug).firstOrNull;
+            if (rs != null && rs.isVisited && !d.stops[i].done) {
+              d.stops[i] = d.stops[i].copyWith(done: true);
+              changed = true;
+            }
+          }
+        }
+        continue;
+      }
+      final dayCount = r.stops.isEmpty ? 1 : r.stops.map((x) => x.dayNumber).reduce((a, b) => a > b ? a : b);
+      final days = [for (var d = 1; d <= dayCount; d++) YatraDay(title: 'Day $d')];
+      for (final st in r.stops..sort((a, b) => a.dayNumber != b.dayNumber ? a.dayNumber.compareTo(b.dayNumber) : a.sortOrder.compareTo(b.sortOrder))) {
+        if (st.templeSlug == null) continue;
+        days[(st.dayNumber - 1).clamp(0, dayCount - 1)].stops.add(YatraStop(slug: st.templeSlug!, name: st.templeName ?? st.templeSlug!, city: st.city, done: st.isVisited));
+      }
+      _yatras.add(Yatra(
+        id: 'remote-${r.id}',
+        name: r.title,
+        createdAt: DateTime.now(),
+        startDate: r.startsOn == null ? null : DateTime.tryParse(r.startsOn!),
+        days: days,
+        active: r.status == 'in_progress',
+        remoteId: r.id,
+      ));
+      changed = true;
+    }
+    if (changed) await _persist();
   }
 
   Future<void> addStop(Yatra y, int dayIndex, YatraStop stop) async {
     if (y.allStops.any((s) => s.slug == stop.slug)) return;
     y.days[dayIndex].stops.add(stop);
-    await save();
+    await save(changed: y);
   }
 
   Future<void> removeStop(Yatra y, YatraStop stop) async {
     for (final d in y.days) {
       d.stops.removeWhere((s) => s.slug == stop.slug);
     }
-    await save();
+    await save(changed: y);
   }
 
   Future<void> toggleDone(Yatra y, YatraStop stop) async {
@@ -230,12 +287,12 @@ class YatraController extends ChangeNotifier {
     if (newIndex > oldIndex) newIndex -= 1;
     final s = stops.removeAt(oldIndex);
     stops.insert(newIndex, s);
-    await save();
+    await save(changed: y);
   }
 
   Future<void> addDay(Yatra y) async {
     y.days.add(YatraDay(title: 'Day ${y.days.length + 1}'));
-    await save();
+    await save(changed: y);
   }
 
   Future<void> removeDay(Yatra y, int index) async {
@@ -244,7 +301,7 @@ class YatraController extends ChangeNotifier {
     for (var i = 0; i < y.days.length; i++) {
       y.days[i].title = 'Day ${i + 1}';
     }
-    await save();
+    await save(changed: y);
   }
 
   /// Reorders every stop into the shortest straight-line route, keeping the
@@ -260,7 +317,7 @@ class YatraController extends ChangeNotifier {
         ..addAll(ordered.skip(i).take(counts[d]));
       i += counts[d];
     }
-    await save();
+    await save(changed: y);
   }
 
   /// Re-plans the whole yatra: optimal order, then split into days.
@@ -272,7 +329,7 @@ class YatraController extends ChangeNotifier {
       y.days.add(YatraDay(title: 'Day ${i + 1}', stops: split[i]));
     }
     if (y.days.isEmpty) y.days.add(YatraDay(title: 'Day 1'));
-    await save();
+    await save(changed: y);
   }
 
   Future<void> setActive(Yatra y, bool value) async {
@@ -280,10 +337,15 @@ class YatraController extends ChangeNotifier {
       other.active = false;
     }
     y.active = value;
-    await save();
+    await save(changed: y);
   }
 
-  Future<void> save() async {
+  Future<void> save({Yatra? changed}) async {
+    await _persist();
+    if (changed != null) await onChanged?.call(changed);
+  }
+
+  Future<void> _persist() async {
     await _prefs.setString('yatras', jsonEncode(_yatras.map((y) => y.toJson()).toList()));
     notifyListeners();
   }

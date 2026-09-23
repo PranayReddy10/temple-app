@@ -406,10 +406,11 @@ class StoneTile extends StatelessWidget {
 
 /// A mantra in Devanagari with its transliteration, framed by a torana.
 class MantraCard extends StatelessWidget {
-  const MantraCard({super.key, required this.day, this.mantra, this.transliteration, this.title});
+  const MantraCard({super.key, required this.day, this.mantra, this.transliteration, this.title, this.meaning});
 
   final DayTheme day;
   final String? title;
+  final String? meaning;
   final String? mantra;
   final String? transliteration;
 
@@ -439,6 +440,10 @@ class MantraCard extends StatelessWidget {
               Text(mantra ?? day.mantra, textAlign: TextAlign.center, style: theme.textTheme.headlineSmall?.copyWith(fontFamily: 'NotoSerif', height: 1.3)),
               const SizedBox(height: 6),
               Text(transliteration ?? day.transliteration, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: theme.colorScheme.onSurface.withValues(alpha: 0.75))),
+              if (meaning != null && meaning!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(meaning!, textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
+              ],
             ],
           ),
         ],
@@ -471,6 +476,30 @@ class EmptyShrine extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+/// The deity's image when the API has one, the painted motif otherwise.
+class DeityPortrait extends StatelessWidget {
+  const DeityPortrait({super.key, required this.day, this.imageUrl, this.size = 72, this.color});
+
+  final DayTheme day;
+  final String? imageUrl;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = color ?? day.onAccent();
+    final motif = MotifIcon(day.motif, size: size * 0.6, color: on, secondary: day.secondary);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: on.withValues(alpha: 0.12), border: Border.all(color: on.withValues(alpha: 0.35))),
+      clipBehavior: Clip.antiAlias,
+      child: imageUrl == null ? Center(child: motif) : Image.network(imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Center(child: motif)),
     );
   }
 }

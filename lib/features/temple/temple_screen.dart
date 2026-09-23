@@ -10,7 +10,9 @@ import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
+import '../../core/state/auth_controller.dart';
 import '../../core/state/day_controller.dart';
+import '../../core/state/sync_service.dart';
 import '../../core/state/family_controller.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/state/passport_controller.dart';
@@ -120,7 +122,8 @@ class _TempleScreenState extends State<TempleScreen> {
     final visited = passport.hasVisited(t.slug);
     final saved = favs.contains(t.slug);
     final photos = d?.photos.isNotEmpty == true ? d!.photos : [if (t.primaryPhoto != null) t.primaryPhoto!];
-    final media = _media?.data ?? const <DevotionalMedia>[];
+    // The API's own list (temple first, then deity) beats the bundled one.
+    final media = d != null && d.devotionalMedia.isNotEmpty ? d.devotionalMedia : (_media?.data ?? const <DevotionalMedia>[]);
 
     return Scaffold(
       body: CustomScrollView(
@@ -222,7 +225,14 @@ class _TempleScreenState extends State<TempleScreen> {
                 ),
               ),
             ],
-            SliverPadding(padding: const EdgeInsets.fromLTRB(20, 24, 20, 0), sliver: SliverToBoxAdapter(child: MantraCard(day: day, title: s('blessing')))),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: d.mantra != null && !d.mantra!.isEmpty
+                    ? MantraCard(day: day, mantra: d.mantra!.text, transliteration: d.mantra!.transliteration, title: d.mantra!.isTempleSpecific ? "This temple's mantra" : s('blessing'))
+                    : MantraCard(day: day, title: s('blessing')),
+              ),
+            ),
             // ---- Gallery ----------------------------------------------
             SliverToBoxAdapter(key: _keys[_Section.gallery], child: SectionHeader(title: s('gallery'), motif: Motif.lotus, subtitle: photos.isEmpty ? null : '${photos.length} photos')),
             if (photos.isEmpty)
@@ -251,7 +261,7 @@ class _TempleScreenState extends State<TempleScreen> {
               ),
             // ---- Songs & videos -----------------------------------------
             SliverToBoxAdapter(key: _keys[_Section.media], child: SectionHeader(title: s('songs_videos'), motif: Motif.bell, subtitle: t.deity != null ? '${s('temples_of')} ${t.deity!.name}'.replaceFirst(s('temples_of'), 'For').trim() : null)),
-            if (_media == null)
+            if (_media == null && media.isEmpty)
               const SliverToBoxAdapter(child: SizedBox(height: 80, child: DiyaLoader(size: 36)))
             else if (media.isEmpty)
               SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _EmptyLine(icon: Icons.music_off_rounded, text: s('no_media'))))
@@ -469,6 +479,8 @@ class _TempleScreenState extends State<TempleScreen> {
     var verification = Verification.manual;
     String? verifyNote;
     bool verifying = false;
+    double? lat;
+    double? lng;
     final members = <String>{};
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
@@ -483,6 +495,8 @@ class _TempleScreenState extends State<TempleScreen> {
               if (p == LocationPermission.denied || p == LocationPermission.deniedForever) throw 'Location permission is needed to verify.';
               if (!t.location.hasCoordinates) throw 'This temple has no coordinates on record yet.';
               final pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+              lat = pos.latitude;
+              lng = pos.longitude;
               final km = TempleRepository.distanceKm(pos.latitude, pos.longitude, t.location.latitude!, t.location.longitude!);
               if (km <= gpsRangeKm) {
                 setSheet(() {
@@ -583,9 +597,11 @@ class _TempleScreenState extends State<TempleScreen> {
     );
     if (confirmed != true || !mounted) return;
     final first = !passport.hasVisited(t.slug);
-    await passport.checkIn(t, note: note.text.trim().isEmpty ? null : note.text.trim(), photoPath: photoPath, verification: verification, members: members.toList());
+    final visit = await passport.checkIn(t, note: note.text.trim().isEmpty ? null : note.text.trim(), photoPath: photoPath, verification: verification, members: members.toList(), latitude: lat, longitude: lng);
+    if (photoPath != null && mounted && context.read<AuthController>().isSignedIn) {
+      await context.read<SyncService>().queuePhoto(visit, photoPath: photoPath!);
+    }
     if (!mounted) return;
-    final visit = passport.visits.first;
     await showDialog<void>(
       context: context,
       builder: (context) => Dialog(

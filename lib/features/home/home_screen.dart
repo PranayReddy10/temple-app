@@ -238,11 +238,7 @@ class _DayHeader extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: on.withValues(alpha: 0.12), border: Border.all(color: on.withValues(alpha: 0.35))),
-                      child: MotifIcon(day.motif, size: 56, color: on, secondary: day.secondary),
-                    ),
+                    DeityPortrait(day: day, imageUrl: lead?.deity?.imageUrl, size: 80, color: on),
                   ],
                 ),
                 const SizedBox(height: 18),
