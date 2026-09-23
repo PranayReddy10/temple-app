@@ -719,7 +719,7 @@ class DevotionalDay {
 }
 
 class Devotee {
-  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.isVerified = false, this.joinedAt});
+  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.gender, this.isVerified = false, this.joinedAt});
 
   final int? id;
   final String name;
@@ -729,6 +729,9 @@ class Devotee {
   final String? locale;
   final String? homeState;
   final String? dateOfBirth;
+
+  /// male, female, other or prefer_not_to_say; null when not given.
+  final String? gender;
   final bool isVerified;
   final String? joinedAt;
 
@@ -741,6 +744,7 @@ class Devotee {
         locale: _s(j['locale']),
         homeState: _s(j['home_state']),
         dateOfBirth: _s(j['date_of_birth']),
+        gender: _s(j['gender']),
         isVerified: _b(j['is_verified']),
         joinedAt: _s(j['joined_at']),
       );
@@ -754,6 +758,7 @@ class Devotee {
         'locale': locale,
         'home_state': homeState,
         'date_of_birth': dateOfBirth,
+        'gender': gender,
         'is_verified': isVerified,
         'joined_at': joinedAt,
       };

@@ -240,6 +240,18 @@ void main() {
     expect(submissions.byId(s.id)!.sendError, isNull);
   });
 
+  test('a QR check-in sends the scanned code so the server can check its signature', () async {
+    final t = await build();
+    const code = 'https://temples.example/temples/tirumala/checkin?s=abc';
+    await t.passport.checkIn(SampleData.temples.first, verification: Verification.qr, qrCode: code);
+    await t.sync.flush();
+    final body = jsonDecode(t.server.requests.single.body) as Map<String, dynamic>;
+    expect(body['method'], 'qr');
+    expect(body['qr_code'], code);
+    // The code survives a restart while the visit waits to be sent.
+    expect(Visit.fromJson(t.passport.visits.first.toJson()).qrCode, code);
+  });
+
   test('temple detail parses the mantra and its own media first', () {
     final d = TempleDetail.fromJson({
       'slug': 'x', 'name': 'X', 'location': {}, 'trust': {},

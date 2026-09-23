@@ -13,7 +13,7 @@ import '../models/models.dart';
 enum Verification { manual, gps, qr }
 
 class Visit {
-  Visit({required this.templeSlug, required this.templeName, required this.deitySlug, required this.visitedAt, this.note, this.photoPath, this.city, this.state, this.verification = Verification.manual, this.members = const [], String? localKey, this.remoteId, this.remoteVerified, this.remotePhoto, this.latitude, this.longitude, this.templeId})
+  Visit({required this.templeSlug, required this.templeName, required this.deitySlug, required this.visitedAt, this.note, this.photoPath, this.city, this.state, this.verification = Verification.manual, this.members = const [], String? localKey, this.remoteId, this.remoteVerified, this.remotePhoto, this.latitude, this.longitude, this.templeId, this.qrCode})
       : localKey = localKey ?? '$templeSlug@${visitedAt.microsecondsSinceEpoch}';
 
   /// Stable device-side identity, used to match the server's copy.
@@ -29,6 +29,10 @@ class Visit {
   final double? latitude;
   final double? longitude;
   final int? templeId;
+
+  /// The temple code scanned for a QR check-in, sent so the server can
+  /// check its signature.
+  final String? qrCode;
 
   final String templeSlug;
   final String templeName;
@@ -61,6 +65,7 @@ class Visit {
         'lat': latitude,
         'lng': longitude,
         'temple_id': templeId,
+        'qr': qrCode,
       };
 
   factory Visit.fromJson(Map<String, dynamic> j) => Visit(
@@ -81,6 +86,7 @@ class Visit {
         latitude: (j['lat'] as num?)?.toDouble(),
         longitude: (j['lng'] as num?)?.toDouble(),
         templeId: (j['temple_id'] as num?)?.toInt(),
+        qrCode: j['qr']?.toString(),
       );
 
   /// Whether the passport may call this a stamp: the server's verdict once
@@ -105,6 +111,7 @@ class Visit {
         latitude: latitude,
         longitude: longitude,
         templeId: templeId,
+        qrCode: qrCode,
       );
 }
 
@@ -187,7 +194,7 @@ class PassportController extends ChangeNotifier {
 
   List<Achievement> get earned => Achievement.all.where((a) => a.test(this)).toList();
 
-  Future<Visit> checkIn(TempleSummary temple, {String? note, String? photoPath, Verification verification = Verification.manual, List<String> members = const [], double? latitude, double? longitude}) async {
+  Future<Visit> checkIn(TempleSummary temple, {String? note, String? photoPath, Verification verification = Verification.manual, List<String> members = const [], double? latitude, double? longitude, String? qrCode}) async {
     final v = Visit(
       templeSlug: temple.slug,
       templeName: temple.name,
@@ -202,6 +209,7 @@ class PassportController extends ChangeNotifier {
       latitude: latitude,
       longitude: longitude,
       templeId: temple.id,
+      qrCode: qrCode,
     );
     _visits.add(v);
     await _save();
