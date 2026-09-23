@@ -3,14 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../l10n/strings.dart';
+import '../api/api_client.dart';
 import '../models/models.dart';
 import '../state/mantra_player.dart';
+import 'app_image.dart';
 import '../../features/media/media_player_screen.dart';
 import '../motifs/architecture.dart';
 import '../motifs/motif.dart';
 import '../theme/day_theme.dart';
 import '../theme/palette.dart';
-import 'app_image.dart';
 
 /// A gopuram skyline as a header background, tinted by [color].
 class GopuramBand extends StatelessWidget {
@@ -548,7 +549,9 @@ class MantraControls extends StatelessWidget {
     final playing = player.isPlayingKey(playKey);
     final fg = onColor ?? accent;
     final kind = audio?.playback.kind;
-    final direct = kind == 'audio' ? audio!.url : (audioUrl ?? (kind == null && audio?.playback.isPlayable == true ? audio!.url : null));
+    final rawDirect = kind == 'audio' ? audio!.url : (audioUrl ?? (kind == null && audio?.playback.isPlayable == true ? audio!.url : null));
+    final base = context.read<ApiClient?>()?.baseUrl;
+    final direct = rawDirect == null ? null : (base == null ? rawDirect : AppImage.resolve(rawDirect, base));
     final embeds = audio != null && (audio!.playback.needsEmbed || kind == 'video') && audio!.url != null;
     final label = playing ? 'Stop' : embeds ? 'Play recording' : direct != null ? 'Play recording' : 'Chant';
     void onPressed() {

@@ -53,6 +53,7 @@ class SyncService extends ChangeNotifier {
     memories.onUpdated = (m) => m.remoteId == null ? Future.value() : enqueue('memory_update', {'local_id': m.localId});
     memories.onDeleted = (id) => enqueue('memory_delete', {'remote_id': id});
     submissions.onCreated = (s) => enqueue('support_create', {'local_id': s.id});
+    submissions.onReplied = (s, body) => enqueue('support_reply', {'local_id': s.id, 'body': body});
     auth.addListener(_onAuthChanged);
     _wasSignedIn = auth.isSignedIn;
   }
@@ -246,6 +247,13 @@ class SyncService extends ChangeNotifier {
         return true;
       case 'yatra_delete':
         await api.delete('me/yatras/${op.payload['remote_id']}');
+        return true;
+      case 'support_reply':
+        final s = submissions.byId('${op.payload['local_id']}');
+        if (s == null) return true;
+        if (s.reference == null) return false; // wait for the ticket to be filed
+        final json = await api.post('me/support/${s.reference}/replies', {'body': op.payload['body']});
+        await submissions.setTicket(s.id, SupportTicket.fromJson(json['data'] as Map<String, dynamic>));
         return true;
       case 'support_create':
         final s = submissions.all.where((x) => x.id == '${op.payload['local_id']}').firstOrNull;

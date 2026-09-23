@@ -119,8 +119,31 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  /// A locally chosen avatar. The API has no upload endpoint yet, so the
-  /// picture stays on the device until one exists.
+  /// Uploads a profile photo to `/me/avatar`; the account's avatar URL
+  /// comes back on the devotee. Falls back to keeping it on the device when
+  /// signed out or offline.
+  Future<bool> uploadAvatar(String path) async {
+    await setLocalAvatar(path);
+    if (!isSignedIn) return false;
+    try {
+      final json = await api.upload('me/avatar', files: {'avatar': path});
+      await _store(Devotee.fromJson(json['data'] as Map<String, dynamic>), api.token!);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> removeAvatar() async {
+    await setLocalAvatar(null);
+    if (!isSignedIn) return;
+    try {
+      final json = await api.delete('me/avatar');
+      await _store(Devotee.fromJson(json['data'] as Map<String, dynamic>), api.token!);
+    } catch (_) {}
+  }
+
+  /// A locally chosen avatar, kept until it reaches the account.
   String? get localAvatarPath => _prefs.getString('avatar_path');
 
   Future<void> setLocalAvatar(String? path) async {
