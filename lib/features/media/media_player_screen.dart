@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
+import '../../core/api/api_client.dart';
 import '../../core/models/models.dart';
 import '../../core/state/mantra_player.dart';
 import '../../core/theme/day_theme.dart';
@@ -37,6 +38,8 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
   Duration _pos = Duration.zero;
   Duration _len = Duration.zero;
   bool _playing = false;
+  YoutubeError _ytError = YoutubeError.none;
+  StreamSubscription<YoutubePlayerValue>? _ytSub;
   StreamSubscription<dynamic>? _s1, _s2, _s3;
 
   String? get _videoId => widget.media.playback.youtubeId ?? (widget.media.url == null ? null : YoutubePlayerController.convertUrlToId(widget.media.url!));
@@ -50,7 +53,18 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
     if (url == null) return;
     final kind = widget.media.playback.kind;
     if (_videoId != null) {
-      _yt = YoutubePlayerController.fromVideoId(videoId: _videoId!, autoPlay: true, params: YoutubePlayerParams(showFullscreenButton: true, strictRelatedVideos: true, mute: _mantra.muted));
+      // The embed's origin must be a real https site. Left at the package
+      // default of www.youtube.com, YouTube answers "video unavailable" for
+      // a great many videos; the API's own host is a site we control.
+      final origin = _httpsOrigin(context.read<ApiClient>().baseUrl);
+      _yt = YoutubePlayerController.fromVideoId(
+        videoId: _videoId!,
+        autoPlay: true,
+        params: YoutubePlayerParams(showFullscreenButton: true, strictRelatedVideos: true, mute: _mantra.muted, origin: origin, playsInline: true),
+      );
+      _ytSub = _yt!.stream.listen((v) {
+        if (v.error != _ytError && mounted) setState(() => _ytError = v.error);
+      });
     } else if (kind == 'audio' || (kind != 'video' && kind != 'vimeo' && isDirectAudio(url, widget.media.sourceType))) {
       _audio = ap.AudioPlayer();
       _s1 = _audio!.onPositionChanged.listen((d) => setState(() => _pos = d));
@@ -74,9 +88,16 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
     _audio?.setVolume(_mantra.muted ? 0 : 1);
   }
 
+  static String _httpsOrigin(String base) {
+    final u = Uri.tryParse(base);
+    if (u == null || u.host.isEmpty || u.host == 'localhost' || u.host == '127.0.0.1') return 'https://www.youtube.com';
+    return Uri(scheme: 'https', host: u.host, port: u.hasPort && u.port != 80 && u.port != 443 ? u.port : null).toString();
+  }
+
   @override
   void dispose() {
     _mantra.removeListener(_applyMute);
+    _ytSub?.cancel();
     _yt?.close();
     _s1?.cancel();
     _s2?.cancel();
@@ -97,7 +118,11 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
         aspectRatio: 16 / 9,
         builder: (context, player) => ListView(
           padding: const EdgeInsets.only(bottom: 40),
-          children: [player, _Details(media: m, day: day)],
+          children: [
+            player,
+            if (_ytError != YoutubeError.none) _Unavailable(error: _ytError, url: m.url!),
+            _Details(media: m, day: day),
+          ],
         ),
       );
     } else if (_audio != null) {
@@ -189,6 +214,42 @@ class _Details extends StatelessWidget {
             [if (media.credit != null) '© ${media.credit}', if (media.license != null) media.license!, if (media.sourceType == 'external') 'Played where it is officially published'].join(' · '),
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown under the player when YouTube refuses to play the video here.
+/// Most often the owner has disabled embedding, which no player can get
+/// around; the video still plays in the YouTube app.
+class _Unavailable extends StatelessWidget {
+  const _Unavailable({required this.error, required this.url});
+
+  final YoutubeError error;
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final why = switch (error) {
+      YoutubeError.notEmbeddable || YoutubeError.sameAsNotEmbeddable => 'Its owner has not allowed it to play inside other apps.',
+      YoutubeError.videoNotFound => 'It has been removed or made private.',
+      YoutubeError.invalidParam => 'The link does not point at a video.',
+      _ => 'YouTube could not play it here.',
+    };
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: Palette.kumkum.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: Palette.kumkum.withValues(alpha: 0.4))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('This video cannot play inside the app', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(why, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 10),
+          FilledButton.icon(onPressed: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication), icon: const Icon(Icons.play_circle_outline_rounded), label: const Text('Watch on YouTube')),
         ],
       ),
     );
