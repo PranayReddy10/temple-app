@@ -10,7 +10,7 @@ talks to it only through `/api/v1`.
 
 See **[ROADMAP.md](ROADMAP.md)** for the feature slices and delivery order.
 
-## Status — Phase 1 complete
+## Status — Phases 1 to 4 (app side) complete
 
 Every Phase 3 slice of the product roadmap (the Flutter phase) has a first
 working version:
@@ -30,7 +30,12 @@ working version:
 | Favourites and Yatra planner: days, stops, reorder, Yatra mode, route in Maps | `features/yatra/` |
 | Devotee accounts against `/api/v1/auth` and `/api/v1/me` | `features/auth/` |
 | Complete profile: photo, name, email, phone, home state, date of birth, language; memories gallery; saved temples as cards | `features/profile/` |
-| English, Telugu and Hindi interface strings | `core/l10n/` |
+| English, Telugu, Hindi, Tamil and Kannada interface strings | `core/l10n/` |
+| GPS and temple-QR check-in verification, Family Passport, certificates | `features/qr/`, `features/family/`, `features/certificates/` |
+| Festival calendar with reminders and calendar export | `features/calendar/` |
+| Offline trip packs, route optimisation and automatic day splitting | `core/state/offline_pack_controller.dart`, `core/state/yatra_controller.dart` |
+| Community submissions, seva booking notes, stay & travel links | `features/submissions/`, `features/bookings/` |
+| Temple guide grounded in the app's records | `features/guide/` |
 
 Works with **no backend**: when the API is unreachable the app falls back to
 the bundled sample set (the same records the backend seeds) and says so on
@@ -141,6 +146,15 @@ lib/
 └── main.dart
 ```
 
+## The temple guide
+
+The guide is retrieval and rules over the records in the app, not a language
+model. It answers about timings, pujas, rules, contact, deities, circuits,
+weekday observances and what is near you, names the trust level of the
+record it used, and says plainly when nothing matches. That is why it can be
+trusted at a temple gate with no signal. A server-side assistant on the same
+verified data can replace the engine without changing the screen.
+
 ## Media and rights
 
 Recordings are copyrighted even when the composition is centuries old. The
@@ -169,6 +183,6 @@ Captured from the web build with no backend attached (bundled records).
 | --- | --- | --- |
 | ![](docs/screenshots/04-passport.png) | ![](docs/screenshots/05-yatra.png) | ![](docs/screenshots/06-profile.png) |
 
-| Temple | Songs & videos |
-| --- | --- |
-| ![](docs/screenshots/07-temple.png) | ![](docs/screenshots/08-temple-media.png) |
+| Temple | Songs & videos | Temple guide | Festival calendar |
+| --- | --- | --- | --- |
+| ![](docs/screenshots/07-temple.png) | ![](docs/screenshots/08-temple-media.png) | ![](docs/screenshots/09-guide.png) | ![](docs/screenshots/10-calendar.png) |

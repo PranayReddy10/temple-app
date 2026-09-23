@@ -180,14 +180,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(height: 16),
                 Text(s('language'), style: theme.textTheme.labelLarge),
                 const SizedBox(height: 8),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'en', label: Text('English')),
-                    ButtonSegment(value: 'te', label: Text('తెలుగు')),
-                    ButtonSegment(value: 'hi', label: Text('हिन्दी')),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final l in const [('en', 'English'), ('te', 'తెలుగు'), ('hi', 'हिन्दी'), ('ta', 'தமிழ்'), ('kn', 'ಕನ್ನಡ')])
+                      ChoiceChip(label: Text(l.$2), selected: _locale == l.$1, onSelected: (_) => setState(() => _locale = l.$1)),
                   ],
-                  selected: {_locale},
-                  onSelectionChanged: (v) => setState(() => _locale = v.first),
                 ),
                 if (_error != null) ...[const SizedBox(height: 12), Text(_error!, style: TextStyle(color: theme.colorScheme.error))],
                 const SizedBox(height: 24),

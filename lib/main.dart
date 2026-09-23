@@ -8,9 +8,14 @@ import 'core/api/temple_repository.dart';
 import 'core/brand.dart';
 import 'core/state/app_settings.dart';
 import 'core/state/auth_controller.dart';
+import 'core/state/bookings_controller.dart';
 import 'core/state/day_controller.dart';
+import 'core/state/family_controller.dart';
 import 'core/state/favourites_controller.dart';
+import 'core/state/offline_pack_controller.dart';
 import 'core/state/passport_controller.dart';
+import 'core/state/reminders_controller.dart';
+import 'core/state/submissions_controller.dart';
 import 'core/state/yatra_controller.dart';
 
 Future<void> main() async {
@@ -32,6 +37,11 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => PassportController(prefs)),
         ChangeNotifierProvider(create: (_) => FavouritesController(prefs, auth)),
         ChangeNotifierProvider(create: (_) => YatraController(prefs)),
+        ChangeNotifierProvider(create: (_) => FamilyController(prefs)),
+        ChangeNotifierProvider(create: (_) => RemindersController(prefs)),
+        ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
+        ChangeNotifierProvider(create: (_) => BookingsController(prefs)),
+        ChangeNotifierProvider(create: (_) => SubmissionsController(prefs)),
       ],
       child: const TempleApp(),
     ),

@@ -93,6 +93,47 @@ leaves the system in a working state. **Nothing is built all at once.**
 
 | # | Slice | Scope | Status |
 | --- | --- | --- | --- |
+| 1 | **Admin auth + Temple CRUD** | Admin login, roles, temples table, deities, categories, states/districts, draft→published workflow, seed data | ✅ **Done** |
+| 2 | Temple media + timings | Photo gallery upload, image processing, opening/darshan/aarti timings, special-day and closure overrides | ⬜ Next |
+| 3 | Puja / Seva + facilities | Published pujas with time, duration, eligibility, fee, official booking route; visitor rules and facilities | ⬜ |
+| 4 | Public REST API v1 | Read endpoints for the Flutter app: search, filter, nearby, temple detail, deity and category listings | ⬜ |
+| 5 | **Flutter app shell** | Temple design system tinted per weekday deity, temple-door transitions, 5-tab navigation, API client with offline fallback | ✅ **Done** |
+| 6 | **Explorer + temple profile** | Search by name/deity/city/state, nearby, filters, lamp map, day pages, full temple profile with timings, pujas, facilities and trust | ✅ **Done** |
+| 7 | **User accounts + Passport** | Registration and login, visited state, manual check-in, ink stamps, circuit collections, achievements | ✅ **Done** |
+| 8 | **Photo Stamp** | Attach a visit photo, compose a temple-themed memory card with the stamp, share; original kept untouched | ✅ **Done** |
+| 9 | **Favourites + basic Yatra planner** | Saved temples (synced to the account), itinerary by days, reorder, Yatra mode, route in Maps | ✅ **Done** |
+| 10 | **Languages: EN / TE / HI** | Interface strings in three languages with bundled Indic fonts; alternate temple names come from the API | ✅ **Done** |
+
+### Phase 2 — Profile and media  ✅ **Done** (app)
+
+Complete devotee profile, memories, songs, chants and darshan videos on
+Home, on each weekday page and on every temple, galleries with a viewer,
+and the redesigned temple page.
+
+### Phase 3 — Scale and trust  ✅ **Done** (app side)
+
+| Feature | What shipped in the app | Still needs backend |
+| --- | --- | --- |
+| GPS visit verification | Check-in verifies the device is within 2 km of the temple's coordinates; the passport shows GPS, QR or manual on every visit | Server-side attestation |
+| QR visit verification | Scans a temple-issued code (`templepassport://checkin/<slug>`, a temple URL, or the slug) and refuses a code for another temple | Signed codes and the official QR network |
+| Festival calendar and notifications | Month grid with the weekday deity on every cell, festival dots, reminders that surface on Home, "Add to calendar" | Push notifications |
+| Family Passport | Family members with their own colour; check-ins name who came; per-member stamps | Account-linked family |
+| Certificates and achievements | Certificates for completed circuits and yatras, rendered and shareable; two new achievements | — |
+| Offline trip packs | Every temple on a yatra saved to the device, served before the bundled sample when offline | — |
+| Advanced Yatra planner | Straight-line distances per day, shortest-route ordering (nearest neighbour + 2-opt), automatic split into days by stop count and distance | Road routing |
+| Community submissions | Corrections from any temple page and new temples, kept locally and sent to editors by email | Submissions API and moderation queue |
+| Temple authority verification, hotel and travel partnerships | Stay & travel links (hotels, transit, food) open in Maps | Partner integrations |
+
+### Phase 4 — Ecosystem  ✅ **Done** (app side)
+
+| Feature | What shipped in the app | Still needs backend |
+| --- | --- | --- |
+| Official QR Passport network | The devotee's own Passport QR for temple counters; temple-code scanning | The network itself |
+| Authorized puja / seva / prasadam | "I booked this" on every puja records the devotee's own booking note against the official route; My seva bookings | Booking integrations |
+| AI assistant grounded in verified temple data | The temple guide: a retrieval engine over the app's records (timings, pujas, rules, contact, deities, circuits, nearby, weekday) that never invents a fact and names the record's trust level | A server-side assistant on the same data |
+| Expanded Indian-language support | Tamil and Kannada interface strings with bundled Noto fonts, alongside English, Telugu and Hindi | Content translations |
+| 100,000+ temple records | Paginated search, offline packs | The records |
+| Temple Admin SaaS | — | Backend product |
 | 1 | **Admin auth + Temple CRUD** | Admin login, roles, temples table, deities, categories, states/districts, draft→published workflow, trust labelling, seed data | ✅ **Done** |
 | 2 | **Temple media + timings** | Photo gallery on DigitalOcean Spaces with generated variants, opening/darshan/aarti timings, closure and special-hour overrides | ✅ **Done** |
 | 3 | **Puja / Seva + facilities** | Published pujas with time, duration, eligibility, fee and official booking route; visitor rules; facilities including accessibility | ✅ **Done** |

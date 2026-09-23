@@ -9,11 +9,15 @@ import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
+import '../../core/state/reminders_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../calendar/calendar_screen.dart';
 import '../days/day_screen.dart';
+import '../guide/guide_screen.dart';
+import '../qr/qr_screens.dart';
 import '../explore/search_screen.dart';
 import '../temple/temple_screen.dart';
 
@@ -118,6 +122,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ),
           if (dayCtl.loaded && dayCtl.offline) const SliverToBoxAdapter(child: OfflineNote()),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: Row(
+                children: [
+                  _QuickAction(icon: Icons.auto_awesome_rounded, label: s('ask_guide'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GuideScreen()))),
+                  const SizedBox(width: 8),
+                  _QuickAction(icon: Icons.calendar_month_rounded, label: s('calendar'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()))),
+                  const SizedBox(width: 8),
+                  _QuickAction(icon: Icons.qr_code_scanner_rounded, label: s('scan_qr'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QrScanScreen()))),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(child: _ReminderBanner(reminders: context.watch<RemindersController>().upcoming)),
           SliverToBoxAdapter(child: SectionHeader(title: s('week'), motif: Motif.bell)),
           SliverToBoxAdapter(child: _WeekStrip(current: day)),
           if (dayCtl.todayMedia.isNotEmpty) ...[
@@ -147,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ? const SizedBox(height: 180, child: DiyaLoader())
                 : _Carousel(temples: _popular!.data.items, onOpen: _open),
           ),
-          SliverToBoxAdapter(child: SectionHeader(title: s('festivals'), motif: Motif.bell)),
+          SliverToBoxAdapter(child: SectionHeader(title: s('festivals'), motif: Motif.bell, actionLabel: s('calendar'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())))),
           if (_events == null)
             const SliverToBoxAdapter(child: SizedBox(height: 120, child: DiyaLoader()))
           else if (_events!.data.isEmpty)
@@ -446,4 +465,75 @@ class _EventTile extends StatelessWidget {
   }
 
   static String _month(int? m) => m == null || m < 1 || m > 12 ? '' : const ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][m - 1];
+}
+
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.outlineVariant)),
+            child: Column(
+              children: [
+                Icon(icon, color: theme.colorScheme.primary),
+                const SizedBox(height: 4),
+                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 0.3)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReminderBanner extends StatelessWidget {
+  const _ReminderBanner({required this.reminders});
+
+  final List<Reminder> reminders;
+
+  @override
+  Widget build(BuildContext context) {
+    final soon = reminders.where((r) => r.daysAway <= 14).toList();
+    if (soon.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final r = soon.first;
+    final when = r.daysAway <= 0 ? 'today' : r.daysAway == 1 ? 'tomorrow' : 'in ${r.daysAway} days';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Material(
+        color: theme.colorScheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                Icon(Icons.notifications_active_rounded, color: theme.colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(child: Text('${r.title}${r.templeName != null ? ' at ${r.templeName}' : ''} is $when${soon.length > 1 ? ' · ${soon.length - 1} more' : ''}', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600))),
+                const Icon(Icons.chevron_right_rounded),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
