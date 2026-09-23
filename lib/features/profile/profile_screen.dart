@@ -21,6 +21,7 @@ import '../../core/state/yatra_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_door.dart';
+import '../../core/widgets/app_image.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../auth/auth_screen.dart';
 import '../bookings/bookings_screen.dart';
@@ -206,7 +207,7 @@ class ProfileScreen extends StatelessWidget {
           const Padding(padding: EdgeInsets.symmetric(horizontal: 20), child: _Placeholder(icon: Icons.bookmark_border_rounded, text: 'Tap the bookmark on any temple to keep it here.'))
         else
           SizedBox(
-            height: 262,
+            height: scaledHeight(context, 262),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -360,7 +361,7 @@ class _Avatar extends StatelessWidget {
     if (path != null && !kIsWeb) {
       img = Image.file(File(path!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback);
     } else if (url != null) {
-      img = Image.network(url!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback);
+      img = AppImage(url!, placeholder: fallback, decodeWidth: 200);
     }
     return Container(
       width: size,

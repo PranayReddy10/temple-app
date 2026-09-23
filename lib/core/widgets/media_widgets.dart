@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -5,8 +6,11 @@ import '../l10n/strings.dart';
 import '../models/models.dart';
 import '../motifs/architecture.dart';
 import '../motifs/motif.dart';
+import '../state/mantra_player.dart';
 import '../theme/day_theme.dart';
+import '../../features/media/media_player_screen.dart';
 import '../theme/palette.dart';
+import 'app_image.dart';
 
 IconData mediaIcon(String? type) => switch (type) {
       'video' => Icons.play_circle_fill_rounded,
@@ -15,10 +19,17 @@ IconData mediaIcon(String? type) => switch (type) {
       _ => Icons.image_rounded,
     };
 
-Future<void> openMedia(BuildContext context, DevotionalMedia m) async {
+/// Plays inside the app. On the web build, where the in-app web view is not
+/// available, a non-YouTube link opens in a new tab instead.
+Future<void> openMedia(BuildContext context, DevotionalMedia m, {DayTheme? day}) async {
   if (m.url == null) return;
-  final ok = await launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication);
-  if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open this link.')));
+  final isYoutube = m.url!.contains('youtube.com') || m.url!.contains('youtu.be');
+  if (kIsWeb && !isYoutube && !isDirectAudio(m.url, m.sourceType)) {
+    final ok = await launchUrl(Uri.parse(m.url!), mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open this link.')));
+    return;
+  }
+  await Navigator.of(context).push(MaterialPageRoute(builder: (_) => MediaPlayerScreen(media: m, day: day ?? DayTheme.today())));
 }
 
 /// A list row for a song, chant or video, with its rights line.
@@ -44,7 +55,7 @@ class MediaTile extends StatelessWidget {
           style: theme.textTheme.bodySmall,
         ),
         trailing: Icon(media.sourceType == 'external' ? Icons.open_in_new_rounded : Icons.chevron_right_rounded, size: 18),
-        onTap: media.url == null ? null : () => openMedia(context, media),
+        onTap: media.url == null ? null : () => openMedia(context, media, day: day),
       ),
     );
   }
@@ -85,7 +96,7 @@ class MediaArt extends StatelessWidget {
             : Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(media.thumbnailUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => painted),
+                  AppImage(media.thumbnailUrl!, placeholder: painted, decodeWidth: 400),
                   Center(child: Icon(mediaIcon(media.type), color: Colors.white, size: size * 0.36, shadows: const [Shadow(blurRadius: 8, color: Colors.black54)])),
                 ],
               ),
@@ -109,18 +120,25 @@ class MediaCard extends StatelessWidget {
       width: width,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: media.url == null ? null : () => openMedia(context, media),
+        onTap: media.url == null ? null : () => openMedia(context, media, day: day),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             MediaArt(media: media, day: day, size: width, radius: 16),
-            const SizedBox(height: 8),
-            Text(media.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelLarge?.copyWith(fontFamily: 'NotoSerif', letterSpacing: 0)),
-            Text(
-              media.artist ?? media.durationLabel ?? _typeLabel(context, media.type),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
+            const SizedBox(height: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(child: Text(media.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelLarge?.copyWith(fontFamily: 'NotoSerif', letterSpacing: 0))),
+                  Text(
+                    media.artist ?? media.durationLabel ?? _typeLabel(context, media.type),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -165,7 +183,7 @@ class MediaSections extends StatelessWidget {
                 children: [
                   Icon(mediaIcon(g.value.first.type), size: 18, color: day.accent),
                   const SizedBox(width: 8),
-                  Text(g.key, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif')),
+                  Expanded(child: Text(g.key, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif'))),
                 ],
               ),
             ),
@@ -218,11 +236,12 @@ class _PhotoViewerState extends State<PhotoViewer> {
                 minScale: 1,
                 maxScale: 4,
                 child: Center(
-                  child: Image.network(
-                    widget.photos[i].original ?? widget.photos[i].best ?? '',
+                  child: AppImage(
+                    // The medium rendition: an original can be tens of
+                    // megabytes and never finish on a temple-town network.
+                    widget.photos[i].medium ?? widget.photos[i].best ?? '',
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => MotifIcon(DayTheme.forDeity(widget.deitySlug).motif, size: 120, color: Palette.gold),
-                    loadingBuilder: (context, child, progress) => progress == null ? child : const Center(child: CircularProgressIndicator(color: Palette.gold)),
+                    placeholder: Center(child: MotifIcon(DayTheme.forDeity(widget.deitySlug).motif, size: 120, color: Palette.gold)),
                   ),
                 ),
               ),

@@ -11,6 +11,7 @@ import 'package:temple_app/core/state/bookings_controller.dart';
 import 'package:temple_app/core/state/day_controller.dart';
 import 'package:temple_app/core/state/family_controller.dart';
 import 'package:temple_app/core/state/favourites_controller.dart';
+import 'package:temple_app/core/state/mantra_player.dart';
 import 'package:temple_app/core/state/memories_controller.dart';
 import 'package:temple_app/core/state/offline_pack_controller.dart';
 import 'package:temple_app/core/state/passport_controller.dart';
@@ -23,6 +24,7 @@ import 'package:temple_app/core/theme/day_theme.dart';
 import 'package:temple_app/core/widgets/temple_door.dart';
 import 'package:temple_app/core/data/sample_data.dart';
 import 'package:temple_app/features/shell/shell_screen.dart';
+import 'package:temple_app/features/days/day_screen.dart';
 import 'package:temple_app/features/temple/temple_screen.dart';
 
 Future<Widget> harness(Widget child) async {
@@ -50,6 +52,7 @@ Future<Widget> harness(Widget child) async {
       ChangeNotifierProvider.value(value: memories),
       ChangeNotifierProvider.value(value: sync),
       ChangeNotifierProvider(create: (_) => FamilyController(prefs)),
+      ChangeNotifierProvider(create: (_) => MantraPlayer(prefs)),
       ChangeNotifierProvider(create: (_) => RemindersController(prefs)),
       ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
       ChangeNotifierProvider(create: (_) => BookingsController(prefs)),
@@ -61,6 +64,8 @@ Future<Widget> harness(Widget child) async {
 
 void main() {
   _themeTests();
+  _overflowTests();
+  _pageOverflowTests();
   testWidgets('shell shows five tabs and the day header', (tester) async {
     await tester.pumpWidget(await harness(const ShellScreen()));
     await tester.pump(const Duration(milliseconds: 300));
@@ -124,4 +129,62 @@ void _themeTests() {
     expect(ctl.previewDepth, 0);
     expect(ctl.theme.deitySlug, today);
   });
+}
+
+void _overflowTests() {
+  for (final scale in [1.0, 1.3, 1.6]) {
+    testWidgets('no layout overflow on the main tabs at text scale $scale', (tester) async {
+      tester.view.physicalSize = const Size(360 * 3, 740 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final errors = <FlutterErrorDetails>[];
+      final old = FlutterError.onError;
+      FlutterError.onError = (d) => errors.add(d);
+      await tester.pumpWidget(MediaQuery(data: MediaQueryData(textScaler: TextScaler.linear(scale), size: const Size(360, 740)), child: await harness(const ShellScreen())));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      for (final i in [1, 2, 3, 4]) {
+        await tester.tap(find.byType(NavigationDestination).at(i));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      FlutterError.onError = old;
+      final overflows = errors.where((e) => e.toString().contains('overflowed')).map((e) {
+        final lines = e.toString().split('\n');
+        final i = lines.indexWhere((l) => l.contains('error-causing widget'));
+        final creator = lines.where((l) => l.contains('creator:')).map((l) => l.trim()).firstOrNull ?? '';
+        final widget = i >= 0 ? '${lines.skip(i + 1).take(2).map((l) => l.trim()).join(' ')} $creator' : creator;
+        return '${e.exception.toString().split('\n').first} @ $widget';
+      }).toList();
+      expect(overflows, isEmpty, reason: overflows.join('\n'));
+    });
+  }
+}
+
+void _pageOverflowTests() {
+  for (final scale in [1.0, 1.4]) {
+    testWidgets('no layout overflow on temple and day pages at text scale $scale', (tester) async {
+      tester.view.physicalSize = const Size(360 * 3, 740 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      final errors = <FlutterErrorDetails>[];
+      final old = FlutterError.onError;
+      FlutterError.onError = (d) => errors.add(d);
+      for (final page in [TempleScreen(slug: 'meenakshi-amman-temple', preview: SampleData.bySlug('meenakshi-amman-temple')), const DayScreen(weekday: 1)]) {
+        await tester.pumpWidget(MediaQuery(data: MediaQueryData(textScaler: TextScaler.linear(scale), size: const Size(360, 740)), child: await harness(page)));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -900));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -900));
+        await tester.pump(const Duration(milliseconds: 300));
+      }
+      FlutterError.onError = old;
+      final overflows = errors.where((e) => e.toString().contains('overflowed')).map((e) {
+        final lines = e.toString().split('\n');
+        final i = lines.indexWhere((l) => l.contains('error-causing widget'));
+        return '${lines.first} @ ${i >= 0 ? lines.skip(i + 1).take(2).map((l) => l.trim()).join(' ') : ''}';
+      }).toList();
+      expect(overflows, isEmpty, reason: overflows.join('\n'));
+    });
+  }
 }

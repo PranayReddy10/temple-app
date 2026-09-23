@@ -15,6 +15,7 @@ import '../../core/state/day_controller.dart';
 import '../../core/state/sync_service.dart';
 import '../../core/state/family_controller.dart';
 import '../../core/state/favourites_controller.dart';
+import '../../core/state/mantra_player.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
 import '../../core/theme/day_theme.dart';
@@ -229,8 +230,8 @@ class _TempleScreenState extends State<TempleScreen> {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: d.mantra != null && !d.mantra!.isEmpty
-                    ? MantraCard(day: day, mantra: d.mantra!.text, transliteration: d.mantra!.transliteration, title: d.mantra!.isTempleSpecific ? "This temple's mantra" : s('blessing'))
-                    : MantraCard(day: day, title: s('blessing')),
+                    ? MantraCard(day: day, mantra: d.mantra!.text, transliteration: d.mantra!.transliteration, title: d.mantra!.isTempleSpecific ? "This temple's mantra" : s('blessing'), playKey: 'temple-${t.slug}', audioUrl: media.where((m) => m.type == 'chant' && isDirectAudio(m.url, m.sourceType)).firstOrNull?.url)
+                    : MantraCard(day: day, title: s('blessing'), playKey: 'temple-${t.slug}', audioUrl: media.where((m) => m.type == 'chant' && isDirectAudio(m.url, m.sourceType)).firstOrNull?.url),
               ),
             ),
             // ---- Gallery ----------------------------------------------
@@ -268,7 +269,7 @@ class _TempleScreenState extends State<TempleScreen> {
             else ...[
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 206,
+                  height: scaledHeight(context, 206),
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -709,7 +710,7 @@ class _Hero extends StatelessWidget {
       stretch: true,
       backgroundColor: day.accent,
       foregroundColor: day.onAccent(),
-      title: LayoutBuilder(builder: (context, c) => Text(temple.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: day.onAccent()))),
+      title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: 340),
       actions: [IconButton(tooltip: saved ? S.of(context)('saved') : S.of(context)('save'), onPressed: onSave, icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded))],
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground],
@@ -820,7 +821,7 @@ class _QuickFacts extends StatelessWidget {
     ];
     final theme = Theme.of(context);
     return SizedBox(
-      height: 92,
+      height: scaledHeight(context, 92),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -837,7 +838,7 @@ class _QuickFacts extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [Icon(facts[i].$1, size: 14, color: day.accent), const SizedBox(width: 6), Text(facts[i].$2.toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: day.accent))]),
+              Row(children: [Icon(facts[i].$1, size: 14, color: day.accent), const SizedBox(width: 6), Expanded(child: Text(facts[i].$2.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: day.accent)))]),
               const Spacer(),
               Text(facts[i].$3, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif')),
             ],

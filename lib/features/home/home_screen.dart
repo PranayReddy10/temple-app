@@ -9,6 +9,7 @@ import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
+import '../../core/state/mantra_player.dart';
 import '../../core/state/reminders_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
@@ -143,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             SliverToBoxAdapter(child: SectionHeader(title: s('today_media'), motif: day.motif, actionLabel: s('see_all'), onAction: () => enterTemple(context, DayScreen(weekday: day.weekday), accent: day.accent))),
             SliverToBoxAdapter(
               child: SizedBox(
-                height: 200,
+                height: scaledHeight(context, 200),
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -242,8 +243,28 @@ class _DayHeader extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 18),
-                Text(lead?.mantra ?? day.mantra, style: theme.textTheme.titleLarge?.copyWith(color: on, fontFamily: 'NotoSerif')),
-                Text(lead?.mantraTransliteration ?? day.transliteration, style: theme.textTheme.bodySmall?.copyWith(color: on.withValues(alpha: 0.8), fontStyle: FontStyle.italic)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(lead?.mantra ?? day.mantra, style: theme.textTheme.titleLarge?.copyWith(color: on, fontFamily: 'NotoSerif')),
+                          Text(lead?.mantraTransliteration ?? day.transliteration, style: theme.textTheme.bodySmall?.copyWith(color: on.withValues(alpha: 0.8), fontStyle: FontStyle.italic)),
+                        ],
+                      ),
+                    ),
+                    MantraControls(
+                      playKey: 'day-${day.weekday}',
+                      text: lead?.mantra ?? day.mantra,
+                      audioUrl: lead?.media.where((m) => m.type == 'chant' && isDirectAudio(m.url, m.sourceType)).firstOrNull?.url,
+                      accent: day.accent,
+                      onColor: on,
+                      compact: true,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -306,7 +327,7 @@ class _WeekStrip extends StatelessWidget {
     // Start the strip on today so the week reads forward.
     final order = [for (var i = 0; i < 7; i++) DayTheme.all[(todayIndex + i) % 7]];
     return SizedBox(
-      height: 112,
+      height: scaledHeight(context, 116),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -329,8 +350,8 @@ class _WeekStrip extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(d.dayName.substring(0, 3).toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: isToday ? d.onAccent() : d.accent)),
-                  MotifIcon(d.motif, size: 34, color: isToday ? d.onAccent() : d.accent, secondary: d.secondary),
-                  Text(d.deityName, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(color: isToday ? d.onAccent() : theme.colorScheme.onSurface, fontFamily: 'NotoSerif')),
+                  Flexible(child: MotifIcon(d.motif, size: 34, color: isToday ? d.onAccent() : d.accent, secondary: d.secondary)),
+                  FittedBox(fit: BoxFit.scaleDown, child: Text(d.deityName, maxLines: 1, style: theme.textTheme.labelMedium?.copyWith(color: isToday ? d.onAccent() : theme.colorScheme.onSurface, fontFamily: 'NotoSerif'))),
                 ],
               ),
             ),
@@ -392,7 +413,7 @@ class _Carousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        height: 262,
+        height: scaledHeight(context, 262),
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 20),
