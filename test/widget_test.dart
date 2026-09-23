@@ -4,7 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:temple_app/core/ads/ads.dart';
 import 'package:temple_app/core/api/api_client.dart';
+import 'package:temple_app/core/services/push_service.dart';
+import 'package:temple_app/core/state/app_config_controller.dart';
+import 'package:temple_app/core/state/notifications_controller.dart';
+import 'package:temple_app/core/state/subscription_controller.dart';
 import 'package:temple_app/core/api/temple_repository.dart';
 import 'package:temple_app/core/motifs/architecture.dart';
 import 'package:temple_app/core/state/app_settings.dart';
@@ -44,6 +49,8 @@ Future<Widget> harness(Widget child, {Map<String, Object> prefs = const {}}) asy
   final memories = MemoriesController(store);
   final submissions = SubmissionsController(store);
   final sync = SyncService(prefs: store, api: api, auth: auth, settings: settings, passport: passport, yatras: yatras, memories: memories, submissions: submissions);
+  final appConfig = AppConfigController(store, api);
+  final inbox = NotificationsController(store, api, auth);
   return MultiProvider(
     providers: [
       Provider<ApiClient>.value(value: api),
@@ -62,6 +69,11 @@ Future<Widget> harness(Widget child, {Map<String, Object> prefs = const {}}) asy
       ChangeNotifierProvider(create: (_) => OfflinePackController(store, repo)),
       ChangeNotifierProvider(create: (_) => BookingsController(store)),
       ChangeNotifierProvider.value(value: submissions),
+      ChangeNotifierProvider.value(value: appConfig),
+      ChangeNotifierProvider.value(value: inbox),
+      ChangeNotifierProvider(create: (_) => SubscriptionController(api, auth)),
+      ChangeNotifierProvider(create: (_) => AdsController(appConfig, auth)),
+      Provider(create: (_) => PushService(prefs: store, api: api, auth: auth, config: appConfig, inbox: inbox)),
     ],
     child: MaterialApp(theme: AppTheme.light(DayTheme.today()), home: child),
   );

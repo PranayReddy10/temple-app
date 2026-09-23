@@ -70,6 +70,26 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// "Continue with Google" / "Sign in with Apple": the provider's identity
+  /// token, obtained on the device, exchanged for our own. The server
+  /// verifies it; nothing here is trusted on the device's word.
+  Future<void> loginWithIdToken(String provider, Map<String, dynamic> body) async {
+    _busy = true;
+    notifyListeners();
+    try {
+      final json = await api.post('auth/$provider', body);
+      final data = json['data'] as Map<String, dynamic>;
+      await _store(Devotee.fromJson(data['devotee'] as Map<String, dynamic>), data['token'] as String);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Called when something the account holds changed on the server (a plan
+  /// bought, for one), so entitlements are fresh without signing in again.
+  Future<void> reload() => refresh();
+
   Future<void> logout() async {
     try {
       await api.post('auth/logout', const {});

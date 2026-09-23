@@ -223,5 +223,48 @@ class S {
     'passport_offline': {'en': 'A passport can be opened only when you are online.', 'te': 'పాస్‌పోర్ట్ ఆన్‌లైన్‌లో ఉన్నప్పుడే తెరవగలరు.', 'hi': 'पासपोर्ट केवल ऑनलाइन होने पर खुलता है।'},
     'passport_none_shared': {'en': 'No visits shared yet.', 'te': 'ఇంకా దర్శనాలు పంచుకోలేదు.', 'hi': 'अभी कोई दर्शन साझा नहीं।'},
     'member_since': {'en': 'since', 'te': 'నుండి', 'hi': 'से'},
+    // Sign-in.
+    'continue_google': {'en': 'Continue with Google', 'te': 'Google తో కొనసాగండి', 'hi': 'Google से जारी रखें'},
+    'continue_apple': {'en': 'Sign in with Apple', 'te': 'Apple తో సైన్ ఇన్', 'hi': 'Apple से साइन इन करें'},
+    'or': {'en': 'or', 'te': 'లేదా', 'hi': 'या'},
+    'use_password': {'en': 'Use email or phone instead', 'te': 'ఇమెయిల్ లేదా ఫోన్‌తో', 'hi': 'ईमेल या फ़ोन से'},
+
+    // Notifications.
+    'notifications': {'en': 'Notifications', 'te': 'నోటిఫికేషన్లు', 'hi': 'सूचनाएँ'},
+    'mark_all_read': {'en': 'Mark all read', 'te': 'అన్నీ చదివినట్లు', 'hi': 'सब पढ़ा हुआ'},
+    'notifications_empty': {'en': 'No notifications yet. Festival reminders and news from temples appear here.', 'te': 'ఇంకా నోటిఫికేషన్లు లేవు. పండుగ గుర్తింపులు, ఆలయ వార్తలు ఇక్కడ కనిపిస్తాయి.', 'hi': 'अभी कोई सूचना नहीं। त्योहार की याद और मंदिरों की ख़बरें यहाँ दिखेंगी।'},
+
+    // Maintenance and updates.
+    'maintenance_title': {'en': 'We will be back shortly', 'te': 'త్వరలో తిరిగి వస్తాం', 'hi': 'हम जल्द लौटेंगे'},
+    'maintenance_body': {'en': 'The app is being updated. Please try again in a little while.', 'te': 'యాప్ నవీకరించబడుతోంది. కొద్దిసేపటి తర్వాత ప్రయత్నించండి.', 'hi': 'ऐप अपडेट हो रहा है। थोड़ी देर बाद फिर कोशिश करें।'},
+    'maintenance_until': {'en': 'Expected back', 'te': 'తిరిగి వచ్చే సమయం', 'hi': 'वापसी का समय'},
+    'update_title': {'en': 'A new version is ready', 'te': 'కొత్త వెర్షన్ సిద్ధం', 'hi': 'नया संस्करण तैयार है'},
+    'update_body': {'en': 'Update for the latest temples, fixes and features.', 'te': 'తాజా ఆలయాలు, మెరుగుదలల కోసం నవీకరించండి.', 'hi': 'नए मंदिरों और सुधारों के लिए अपडेट करें।'},
+    'update_required_title': {'en': 'Please update the app', 'te': 'దయచేసి యాప్‌ను నవీకరించండి', 'hi': 'कृपया ऐप अपडेट करें'},
+    'update_required_body': {'en': 'This version is no longer supported. Update to keep using the app.', 'te': 'ఈ వెర్షన్‌కు మద్దతు లేదు. కొనసాగడానికి నవీకరించండి.', 'hi': 'यह संस्करण अब समर्थित नहीं है। जारी रखने के लिए अपडेट करें।'},
+    'update_now': {'en': 'Update now', 'te': 'ఇప్పుడే నవీకరించు', 'hi': 'अभी अपडेट करें'},
+    'later': {'en': 'Later', 'te': 'తర్వాత', 'hi': 'बाद में'},
+    'version': {'en': 'Version', 'te': 'వెర్షన్', 'hi': 'संस्करण'},
+
+    // Premium and payments.
+    'premium': {'en': 'Premium', 'te': 'ప్రీమియం', 'hi': 'प्रीमियम'},
+    'premium_title': {'en': 'Temple Passport Premium', 'te': 'టెంపుల్ పాస్‌పోర్ట్ ప్రీమియం', 'hi': 'टेम्पल पासपोर्ट प्रीमियम'},
+    'premium_pitch': {'en': 'No ads, more memories with every visit, a gold passport.', 'te': 'ప్రకటనలు లేవు, ప్రతి దర్శనానికి మరిన్ని జ్ఞాపకాలు, బంగారు పాస్‌పోర్ట్.', 'hi': 'कोई विज्ञापन नहीं, हर दर्शन के साथ ज़्यादा यादें, सुनहरा पासपोर्ट।'},
+    'premium_until': {'en': 'Active until', 'te': 'వరకు చెల్లుతుంది', 'hi': 'तक सक्रिय'},
+    'premium_buy': {'en': 'Choose', 'te': 'ఎంచుకోండి', 'hi': 'चुनें'},
+    'premium_active': {'en': 'Thank you! Your plan is active.', 'te': 'ధన్యవాదాలు! మీ ప్లాన్ సక్రియంగా ఉంది.', 'hi': 'धन्यवाद! आपका प्लान सक्रिय है।'},
+    'premium_none': {'en': 'No plans are on offer right now.', 'te': 'ప్రస్తుతం ప్లాన్లు లేవు.', 'hi': 'अभी कोई प्लान उपलब्ध नहीं।'},
+    'premium_elsewhere': {'en': 'Plans cannot be bought in the app on this device yet. A plan already on your account works here too.', 'te': 'ఈ పరికరంలో యాప్‌లో ఇంకా ప్లాన్లు కొనలేరు. మీ ఖాతాలో ఉన్న ప్లాన్ ఇక్కడ కూడా పనిచేస్తుంది.', 'hi': 'इस डिवाइस पर ऐप में अभी प्लान नहीं ख़रीद सकते। आपके खाते का प्लान यहाँ भी काम करता है।'},
+    'premium_soon': {'en': 'Buying plans opens soon.', 'te': 'ప్లాన్ల కొనుగోలు త్వరలో.', 'hi': 'प्लान जल्द ख़रीद सकेंगे।'},
+    'premium_note': {'en': 'Paid securely through Indian payment gateways (UPI, cards, net banking). A plan is not renewed automatically.', 'te': 'భారతీయ చెల్లింపు గేట్‌వేల ద్వారా సురక్షిత చెల్లింపు. ప్లాన్ స్వయంచాలకంగా పునరుద్ధరించబడదు.', 'hi': 'भारतीय पेमेंट गेटवे से सुरक्षित भुगतान। प्लान अपने आप नवीनीकृत नहीं होता।'},
+    'pay_with': {'en': 'Pay with', 'te': 'దీనితో చెల్లించండి', 'hi': 'इससे भुगतान करें'},
+    'payment_pending': {'en': 'Payment is being confirmed. Your plan switches on as soon as the bank confirms.', 'te': 'చెల్లింపు నిర్ధారించబడుతోంది.', 'hi': 'भुगतान की पुष्टि हो रही है।'},
+    'payment_failed': {'en': 'The payment did not complete. No plan was started.', 'te': 'చెల్లింపు పూర్తి కాలేదు.', 'hi': 'भुगतान पूरा नहीं हुआ।'},
+    'payment_offline': {'en': 'Could not reach the server. Check your connection and try again.', 'te': 'సర్వర్‌ను చేరలేకపోయాం.', 'hi': 'सर्वर तक नहीं पहुँच सके।'},
+    'memory_limit_reached': {'en': 'This visit has all its memory photos. Premium keeps more.', 'te': 'ఈ దర్శనానికి జ్ఞాపకాల ఫోటోలు పూర్తయ్యాయి. ప్రీమియంతో మరిన్ని.', 'hi': 'इस दर्शन की सभी याद-तस्वीरें भर गईं। प्रीमियम में और।'},
+
+    // Ads.
+    'ad': {'en': 'Ad', 'te': 'ప్రకటన', 'hi': 'विज्ञापन'},
+    'remove_ads': {'en': 'Remove ads', 'te': 'ప్రకటనలు తొలగించు', 'hi': 'विज्ञापन हटाएँ'},
   };
 }

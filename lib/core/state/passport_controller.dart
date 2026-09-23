@@ -53,9 +53,13 @@ class Visit {
   /// check its signature.
   final String? qrCode;
 
-  /// Up to [maxMemoryPhotos] photos kept with the visit, outside the passport.
+  /// Photos kept with the visit, outside the passport: [maxMemoryPhotos] on
+  /// the free app, more with a plan (the server says how many).
   final List<MemoryPhoto> memoryPhotos;
   static const maxMemoryPhotos = 3;
+
+  /// The most any plan allows; a guard for photos merged from the account.
+  static const memoryPhotoCeiling = 50;
 
   final String templeSlug;
   final String templeName;
@@ -314,7 +318,7 @@ class PassportController extends ChangeNotifier {
       if (i < 0) continue;
       final v = _visits[i];
       if (v.memoryPhotos.any((m) => m.remoteId == p.id)) continue;
-      if (v.memoryPhotos.length >= Visit.maxMemoryPhotos) continue;
+      if (v.memoryPhotos.length >= Visit.memoryPhotoCeiling) continue;
       _visits[i] = v.copyWith(memoryPhotos: [...v.memoryPhotos, MemoryPhoto(remoteId: p.id, url: p.originalUrl)]);
       changed = true;
     }
@@ -324,9 +328,9 @@ class PassportController extends ChangeNotifier {
   /// Keeps a memory photo with the visit. The picked file is copied by the
   /// caller into the app's own storage first: a picker's cache copy can be
   /// cleared by the system at any time.
-  Future<Visit?> addMemoryPhoto(Visit visit, String path) async {
+  Future<Visit?> addMemoryPhoto(Visit visit, String path, {int limit = Visit.maxMemoryPhotos}) async {
     final i = _visits.indexWhere((v) => v.localKey == visit.localKey);
-    if (i < 0 || _visits[i].memoryPhotos.length >= Visit.maxMemoryPhotos) return null;
+    if (i < 0 || _visits[i].memoryPhotos.length >= limit) return null;
     _visits[i] = _visits[i].copyWith(memoryPhotos: [..._visits[i].memoryPhotos, MemoryPhoto(path: path)]);
     await _save();
     return _visits[i];

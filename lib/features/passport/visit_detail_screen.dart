@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/data/sample_data.dart';
 import '../../core/l10n/strings.dart';
+import '../../core/state/app_config_controller.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/photo_store.dart';
@@ -16,6 +17,7 @@ import '../../core/theme/palette.dart';
 import '../../core/widgets/app_image.dart';
 import '../../core/widgets/temple_door.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
+import '../premium/premium_screen.dart';
 import '../temple/temple_screen.dart';
 import 'stamp_widget.dart';
 
@@ -58,7 +60,8 @@ class VisitDetailScreen extends StatelessWidget {
       if (signedIn && updated != null && updated.remotePhoto == null) await sync.queuePhoto(updated, photoPath: path);
       return;
     }
-    final updated = await passport.addMemoryPhoto(visit, path);
+    final limit = context.mounted ? context.read<AuthController>().devotee?.entitlements.memoryPhotosPerVisit ?? Visit.maxMemoryPhotos : Visit.maxMemoryPhotos;
+    final updated = await passport.addMemoryPhoto(visit, path, limit: limit);
     if (updated != null && signedIn) await sync.queueMemoryPhoto(updated, path);
   }
 
@@ -94,6 +97,8 @@ class VisitDetailScreen extends StatelessWidget {
     }
     final day = DayTheme.forDeity(visit.deitySlug);
     final memories = visit.memoryPhotos;
+    // Three on the free app; a plan raises it. Never fewer than already kept.
+    final limit = [context.watch<AuthController>().devotee?.entitlements.memoryPhotosPerVisit ?? Visit.maxMemoryPhotos, memories.length].reduce((a, b) => a > b ? a : b);
     final passportImage = _image(visit.photoPath, visit.remotePhoto?.originalUrl);
 
     return Scaffold(
@@ -154,7 +159,7 @@ class VisitDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 28),
-          _Heading(icon: Icons.photo_library_rounded, title: '${s('memory_photos')} · ${memories.length}/${Visit.maxMemoryPhotos}', subtitle: s('memory_photos_note')),
+          _Heading(icon: Icons.photo_library_rounded, title: '${s('memory_photos')} · ${memories.length}/$limit', subtitle: s('memory_photos_note')),
           const SizedBox(height: 10),
           GridView.count(
             crossAxisCount: 3,
@@ -163,7 +168,9 @@ class VisitDetailScreen extends StatelessWidget {
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
             children: [
-              for (var k = 0; k < Visit.maxMemoryPhotos; k++)
+              // The free three are laid out in full; a larger plan shows the
+              // photos kept plus one more slot, not a wall of empty boxes.
+              for (var k = 0; k < (limit <= Visit.maxMemoryPhotos ? limit : (memories.length + 1).clamp(0, limit)); k++)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(14),
                   child: k < memories.length
@@ -198,6 +205,14 @@ class VisitDetailScreen extends StatelessWidget {
                 ),
             ],
           ),
+          if (memories.length >= limit && limit <= Visit.maxMemoryPhotos && context.watch<AppConfigController>().config.paymentsEnabled)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: InkWell(
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PremiumScreen())),
+                child: Row(children: [const Icon(Icons.workspace_premium_rounded, size: 18, color: Palette.gold), const SizedBox(width: 6), Expanded(child: Text(s('memory_limit_reached'), style: theme.textTheme.bodySmall))]),
+              ),
+            ),
           const SizedBox(height: 28),
           Row(
             children: [

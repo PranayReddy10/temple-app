@@ -104,6 +104,20 @@ leaves the system in a working state. **Nothing is built all at once.**
 | 9 | **Favourites + basic Yatra planner** | Saved temples (synced to the account), itinerary by days, reorder, Yatra mode, route in Maps | ✅ **Done** |
 | 10 | **Languages: EN / TE / HI** | Interface strings in three languages with bundled Indic fonts; alternate temple names come from the API | ✅ **Done** |
 
+### App control, sign-in, notifications, premium and ads  ✅ **Done**
+
+| Feature | App | Managed from (admin panel) |
+| --- | --- | --- |
+| **Maintenance mode** | A full-screen notice over the whole app, with "try again"; honoured offline from the last answer | App → App control |
+| **Update popup** | Below the minimum version: a blocking "please update" with the store link. Below the latest: a popup offered once per version | App → App control (per platform) |
+| **Continue with Google / Sign in with Apple** | Buttons on the sign-in screen; Apple on iPhone only. Password sign-in can be hidden behind a link when switched off | App → Sign-in methods |
+| **Notifications** | Inbox with unread badge on Home and in Profile; push through Firebase started from the server's ids; taps open a temple, a weekday, a screen or a link; saving a temple follows it | App → Notifications, App → Push setup |
+| **Premium plans** | Plans with their benefits, gateway choice, checkout in the in-app browser (UPI apps open from it), result confirmed by the server; more memory photos and a gold passport cover when the plan includes them | Monetisation → Plans, Payment gateways, Payments, Subscribers |
+| **Ads** | Native ads between temple-page sections, among explore/search results, on Home and (optionally) weekday pages; labelled "Ad" with "Remove ads"; none for no-ads plans, none on passport, check-in, scan, sign-in or checkout | Monetisation → Ads |
+
+Setup that has to be compiled in (AdMob app id, Google iOS URL scheme,
+Apple and push capabilities): see `docs/PLATFORM_SETUP.md`.
+
 ### Passport QR, counter check-in and memories  ✅ **Done**
 
 | Feature | App | Backend (`temple-website`) |

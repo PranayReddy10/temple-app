@@ -719,7 +719,7 @@ class DevotionalDay {
 }
 
 class Devotee {
-  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.gender, this.isVerified = false, this.joinedAt, this.passportUrl});
+  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.gender, this.isVerified = false, this.joinedAt, this.passportUrl, this.signInMethods = const [], this.entitlements = Entitlements.free, this.subscriptionPlan, this.subscriptionEndsAt, this.homeStateId});
 
   final int? id;
   final String name;
@@ -739,6 +739,15 @@ class Devotee {
   /// never the account id. Reset from the My QR screen.
   final String? passportUrl;
 
+  /// password, google, apple: how this account can sign in.
+  final List<String> signInMethods;
+
+  /// What the account's plan unlocks, decided by the server.
+  final Entitlements entitlements;
+  final String? subscriptionPlan;
+  final String? subscriptionEndsAt;
+  final int? homeStateId;
+
   factory Devotee.fromJson(Map<String, dynamic> j) => Devotee(
         id: _i(j['id']),
         name: _s(j['name']) ?? 'Devotee',
@@ -752,6 +761,11 @@ class Devotee {
         isVerified: _b(j['is_verified']),
         joinedAt: _s(j['joined_at']),
         passportUrl: _s(j['passport_url']),
+        signInMethods: _l(j['sign_in_methods']).map((e) => '$e').toList(),
+        entitlements: j['entitlements'] is Map ? Entitlements.fromJson(_m(j['entitlements'])) : Entitlements.free,
+        subscriptionPlan: _s(_m(j['subscription'])['plan']),
+        subscriptionEndsAt: _s(_m(j['subscription'])['ends_at']),
+        homeStateId: _i(j['home_state_id']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -767,6 +781,10 @@ class Devotee {
         'is_verified': isVerified,
         'joined_at': joinedAt,
         'passport_url': passportUrl,
+        'sign_in_methods': signInMethods,
+        'entitlements': entitlements.toJson(),
+        if (subscriptionPlan != null) 'subscription': {'plan': subscriptionPlan, 'ends_at': subscriptionEndsAt},
+        'home_state_id': homeStateId,
       };
 }
 
@@ -1104,5 +1122,206 @@ class PublicPassport {
         visitsRecorded: _i(j['visits_recorded']) ?? 0,
         statesCovered: _i(j['states_covered']) ?? 0,
         visits: _l(j['visits']).map((e) => RemoteVisit.fromJson(_m(e))).toList(),
+      );
+}
+
+
+/// What a plan unlocks. The free app: ads, three memory photos a visit.
+class Entitlements {
+  const Entitlements({this.noAds = false, this.memoryPhotosPerVisit = 3, this.premiumPassport = false});
+
+  static const free = Entitlements();
+
+  final bool noAds;
+  final int memoryPhotosPerVisit;
+  final bool premiumPassport;
+
+  factory Entitlements.fromJson(Map<String, dynamic> j) => Entitlements(
+        noAds: _b(j['no_ads']),
+        memoryPhotosPerVisit: (_i(j['memory_photos_per_visit']) ?? 3).clamp(3, 50),
+        premiumPassport: _b(j['premium_passport']),
+      );
+
+  Map<String, dynamic> toJson() => {'no_ads': noAds, 'memory_photos_per_visit': memoryPhotosPerVisit, 'premium_passport': premiumPassport};
+}
+
+/// `GET /app/config`: what the app may do right now, set in the admin panel.
+class AppConfig {
+  const AppConfig({
+    this.maintenance = false,
+    this.maintenanceTitle,
+    this.maintenanceMessage,
+    this.maintenanceUntil,
+    this.updateAvailable = false,
+    this.updateRequired = false,
+    this.latestVersion,
+    this.storeUrl,
+    this.updateTitle,
+    this.updateMessage,
+    this.passwordSignIn = true,
+    this.googleSignIn = false,
+    this.googleServerClientId,
+    this.googleIosClientId,
+    this.appleSignIn = false,
+    this.pushEnabled = false,
+    this.firebase,
+    this.ads = AdsConfig.off,
+    this.paymentsEnabled = false,
+    this.paymentsElsewhere = false,
+    this.gateways = const [],
+    this.defaultGateway,
+    this.supportEmail,
+  });
+
+  static const fallback = AppConfig();
+
+  final bool maintenance;
+  final String? maintenanceTitle;
+  final String? maintenanceMessage;
+  final String? maintenanceUntil;
+  final bool updateAvailable;
+  final bool updateRequired;
+  final String? latestVersion;
+  final String? storeUrl;
+  final String? updateTitle;
+  final String? updateMessage;
+  final bool passwordSignIn;
+  final bool googleSignIn;
+  final String? googleServerClientId;
+  final String? googleIosClientId;
+  final bool appleSignIn;
+  final bool pushEnabled;
+
+  /// Public Firebase ids for this platform, so no google-services file has
+  /// to be built into the app.
+  final Map<String, String>? firebase;
+  final AdsConfig ads;
+  final bool paymentsEnabled;
+
+  /// Plans exist but cannot be bought on this platform (iOS without IAP).
+  final bool paymentsElsewhere;
+  final List<({String code, String name})> gateways;
+  final String? defaultGateway;
+  final String? supportEmail;
+
+  factory AppConfig.fromJson(Map<String, dynamic> j) {
+    final m = _m(j['maintenance']);
+    final u = _m(j['update']);
+    final a = _m(j['auth']);
+    final p = _m(j['push']);
+    final pay = _m(j['payments']);
+    final fb = _m(p['firebase']);
+    return AppConfig(
+      maintenance: _b(m['enabled']),
+      maintenanceTitle: _s(m['title']),
+      maintenanceMessage: _s(m['message']),
+      maintenanceUntil: _s(m['until']),
+      updateAvailable: _b(u['available']),
+      updateRequired: _b(u['required']),
+      latestVersion: _s(u['latest_version']),
+      storeUrl: _s(u['store_url']),
+      updateTitle: _s(u['title']),
+      updateMessage: _s(u['message']),
+      passwordSignIn: a['password'] == null ? true : _b(a['password']),
+      googleSignIn: _b(_m(a['google'])['enabled']),
+      googleServerClientId: _s(_m(a['google'])['server_client_id']),
+      googleIosClientId: _s(_m(a['google'])['ios_client_id']),
+      appleSignIn: _b(_m(a['apple'])['enabled']),
+      pushEnabled: _b(p['enabled']),
+      firebase: fb.isEmpty ? null : {for (final e in fb.entries) if (e.value != null) e.key: '${e.value}'},
+      ads: j['ads'] is Map ? AdsConfig.fromJson(_m(j['ads'])) : AdsConfig.off,
+      paymentsEnabled: _b(pay['enabled']),
+      paymentsElsewhere: _b(pay['available_elsewhere']),
+      gateways: _l(pay['gateways']).map((g) => (code: '${_m(g)['code']}', name: '${_m(g)['name']}')).toList(),
+      defaultGateway: _s(pay['default_gateway']),
+      supportEmail: _s(j['support_email']),
+    );
+  }
+}
+
+class AdsConfig {
+  const AdsConfig({this.enabled = false, this.network = 'admob', this.testMode = true, this.applovinSdkKey, this.nativeUnit, this.bannerUnit, this.listInterval = 6, this.placements = const {}});
+
+  static const off = AdsConfig();
+
+  final bool enabled;
+
+  /// admob or applovin_max. Meta Audience Network serves through either.
+  final String network;
+  final bool testMode;
+  final String? applovinSdkKey;
+  final String? nativeUnit;
+  final String? bannerUnit;
+  final int listInterval;
+  final Map<String, bool> placements;
+
+  bool allows(String placement) => enabled && (placements[placement] ?? false) && (nativeUnit ?? '').isNotEmpty;
+
+  factory AdsConfig.fromJson(Map<String, dynamic> j) => AdsConfig(
+        enabled: _b(j['enabled']),
+        network: _s(j['network']) ?? 'admob',
+        testMode: j['test_mode'] == null ? true : _b(j['test_mode']),
+        applovinSdkKey: _s(j['applovin_sdk_key']),
+        nativeUnit: _s(_m(j['units'])['native']),
+        bannerUnit: _s(_m(j['units'])['banner']),
+        listInterval: (_i(j['list_interval']) ?? 6).clamp(3, 30),
+        placements: {for (final e in _m(j['placements']).entries) e.key: _b(e.value)},
+      );
+}
+
+/// A plan from `GET /plans`.
+class SubscriptionPlan {
+  const SubscriptionPlan({required this.code, required this.name, this.description, required this.price, this.period, this.badge, this.benefits = const {}});
+
+  final String code;
+  final String name;
+  final String? description;
+  final String price;
+  final String? period;
+  final String? badge;
+  final Map<String, dynamic> benefits;
+
+  factory SubscriptionPlan.fromJson(Map<String, dynamic> j) => SubscriptionPlan(
+        code: _s(j['code']) ?? '',
+        name: _s(j['name']) ?? '',
+        description: _s(j['description']),
+        price: _s(j['price']) ?? '',
+        period: _s(j['period']),
+        badge: _s(j['badge']),
+        benefits: _m(j['benefits']),
+      );
+
+  /// The benefits in words, in a fixed order.
+  List<String> get benefitLines => [
+        if (_b(benefits['no_ads'])) 'No ads anywhere in the app',
+        if (_i(benefits['memory_photos_per_visit']) != null) '${_i(benefits['memory_photos_per_visit'])} memory photos with every visit',
+        if (_b(benefits['premium_passport'])) 'Gold edition passport cover',
+      ];
+}
+
+/// One message in the notification inbox.
+class AppNotice {
+  const AppNotice({required this.id, required this.title, required this.body, this.imageUrl, this.linkType = 'none', this.linkValue, this.sentAt, this.isRead});
+
+  final int id;
+  final String title;
+  final String body;
+  final String? imageUrl;
+  final String linkType;
+  final String? linkValue;
+  final String? sentAt;
+
+  /// From the server for a signed-in devotee; null for a guest.
+  final bool? isRead;
+
+  factory AppNotice.fromJson(Map<String, dynamic> j) => AppNotice(
+        id: _i(j['id']) ?? 0,
+        title: _s(j['title']) ?? '',
+        body: _s(j['body']) ?? '',
+        imageUrl: _s(j['image_url']),
+        linkType: _s(_m(j['link'])['type']) ?? 'none',
+        linkValue: _s(_m(j['link'])['value']),
+        sentAt: _s(j['sent_at']),
+        isRead: j['is_read'] == null ? null : _b(j['is_read']),
       );
 }

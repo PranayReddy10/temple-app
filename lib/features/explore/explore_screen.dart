@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ads/ads.dart';
 import '../../core/api/temple_repository.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
@@ -136,6 +137,7 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                     ),
             ),
           ),
+          const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'explore'))),
           SliverToBoxAdapter(child: SectionHeader(title: s('by_state'), motif: Motif.lotus)),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),

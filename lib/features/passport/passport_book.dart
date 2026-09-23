@@ -207,10 +207,16 @@ class _Cover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const gold = Palette.gold;
+    // The premium plan's gold edition: black leather, the same gilt.
+    final premium = context.watch<AuthController>().devotee?.entitlements.premiumPassport ?? false;
     return Container(
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.horizontal(left: Radius.circular(4), right: Radius.circular(12)),
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF6E1423), Color(0xFF4A0D18), Color(0xFF5C1020)]),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: premium ? const [Color(0xFF1B1512), Color(0xFF0B0908), Color(0xFF2A1F14)] : const [Color(0xFF6E1423), Color(0xFF4A0D18), Color(0xFF5C1020)],
+        ),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(4, 8))],
       ),
       child: Stack(
@@ -257,7 +263,7 @@ class _Cover extends StatelessWidget {
                       child: Center(child: Container(width: 10 * u, height: 10 * u, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold, width: 1.5 * u)))),
                     ),
                     SizedBox(height: 10 * u),
-                    Text(Brand.name.toUpperCase(), style: gilt(8, spacing: 3, family: 'NotoSans')),
+                    Text(premium ? 'GOLD EDITION · ${Brand.name.toUpperCase()}' : Brand.name.toUpperCase(), style: gilt(8, spacing: 3, family: 'NotoSans')),
                   ],
                 ),
               );

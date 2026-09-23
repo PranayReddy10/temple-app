@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform.dart';
+
 import '../../core/l10n/strings.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
@@ -22,6 +24,26 @@ class ShellScreen extends StatefulWidget {
 
 class _ShellScreenState extends State<ShellScreen> {
   late int _index = widget.initialIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    shellTabRequest.addListener(_onTabRequest);
+  }
+
+  @override
+  void dispose() {
+    shellTabRequest.removeListener(_onTabRequest);
+    super.dispose();
+  }
+
+  /// A notification asked for a tab (the Passport, the Yatra planner).
+  void _onTabRequest() {
+    final i = shellTabRequest.value;
+    if (i == null || !mounted) return;
+    setState(() => _index = i.clamp(0, 4));
+    shellTabRequest.value = null;
+  }
 
   @override
   Widget build(BuildContext context) {
