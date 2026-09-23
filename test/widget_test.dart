@@ -87,9 +87,16 @@ void main() {
     expect(leaves(), findsNothing);
   });
 
-  testWidgets('passport tab shows empty state until a check-in', (tester) async {
+  testWidgets('passport book opens from its cover to an empty first visa page', (tester) async {
     await tester.pumpWidget(await harness(const ShellScreen(initialIndex: 2)));
     await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('TEMPLE PASSPORT'), findsWidgets);
+    expect(find.text('Swipe to open'), findsOneWidget);
+    // Cover, then the data page, then the first visa page.
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.byTooltip('Next page'));
+      await tester.pumpAndSettle();
+    }
     expect(find.textContaining('first stamp'), findsOneWidget);
   });
 }

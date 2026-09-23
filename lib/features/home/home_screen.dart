@@ -140,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const SizedBox(width: 8),
                   _QuickAction(icon: Icons.calendar_month_rounded, label: s('calendar'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()))),
                   const SizedBox(width: 8),
-                  _QuickAction(icon: Icons.qr_code_scanner_rounded, label: s('scan_qr'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QrScanScreen()))),
+                  _QuickAction(icon: Icons.qr_code_scanner_rounded, label: s('scan_qr'), onTap: () => scanTempleAndCheckIn(context)),
                   const SizedBox(width: 8),
                   _QuickAction(icon: Icons.route_rounded, label: s('new_yatra'), onTap: () => widget.onTab?.call(3)),
                 ],
