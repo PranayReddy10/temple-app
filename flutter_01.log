@@ -1,0 +1,90 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter --quiet assemble --no-version-check --depfile /Volumes/pranaySSD/applications/temple-app/build/app/intermediates/flutter/debug/flutter_build.d --output /Volumes/pranaySSD/applications/temple-app/build/app/intermediates/flutter/debug -dTargetFile=/Volumes/pranaySSD/applications/temple-app/lib/main.dart -dTargetPlatform=android -dBuildMode=debug -dTrackWidgetCreation=true --DartDefines=Zmx1dHRlci5pbnNwZWN0b3Iuc3RydWN0dXJlZEVycm9ycz10cnVl,RkxVVFRFUl9WRVJTSU9OPTMuNDEuNw==,RkxVVFRFUl9DSEFOTkVMPXN0YWJsZQ==,RkxVVFRFUl9HSVRfVVJMPWh0dHBzOi8vZ2l0aHViLmNvbS9mbHV0dGVyL2ZsdXR0ZXIuZ2l0,RkxVVFRFUl9GUkFNRVdPUktfUkVWSVNJT049Y2MwNzM0YWM3MQ==,RkxVVFRFUl9FTkdJTkVfUkVWSVNJT049NTlhYTU4NGZkZg==,RkxVVFRFUl9EQVJUX1ZFUlNJT049My4xMS41 -dFlavor= -dAndroidArchs=android-arm64 -dMinSdkVersion=24 debug_android_application
+
+## exception
+
+StateError: Bad state: Could not determine run package name. Project path "/Volumes/pranaySSD/applications/temple-app/" did not occur as package root in package config "/Volumes/pranaySSD/applications/.dart_tool/package_config.json". Please report a reproduction on https://github.com/flutter/flutter/issues/169475.
+
+```
+#0      DartBuild.build (package:flutter_tools/src/build_system/targets/native_assets.dart:50:7)
+<asynchronous suspension>
+#1      _BuildInstance._invokeInternal (package:flutter_tools/src/build_system/build_system.dart:937:9)
+<asynchronous suspension>
+#2      Future.wait.<anonymous closure> (dart:async/future.dart:546:21)
+<asynchronous suspension>
+#3      _BuildInstance.invokeTarget (package:flutter_tools/src/build_system/build_system.dart:875:32)
+<asynchronous suspension>
+#4      Future.wait.<anonymous closure> (dart:async/future.dart:546:21)
+<asynchronous suspension>
+#5      _BuildInstance.invokeTarget (package:flutter_tools/src/build_system/build_system.dart:875:32)
+<asynchronous suspension>
+#6      FlutterBuildSystem.build (package:flutter_tools/src/build_system/build_system.dart:684:16)
+<asynchronous suspension>
+#7      AssembleCommand.runCommand (package:flutter_tools/src/commands/assemble.dart:365:32)
+<asynchronous suspension>
+#8      FlutterCommand.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command.dart:1590:27)
+<asynchronous suspension>
+#9      AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#10     CommandRunner.runCommand (package:args/command_runner.dart:212:13)
+<asynchronous suspension>
+#11     FlutterCommandRunner.runCommand.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:496:9)
+<asynchronous suspension>
+#12     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#13     FlutterCommandRunner.runCommand (package:flutter_tools/src/runner/flutter_command_runner.dart:431:5)
+<asynchronous suspension>
+#14     FlutterCommandRunner.run.<anonymous closure> (package:flutter_tools/src/runner/flutter_command_runner.dart:307:33)
+<asynchronous suspension>
+#15     run.<anonymous closure>.<anonymous closure> (package:flutter_tools/runner.dart:104:11)
+<asynchronous suspension>
+#16     AppContext.run.<anonymous closure> (package:flutter_tools/src/base/context.dart:154:19)
+<asynchronous suspension>
+#17     main (package:flutter_tools/executable.dart:103:3)
+<asynchronous suspension>
+```
+
+## flutter doctor
+
+```
+[✓] Flutter (Channel stable, 3.41.7, on macOS 26.1 25B78 darwin-arm64, locale en-IN) [980ms]
+    • Flutter version 3.41.7 on channel stable at /Users/pranaykumarreddysurukanti/FlutterDev/flutter
+    • Upstream repository https://github.com/flutter/flutter.git
+    • Framework revision cc0734ac71 (5 months ago), 2026-04-15 21:21:08 -0700
+    • Engine revision 59aa584fdf
+    • Dart version 3.11.5
+    • DevTools version 2.54.2
+    • Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android, enable-ios, cli-animations, enable-native-assets, omit-legacy-version-file, enable-lldb-debugging, enable-uiscene-migration
+
+[✓] Android toolchain - develop for Android devices (Android SDK version 36.1.0) [4.2s]
+    • Android SDK at /Volumes/PranaySSD/androidstudio/sdk
+    • Emulator version 36.3.10.0 (build_id 14472402) (CL:N/A)
+    • Platform android-36, build-tools 36.1.0
+    • Java binary at: /Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin/java
+      This JDK is specified in your Flutter configuration.
+      To change the current JDK, run: `flutter config --jdk-dir="path/to/jdk"`.
+    • Java version Java(TM) SE Runtime Environment (build 17.0.12+8-LTS-286)
+    • All Android licenses accepted.
+
+[✓] Xcode - develop for iOS and macOS (Xcode 26.2) [3.3s]
+    • Xcode at /Applications/Xcode.app/Contents/Developer
+    • Build 17C52
+    • CocoaPods version 1.16.2
+
+[✓] Chrome - develop for the web [5ms]
+    • Chrome at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+
+[✓] Connected device (3 available) [6.3s]
+    • 23053RN02I (wireless) (mobile) • adb-0b989ade7d78-Y081xR._adb-tls-connect._tcp • android-arm64  • Android 15 (API 35)
+    • macOS (desktop)                • macos                                         • darwin-arm64   • macOS 26.1 25B78 darwin-arm64
+    • Chrome (web)                   • chrome                                        • web-javascript • Google Chrome 154.0.8037.58
+
+[✓] Network resources [568ms]
+    • All expected network resources are available.
+
+• No issues found!
+```
