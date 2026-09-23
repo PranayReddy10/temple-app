@@ -29,7 +29,7 @@ class _ShellScreenState extends State<ShellScreen> {
     final day = context.watch<DayController>().theme;
     final scheme = Theme.of(context).colorScheme;
     final pages = [
-      HomeScreen(onExplore: () => setState(() => _index = 1)),
+      HomeScreen(onExplore: () => setState(() => _index = 1), onTab: (i) => setState(() => _index = i)),
       const ExploreScreen(),
       const PassportScreen(),
       const YatraScreen(),

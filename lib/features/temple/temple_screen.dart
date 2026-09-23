@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/temple_repository.dart';
+import '../../core/brand.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
@@ -120,12 +122,21 @@ class _TempleScreenState extends State<TempleScreen> {
     final passport = context.watch<PassportController>();
     final favs = context.watch<FavouritesController>();
     final visited = passport.hasVisited(t.slug);
+    final visitCount = passport.visits.where((v) => v.templeSlug == t.slug).length;
     final saved = favs.contains(t.slug);
+    final inYatra = context.watch<YatraController>().yatras.any((y) => y.allStops.any((st) => st.slug == t.slug));
     final photos = d?.photos.isNotEmpty == true ? d!.photos : [if (t.primaryPhoto != null) t.primaryPhoto!];
     // The API's own list (temple first, then deity) beats the bundled one.
     final media = d != null && d.devotionalMedia.isNotEmpty ? d.devotionalMedia : (_media?.data ?? const <DevotionalMedia>[]);
 
     return Scaffold(
+      bottomNavigationBar: _BottomActions(
+        day: day,
+        visited: visited,
+        inYatra: inYatra,
+        onYatra: () => _addToYatra(t),
+        onMark: () => _checkIn(t),
+      ),
       body: CustomScrollView(
         slivers: [
           _Hero(temple: t, photos: photos, index: _photo, onPage: (i) => setState(() => _photo = i), day: day, saved: saved, onSave: () => favs.toggle(t), onOpenPhoto: (i) => _openViewer(photos, i)),
@@ -176,28 +187,20 @@ class _TempleScreenState extends State<TempleScreen> {
                   if (d?.isClosedToday == true) ...[const SizedBox(height: 12), _Banner(icon: Icons.door_front_door_rounded, text: s('closed_today'), color: Palette.kumkum)],
                   if (_detail?.isOffline == true) const Padding(padding: EdgeInsets.only(top: 8), child: OfflineNote()),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _checkIn(t),
-                          icon: Icon(visited ? Icons.verified_rounded : Icons.approval_rounded),
-                          label: Text(visited ? s('visited') : s('check_in')),
-                          style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent()),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      IconButton.filledTonal(tooltip: s('add_to_yatra'), onPressed: () => _addToYatra(t), icon: const Icon(Icons.route_rounded)),
-                      const SizedBox(width: 6),
+                  _ActionGrid(
+                    day: day,
+                    actions: [
+                      _Action(Icons.route_rounded, inYatra ? s('in_yatra') : s('add_to_yatra'), () => _addToYatra(t), highlighted: inYatra),
                       if (t.location.hasCoordinates)
-                        IconButton.filledTonal(
-                          tooltip: s('directions'),
-                          onPressed: () => launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${t.location.latitude},${t.location.longitude}'), mode: LaunchMode.externalApplication),
-                          icon: const Icon(Icons.directions_rounded),
-                        ),
+                        _Action(Icons.directions_rounded, s('directions'), () => launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${t.location.latitude},${t.location.longitude}'), mode: LaunchMode.externalApplication)),
+                      _Action(Icons.schedule_rounded, s('timings_short'), () => _jump(_Section.darshan)),
+                      _Action(Icons.local_fire_department_rounded, s('pujas'), () => _jump(_Section.seva)),
+                      _Action(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, saved ? s('saved') : s('save'), () => favs.toggle(t), highlighted: saved),
+                      _Action(Icons.share_rounded, s('share'), () => Share.share('${t.name}${t.location.city == null ? '' : ', ${t.location.city}'} · ${Brand.name}')),
                     ],
                   ),
-                  if (visited) ...[const SizedBox(height: 16), Center(child: StampWidget(visit: passport.firstVisit(t.slug)!, size: 120))],
+                  const SizedBox(height: 16),
+                  _DarshanCard(day: day, visited: visited, visits: visitCount, templeName: t.name, onMark: () => _checkIn(t), firstVisit: visited ? passport.firstVisit(t.slug) : null),
                 ],
               ),
             ),
@@ -541,9 +544,9 @@ class _TempleScreenState extends State<TempleScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Check in at ${t.name}', style: Theme.of(context).textTheme.titleLarge),
+                  Text(s('mark_title').replaceFirst('{temple}', t.name), style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 4),
-                  Text('Verify with your location or the temple\'s QR code, or record the visit on your word. The passport shows which.', style: Theme.of(context).textTheme.bodySmall),
+                  Text('This adds the temple\'s stamp to your Passport. Verify with your location or the temple\'s QR code, or just record it on your word; the Passport shows which.', style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -595,7 +598,7 @@ class _TempleScreenState extends State<TempleScreen> {
                         label: Text(photoPath == null ? 'Add a photo' : 'Photo added'),
                       ),
                       const Spacer(),
-                      FilledButton.icon(onPressed: () => Navigator.of(context).pop(true), icon: const Icon(Icons.approval_rounded), label: const Text('Stamp it')),
+                      FilledButton.icon(onPressed: () => Navigator.of(context).pop(true), icon: const Icon(Icons.approval_rounded), label: const Text('Collect stamp')),
                     ],
                   ),
                 ],
@@ -695,6 +698,172 @@ class _TempleScreenState extends State<TempleScreen> {
 }
 
 enum _Section { overview, gallery, media, darshan, seva }
+
+class _Action {
+  const _Action(this.icon, this.label, this.onTap, {this.highlighted = false});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool highlighted;
+}
+
+/// Everything a devotee can do with this temple, as labelled tiles rather
+/// than bare icons, so nothing has to be guessed.
+class _ActionGrid extends StatelessWidget {
+  const _ActionGrid({required this.day, required this.actions});
+
+  final DayTheme day;
+  final List<_Action> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, box) {
+        const perRow = 3;
+        const gap = 10.0;
+        final w = (box.maxWidth - gap * (perRow - 1)) / perRow;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final a in actions)
+              SizedBox(
+                width: w,
+                child: Material(
+                  color: a.highlighted ? day.accent.withValues(alpha: 0.16) : theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: a.onTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: a.highlighted ? day.accent : theme.colorScheme.outlineVariant)),
+                      child: Column(
+                        children: [
+                          Icon(a.icon, color: day.accent, size: 26),
+                          const SizedBox(height: 6),
+                          Text(a.label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Says in plain words what marking a visit does, and shows the stamp once
+/// there is one.
+class _DarshanCard extends StatelessWidget {
+  const _DarshanCard({required this.day, required this.visited, required this.visits, required this.templeName, required this.onMark, this.firstVisit});
+
+  final DayTheme day;
+  final bool visited;
+  final int visits;
+  final String templeName;
+  final VoidCallback onMark;
+  final Visit? firstVisit;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [day.accent.withValues(alpha: 0.16), day.secondary.withValues(alpha: 0.10)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: day.accent.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (firstVisit != null) StampWidget(visit: firstVisit!, size: 84) else Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: day.accent.withValues(alpha: 0.15), border: Border.all(color: day.accent, width: 2)),
+            child: Icon(Icons.approval_rounded, color: day.accent, size: 32),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(visited ? s('visited_title') : s('been_here'), style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
+                const SizedBox(height: 4),
+                Text(
+                  visited ? s('visited_explain').replaceFirst('{n}', '$visits') : s('mark_explain'),
+                  style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: onMark,
+                  icon: Icon(visited ? Icons.add_task_rounded : Icons.approval_rounded),
+                  label: Text(visited ? s('visit_again') : s('check_in')),
+                  style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent()),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Always in reach, however far down the page: plan it, or mark it done.
+class _BottomActions extends StatelessWidget {
+  const _BottomActions({required this.day, required this.visited, required this.inYatra, required this.onYatra, required this.onMark});
+
+  final DayTheme day;
+  final bool visited;
+  final bool inYatra;
+  final VoidCallback onYatra;
+  final VoidCallback onMark;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.paddingOf(context).bottom + 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, -2))],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 4,
+            child: OutlinedButton.icon(
+              onPressed: onYatra,
+              icon: Icon(inYatra ? Icons.playlist_add_check_rounded : Icons.route_rounded),
+              label: FittedBox(fit: BoxFit.scaleDown, child: Text(inYatra ? s('in_yatra') : s('add_to_yatra'), maxLines: 1)),
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size.fromHeight(50), foregroundColor: day.accent, side: BorderSide(color: day.accent, width: 1.5)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 5,
+            child: FilledButton.icon(
+              onPressed: onMark,
+              icon: Icon(visited ? Icons.verified_rounded : Icons.approval_rounded),
+              label: FittedBox(fit: BoxFit.scaleDown, child: Text(visited ? s('visit_again') : s('check_in'), maxLines: 1)),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size.fromHeight(50), backgroundColor: day.accent, foregroundColor: day.onAccent()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Collapsing hero: a swipeable gallery under a torana, with the trust badge
 /// and the save button.

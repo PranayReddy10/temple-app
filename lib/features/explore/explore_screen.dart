@@ -125,17 +125,7 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
                           onTap: () => _search(TempleQuery(deity: d.slug)),
                           child: Column(
                             children: [
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(colors: [dt.accent, Color.lerp(dt.accent, Colors.black, 0.3)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                                  border: Border.all(color: dt.secondary, width: 2),
-                                  boxShadow: [BoxShadow(color: dt.accent.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))],
-                                ),
-                                child: Center(child: MotifIcon(dt.deitySlug == d.slug ? dt.motif : Motif.om, size: 38, color: dt.onAccent(), secondary: dt.secondary)),
-                              ),
+                              DeityIcon(slug: d.slug, imageUrl: d.imageUrl, accent: dt.accent, secondary: dt.secondary, onAccent: dt.onAccent()),
                               const SizedBox(height: 4),
                               SizedBox(width: 80, child: FittedBox(fit: BoxFit.scaleDown, child: Text(d.name, textAlign: TextAlign.center, maxLines: 1, style: theme.textTheme.labelMedium?.copyWith(fontFamily: 'NotoSerif')))),
                               if (d.templeCount != null) Flexible(child: Text('${d.templeCount}', style: theme.textTheme.labelSmall?.copyWith(color: dt.accent))),

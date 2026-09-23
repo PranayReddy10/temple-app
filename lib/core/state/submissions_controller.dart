@@ -11,7 +11,7 @@ import '../models/models.dart';
 /// signal is kept here and sent when the device is next online. The
 /// reference the server returns is the handle to quote afterwards.
 class Submission {
-  const Submission({required this.id, required this.kind, this.templeSlug, this.templeId, required this.templeName, required this.field, required this.text, required this.createdAt, this.reference, this.status, this.statusLabel, this.replies = const [], this.resolution, this.reporterName, this.reporterEmail, this.customCategory, this.customSubject, this.isOpen = true});
+  const Submission({required this.id, required this.kind, this.templeSlug, this.templeId, required this.templeName, required this.field, required this.text, required this.createdAt, this.reference, this.status, this.statusLabel, this.replies = const [], this.resolution, this.reporterName, this.reporterEmail, this.customCategory, this.customSubject, this.isOpen = true, this.sendError});
 
   final String id;
 
@@ -37,6 +37,10 @@ class Submission {
   final String? reporterName;
   final String? reporterEmail;
 
+  /// Why the server refused it, when it did. Kept so the screen can say so
+  /// and offer to send again, rather than showing "waiting" for ever.
+  final String? sendError;
+
   bool get sent => reference != null;
 
   /// The support category the server understands.
@@ -44,7 +48,7 @@ class Submission {
   String get subject => customSubject ?? (kind == 'new_temple' ? 'New temple: $templeName' : '$field at $templeName');
   bool get answered => replies.any((m) => m.fromStaff) || resolution != null;
 
-  Map<String, dynamic> toJson() => {'id': id, 'kind': kind, 'slug': templeSlug, 'temple_id': templeId, 'temple': templeName, 'field': field, 'text': text, 'at': createdAt.toIso8601String(), 'ref': reference, 'status': status, 'status_label': statusLabel, 'resolution': resolution, 'name': reporterName, 'email': reporterEmail, 'category': customCategory, 'subject': customSubject, 'open': isOpen, 'replies': replies.map((m) => {'body': m.body, 'from_staff': m.fromStaff, 'author': m.author, 'created_at': m.createdAt}).toList()};
+  Map<String, dynamic> toJson() => {'id': id, 'kind': kind, 'slug': templeSlug, 'temple_id': templeId, 'temple': templeName, 'field': field, 'text': text, 'at': createdAt.toIso8601String(), 'ref': reference, 'status': status, 'status_label': statusLabel, 'resolution': resolution, 'name': reporterName, 'email': reporterEmail, 'category': customCategory, 'subject': customSubject, 'open': isOpen, 'send_error': sendError, 'replies': replies.map((m) => {'body': m.body, 'from_staff': m.fromStaff, 'author': m.author, 'created_at': m.createdAt}).toList()};
 
   factory Submission.fromJson(Map<String, dynamic> j) => Submission(
         id: '${j['id']}',
@@ -64,8 +68,11 @@ class Submission {
         customCategory: j['category']?.toString(),
         customSubject: j['subject']?.toString(),
         isOpen: j['open'] == null ? true : j['open'] == true,
+        sendError: j['send_error']?.toString(),
         replies: (j['replies'] as List? ?? const []).map((e) => SupportMessage.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
       );
+
+  Submission withError(String? error) => Submission(id: id, kind: kind, templeSlug: templeSlug, templeId: templeId, templeName: templeName, field: field, text: text, createdAt: createdAt, reference: reference, status: status, statusLabel: statusLabel, replies: replies, resolution: resolution, reporterName: reporterName, reporterEmail: reporterEmail, customCategory: customCategory, customSubject: customSubject, isOpen: isOpen, sendError: error);
 
   Submission withTicket(SupportTicket t) => Submission(id: id, kind: kind, templeSlug: templeSlug, templeId: templeId, templeName: templeName, field: field, text: text, createdAt: createdAt, reference: t.reference, status: t.status, statusLabel: t.statusLabel, replies: t.messages, resolution: t.resolution, reporterName: reporterName, reporterEmail: reporterEmail, customCategory: customCategory, customSubject: customSubject, isOpen: t.isOpen);
 
@@ -128,6 +135,14 @@ class SubmissionsController extends ChangeNotifier {
     await _save();
     await onCreated?.call(s);
     return s;
+  }
+
+  /// Records why sending failed, or clears it before another attempt.
+  Future<void> setError(String id, String? error) async {
+    final i = _items.indexWhere((s) => s.id == id);
+    if (i < 0) return;
+    _items[i] = _items[i].withError(error);
+    await _save();
   }
 
   Future<void> setTicket(String id, SupportTicket t) async {
