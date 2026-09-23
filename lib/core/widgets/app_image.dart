@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../api/api_client.dart';
 import '../brand.dart';
 
 /// Every network image in the app goes through here.
@@ -19,11 +21,26 @@ class AppImage extends StatelessWidget {
 
   static const headers = {'User-Agent': '${Brand.name}/0.5 (Flutter; +https://github.com/PranayReddy10/temple-app)', 'Accept': 'image/*,*/*;q=0.8'};
 
+  /// A server whose APP_URL is wrong hands out `/storage/...` paths, or
+  /// `http://localhost/...`; both are resolved against the API the app is
+  /// actually talking to rather than left to fail.
+  static String resolve(String url, String apiBase) {
+    if (url.startsWith('/')) return '$apiBase$url';
+    final u = Uri.tryParse(url);
+    if (u != null && (u.host == 'localhost' || u.host == '127.0.0.1')) {
+      final base = Uri.parse(apiBase);
+      return u.replace(scheme: base.scheme, host: base.host, port: base.hasPort ? base.port : null).toString();
+    }
+    return url;
+  }
+
   @override
   Widget build(BuildContext context) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
+    final api = context.read<ApiClient?>();
+    final resolved = api == null ? url : resolve(url, api.baseUrl);
     return Image.network(
-      url,
+      resolved,
       fit: fit,
       alignment: alignment,
       headers: headers,

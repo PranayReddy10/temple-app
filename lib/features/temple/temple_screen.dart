@@ -15,7 +15,6 @@ import '../../core/state/day_controller.dart';
 import '../../core/state/sync_service.dart';
 import '../../core/state/family_controller.dart';
 import '../../core/state/favourites_controller.dart';
-import '../../core/state/mantra_player.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
 import '../../core/theme/day_theme.dart';
@@ -230,8 +229,17 @@ class _TempleScreenState extends State<TempleScreen> {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: d.mantra != null && !d.mantra!.isEmpty
-                    ? MantraCard(day: day, mantra: d.mantra!.text, transliteration: d.mantra!.transliteration, title: d.mantra!.isTempleSpecific ? "This temple's mantra" : s('blessing'), playKey: 'temple-${t.slug}', audioUrl: media.where((m) => m.type == 'chant' && isDirectAudio(m.url, m.sourceType)).firstOrNull?.url)
-                    : MantraCard(day: day, title: s('blessing'), playKey: 'temple-${t.slug}', audioUrl: media.where((m) => m.type == 'chant' && isDirectAudio(m.url, m.sourceType)).firstOrNull?.url),
+                    ? MantraCard(
+                        day: day,
+                        mantra: d.mantra!.text,
+                        transliteration: d.mantra!.transliteration,
+                        meaning: d.mantra!.meaning,
+                        title: d.mantra!.isOwn ? "This temple's mantra" : "Its deity's mantra",
+                        playKey: 'temple-${t.slug}',
+                        audio: d.mantra!.audio,
+                        audioUrl: d.mantra!.audio == null ? media.where((m) => m.type == 'chant' && m.playback.kind == 'audio').firstOrNull?.url : null,
+                      )
+                    : MantraCard(day: day, title: s('blessing'), playKey: 'temple-${t.slug}', audioUrl: media.where((m) => m.type == 'chant' && m.playback.kind == 'audio').firstOrNull?.url),
               ),
             ),
             // ---- Gallery ----------------------------------------------
@@ -267,19 +275,20 @@ class _TempleScreenState extends State<TempleScreen> {
             else if (media.isEmpty)
               SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _EmptyLine(icon: Icons.music_off_rounded, text: s('no_media'))))
             else ...[
+              if (media.any(isVideoLike))
               SliverToBoxAdapter(
                 child: SizedBox(
                   height: scaledHeight(context, 206),
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: media.where((m) => m.type == 'video').length.clamp(0, 8),
+                    itemCount: media.where(isVideoLike).length.clamp(0, 8),
                     separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, i) => MediaCard(media: media.where((m) => m.type == 'video').elementAt(i), day: day, width: 150),
+                    itemBuilder: (context, i) => MediaCard(media: media.where(isVideoLike).elementAt(i), day: day, width: 150),
                   ),
                 ),
               ),
-              SliverToBoxAdapter(child: MediaSections(media: media.where((m) => m.type != 'video').toList(), day: day)),
+              SliverToBoxAdapter(child: MediaSections(media: media.where((m) => !isVideoLike(m)).toList(), day: day)),
             ],
             // ---- Darshan ------------------------------------------------
             SliverToBoxAdapter(key: _keys[_Section.darshan], child: SectionHeader(title: s('timings'), motif: Motif.sun)),
