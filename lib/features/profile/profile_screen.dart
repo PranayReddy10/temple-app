@@ -159,7 +159,7 @@ class ProfileScreen extends StatelessWidget {
               _ToolTile(icon: Icons.local_fire_department_rounded, title: s('bookings'), subtitle: '${context.watch<BookingsController>().upcoming.length} upcoming', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BookingsScreen()))),
               _ToolTile(icon: Icons.qr_code_2_rounded, title: s('my_qr'), subtitle: 'For temple counters on the QR network', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyQrScreen()))),
               _ToolTile(icon: Icons.offline_pin_rounded, title: s('offline_pack'), subtitle: '${context.watch<OfflinePackController>().totalPacked} temples saved for offline, from your yatras', onTap: null),
-              _ToolTile(icon: Icons.edit_note_rounded, title: s('submissions'), subtitle: '${context.watch<SubmissionsController>().all.length} contributions', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubmissionsScreen()))),
+              _ToolTile(icon: Icons.support_agent_rounded, title: s('submissions'), subtitle: '${context.watch<SubmissionsController>().all.length} requests and reports', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubmissionsScreen()))),
             ],
           ),
         ),
@@ -365,10 +365,10 @@ class _Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget fallback = Icon(Icons.person_rounded, color: Palette.deep, size: size * 0.55);
     Widget img = fallback;
-    if (path != null && !kIsWeb) {
+    if (url != null) {
+      img = AppImage(url!, placeholder: path != null && !kIsWeb ? Image.file(File(path!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback) : fallback, decodeWidth: 200);
+    } else if (path != null && !kIsWeb) {
       img = Image.file(File(path!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => fallback);
-    } else if (url != null) {
-      img = AppImage(url!, placeholder: fallback, decodeWidth: 200);
     }
     return Container(
       width: size,

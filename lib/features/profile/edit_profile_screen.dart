@@ -13,6 +13,7 @@ import '../../core/motifs/architecture.dart';
 import '../../core/state/app_settings.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/theme/palette.dart';
+import '../../core/widgets/app_image.dart';
 
 /// The complete devotee profile: photo, name, email, phone, home state, date
 /// of birth and language, saved to `/api/v1/me`.
@@ -65,10 +66,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickAvatar() async {
-    final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 800, maxHeight: 800);
+    final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 800, maxHeight: 800, imageQuality: 85);
     if (x == null) return;
     setState(() => _avatar = x.path);
-    await _auth.setLocalAvatar(x.path);
+    final uploaded = await _auth.uploadAvatar(x.path);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(uploaded ? 'Profile photo saved to your account.' : _auth.isSignedIn ? 'Could not upload now; the photo is kept on this device.' : 'Photo kept on this device. Sign in to save it to your account.')));
   }
 
   Future<void> _save() async {
@@ -131,7 +134,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         child: ClipOval(
                           child: _avatar != null && !kIsWeb
                               ? Image.file(File(_avatar!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.person_rounded, size: 56, color: Palette.deep))
-                              : const Icon(Icons.person_rounded, size: 56, color: Palette.deep),
+                              : _auth.devotee?.avatarUrl != null
+                                  ? AppImage(_auth.devotee!.avatarUrl!, placeholder: const Icon(Icons.person_rounded, size: 56, color: Palette.deep), decodeWidth: 240)
+                                  : const Icon(Icons.person_rounded, size: 56, color: Palette.deep),
                         ),
                       ),
                       Positioned(
@@ -143,7 +148,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text('Your photo stays on this device for now.', textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+                if (_avatar != null || _auth.devotee?.avatarUrl != null)
+                  Center(child: TextButton(onPressed: () async {
+                    await _auth.removeAvatar();
+                    if (mounted) setState(() => _avatar = null);
+                  }, child: const Text('Remove photo'))),
+                Text(_auth.isSignedIn ? 'Your photo is saved to your account.' : 'Sign in to save your photo to your account.', textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
                 const SizedBox(height: 20),
                 TextFormField(controller: _name, decoration: InputDecoration(labelText: s('name'), errorText: _err('name'), prefixIcon: const Icon(Icons.person_outline_rounded)), validator: (v) => v == null || v.trim().isEmpty ? 'Your name, please' : null),
                 const SizedBox(height: 12),
