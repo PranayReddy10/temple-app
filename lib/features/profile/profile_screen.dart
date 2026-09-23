@@ -26,6 +26,7 @@ import '../../core/widgets/temple_widgets.dart';
 import '../auth/auth_screen.dart';
 import '../bookings/bookings_screen.dart';
 import '../certificates/certificates_screen.dart';
+import '../diagnostics/diagnostics_screen.dart';
 import '../family/family_screen.dart';
 import '../qr/qr_screens.dart';
 import '../submissions/submissions_screen.dart';
@@ -306,7 +307,13 @@ class ProfileScreen extends StatelessWidget {
         SectionHeader(title: 'Server', motif: Motif.shankhaChakra, subtitle: settings.apiBase),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: OutlinedButton.icon(onPressed: () => _editServer(context, settings), icon: const Icon(Icons.dns_rounded), label: const Text('Change API server')),
+          child: Row(
+            children: [
+              Expanded(child: OutlinedButton.icon(onPressed: () => _editServer(context, settings), icon: const Icon(Icons.dns_rounded), label: const Text('Change API server'))),
+              const SizedBox(width: 8),
+              Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiagnosticsScreen())), icon: const Icon(Icons.troubleshoot_rounded), label: const Text('Check a temple'))),
+            ],
+          ),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
