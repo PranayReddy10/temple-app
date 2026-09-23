@@ -107,12 +107,13 @@ class VerificationBadge extends StatelessWidget {
     final (Color color, IconData icon, String label) = switch (verification) {
       Verification.gps => (Palette.tulsi, Icons.my_location_rounded, s('verified_gps')),
       Verification.qr => (const Color(0xFF1F5F8B), Icons.qr_code_2_rounded, s('verified_qr')),
+      Verification.staff => (Palette.kumkum, Icons.account_balance_rounded, s('verified_staff')),
       Verification.manual => (Palette.stone, Icons.edit_rounded, s('manual_checkin')),
     };
     return Container(
       padding: EdgeInsets.symmetric(horizontal: compact ? 7 : 10, vertical: compact ? 3 : 5),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999), border: Border.all(color: color.withValues(alpha: 0.5))),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: compact ? 12 : 14, color: color), const SizedBox(width: 4), Text(label, style: TextStyle(color: color, fontSize: compact ? 10 : 12, fontWeight: FontWeight.w700))]),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: compact ? 12 : 14, color: color), const SizedBox(width: 4), Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: color, fontSize: compact ? 10 : 12, fontWeight: FontWeight.w700)))]),
     );
   }
 }

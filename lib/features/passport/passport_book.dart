@@ -5,21 +5,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/brand.dart';
-import '../../core/data/sample_data.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/passport_controller.dart';
+import '../../core/state/photo_store.dart';
 import '../../core/state/sync_service.dart';
-import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/app_image.dart';
-import '../../core/widgets/temple_door.dart';
-import '../temple/temple_screen.dart';
 import 'stamp_widget.dart';
+import 'visit_detail_screen.dart';
 
 /// The Passport as a book: a leather cover, the holder's data page, then
 /// visa pages where each visit gets its photo and the temple's ink stamp.
@@ -67,12 +66,14 @@ class _PassportBookState extends State<PassportBook> with SingleTickerProviderSt
     // Oldest first, like a real passport filling from the front.
     final visits = widget.passport.visits.reversed.toList();
     final visaPages = math.max(1, (visits.length / PassportBook.perPage).ceil() + (visits.length % PassportBook.perPage == 0 ? 1 : 0));
-    final count = 2 + visaPages;
+    // Cover, data page, visa pages, and the back cover.
+    final count = 3 + visaPages;
     if (_pos > count - 1) _pos = (count - 1).toDouble();
 
     Widget content(int i) {
       if (i == 0) return const _Cover();
       if (i == 1) return _IdentityPage(passport: widget.passport);
+      if (i == count - 1) return _BackCover(passport: widget.passport);
       final from = (i - 2) * PassportBook.perPage;
       final slice = visits.skip(from).take(PassportBook.perPage).toList();
       return _VisaPage(number: i - 1, visits: slice, firstIndex: from);
@@ -159,15 +160,35 @@ class _PassportBookState extends State<PassportBook> with SingleTickerProviderSt
                     IconButton.filledTonal(tooltip: 'Previous page', onPressed: _pos <= 0 ? null : () => _settle(_pos.ceilToDouble() - 1, count), icon: const Icon(Icons.chevron_left_rounded)),
                     const SizedBox(width: 16),
                     SizedBox(
-                      width: 150,
+                      width: 130,
                       child: Text(
-                        i == 0 && f < 0.5 ? s('passport_open_hint') : '${s('page')} ${(_pos.round())} / ${count - 1}',
+                        i == 0 && f < 0.5
+                            ? s('passport_open_hint')
+                            : _pos.round() == count - 1
+                                ? s('back_cover')
+                                : '${s('page')} ${(_pos.round())} / ${count - 2}',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.labelMedium,
                       ),
                     ),
                     const SizedBox(width: 16),
                     IconButton.filledTonal(tooltip: 'Next page', onPressed: _pos >= count - 1 ? null : () => _settle(_pos.floorToDouble() + 1, count), icon: const Icon(Icons.chevron_right_rounded)),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: s('passport_all_pages'),
+                      icon: const Icon(Icons.grid_view_rounded),
+                      onPressed: () async {
+                        final to = await Navigator.of(context).push<int>(MaterialPageRoute(
+                          builder: (_) => _Overview(
+                            count: count,
+                            current: _pos.round(),
+                            page: page,
+                            label: (k) => k == 0 ? s('cover') : k == 1 ? s('data_page') : k == count - 1 ? s('back_cover') : '${s('page')} $k',
+                          ),
+                        ));
+                        if (to != null && mounted) _settle(to.toDouble(), count);
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -243,6 +264,145 @@ class _Cover extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The back cover: leather again, with the holder's passport code blocked
+/// in gold, so the closed book can be shown at a counter as it is.
+class _BackCover extends StatelessWidget {
+  const _BackCover({required this.passport});
+
+  final PassportController passport;
+
+  @override
+  Widget build(BuildContext context) {
+    const gold = Palette.gold;
+    final s = S.of(context);
+    final d = context.watch<AuthController>().devotee;
+    final url = d?.passportUrl;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.horizontal(left: Radius.circular(12), right: Radius.circular(4)),
+        gradient: const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFF6E1423), Color(0xFF4A0D18), Color(0xFF5C1020)]),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(4, 8))],
+      ),
+      child: Stack(
+        children: [
+          const Positioned.fill(child: Opacity(opacity: 0.10, child: CustomPaint(painter: _GrainPainter()))),
+          // The spine is on the right when the book is turned over.
+          Positioned(right: 0, top: 0, bottom: 0, width: 14, child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.centerRight, end: Alignment.centerLeft, colors: [Colors.black.withValues(alpha: 0.45), Colors.transparent])))),
+          Positioned.fill(child: Padding(padding: const EdgeInsets.all(14), child: DecoratedBox(decoration: BoxDecoration(border: Border.all(color: gold.withValues(alpha: 0.55), width: 1.2), borderRadius: BorderRadius.circular(6))))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 30, 28, 26),
+            child: Column(
+              children: [
+                const MotifIcon(Motif.lotus, size: 34, color: gold),
+                const SizedBox(height: 10),
+                Text(s('back_cover_verse'), textAlign: TextAlign.center, style: const TextStyle(color: gold, fontSize: 11.5, fontFamily: 'NotoSerif', fontStyle: FontStyle.italic, height: 1.4)),
+                const Spacer(),
+                if (url != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFFFBF5E8), borderRadius: BorderRadius.circular(10), border: Border.all(color: gold, width: 1.5)),
+                    child: QrImageView(
+                      data: url,
+                      size: 132,
+                      padding: EdgeInsets.zero,
+                      backgroundColor: const Color(0xFFFBF5E8),
+                      eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF4A0D18)),
+                      dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF2B2118)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(s('back_cover_scan'), textAlign: TextAlign.center, style: TextStyle(color: gold.withValues(alpha: 0.9), fontSize: 9.5, letterSpacing: 0.5, fontFamily: 'NotoSans')),
+                ] else
+                  Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold.withValues(alpha: 0.7), width: 1.5)),
+                    child: const Center(child: MotifIcon(Motif.om, size: 56, color: gold)),
+                  ),
+                const Spacer(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _BackFigure(value: '${passport.stampCount}', label: s('stamps')),
+                    const SizedBox(width: 22),
+                    _BackFigure(value: '${passport.visits.length}', label: s('visits')),
+                    const SizedBox(width: 22),
+                    _BackFigure(value: '${passport.statesVisited.length}', label: 'States'),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(Brand.name.toUpperCase(), style: const TextStyle(color: gold, fontSize: 8, letterSpacing: 3, fontFamily: 'NotoSans', fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BackFigure extends StatelessWidget {
+  const _BackFigure({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          Text(value, style: const TextStyle(color: Palette.gold, fontSize: 18, fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
+          Text(label.toUpperCase(), style: TextStyle(color: Palette.gold.withValues(alpha: 0.75), fontSize: 7.5, letterSpacing: 1.5, fontFamily: 'NotoSans')),
+        ],
+      );
+}
+
+/// Every page of the book at once, cover to back cover. Tapping one turns
+/// the book to it.
+class _Overview extends StatelessWidget {
+  const _Overview({required this.count, required this.current, required this.page, required this.label});
+
+  final int count;
+  final int current;
+  final Widget Function(int) page;
+  final String Function(int) label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    return Scaffold(
+      backgroundColor: dark ? Palette.ebony : const Color(0xFFE9DFCF),
+      appBar: AppBar(title: Text(S.of(context)('passport_all_pages'))),
+      body: GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 200, mainAxisSpacing: 18, crossAxisSpacing: 14, childAspectRatio: 300 / 416 * 0.88),
+        itemCount: count,
+        itemBuilder: (context, k) => GestureDetector(
+          onTap: () => Navigator.of(context).pop(k),
+          child: Column(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: k == current ? theme.colorScheme.primary : Colors.transparent, width: 2.5),
+                  ),
+                  padding: const EdgeInsets.all(3),
+                  // The page is drawn as it is in the book, but not
+                  // touchable here: a tap picks the page.
+                  child: AbsorbPointer(child: page(k)),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(label(k), style: theme.textTheme.labelMedium),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -439,17 +599,18 @@ class _VisitEntry extends StatelessWidget {
     final x = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 2000);
     if (x == null || !context.mounted) return;
     final passport = context.read<PassportController>();
-    await passport.attachPhoto(visit, x.path);
-    if (!context.mounted) return;
-    if (context.read<AuthController>().isSignedIn) {
+    final signedIn = context.read<AuthController>().isSignedIn;
+    final sync = context.read<SyncService>();
+    final path = await PhotoStore.keep(x, folder: 'passport');
+    await passport.attachPhoto(visit, path);
+    if (signedIn) {
       final updated = passport.byKey(visit.localKey) ?? visit;
-      await context.read<SyncService>().queuePhoto(updated, photoPath: x.path);
+      await sync.queuePhoto(updated, photoPath: path);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final day = DayTheme.forDeity(visit.deitySlug);
     // A little tilt that differs stamp to stamp but never changes.
     final tilt = ((visit.localKey.hashCode % 17) - 8) / 100;
     final remote = visit.remotePhoto?.originalUrl;
@@ -465,7 +626,7 @@ class _VisitEntry extends StatelessWidget {
         final photoH = math.min(box.maxHeight - 14, photoW * 1.15);
         final stamp = math.min(box.maxHeight * 0.72, box.maxWidth * 0.40);
         return GestureDetector(
-          onTap: () => enterTemple(context, TempleScreen(slug: visit.templeSlug, preview: SampleData.bySlug(visit.templeSlug)), accent: day.accent),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => VisitDetailScreen(visitKey: visit.localKey))),
           child: Stack(
             clipBehavior: Clip.none,
             children: [

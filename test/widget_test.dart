@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -26,19 +28,22 @@ import 'package:temple_app/core/data/sample_data.dart';
 import 'package:temple_app/features/shell/shell_screen.dart';
 import 'package:temple_app/features/days/day_screen.dart';
 import 'package:temple_app/features/temple/temple_screen.dart';
+import 'package:temple_app/features/passport/visit_detail_screen.dart';
+import 'package:temple_app/features/passport/passport_view_screen.dart';
+import 'package:temple_app/features/qr/qr_screens.dart';
 
-Future<Widget> harness(Widget child) async {
-  SharedPreferences.setMockInitialValues({'door_animations': false});
-  final prefs = await SharedPreferences.getInstance();
+Future<Widget> harness(Widget child, {Map<String, Object> prefs = const {}}) async {
+  SharedPreferences.setMockInitialValues({'door_animations': false, ...prefs});
+  final store = await SharedPreferences.getInstance();
   final api = ApiClient(baseUrl: 'http://localhost:1', timeout: const Duration(milliseconds: 50));
-  final auth = AuthController(prefs, api);
+  final auth = AuthController(store, api);
   final repo = TempleRepository(api);
-  final settings = AppSettings(prefs, api);
-  final passport = PassportController(prefs);
-  final yatras = YatraController(prefs);
-  final memories = MemoriesController(prefs);
-  final submissions = SubmissionsController(prefs);
-  final sync = SyncService(prefs: prefs, api: api, auth: auth, settings: settings, passport: passport, yatras: yatras, memories: memories, submissions: submissions);
+  final settings = AppSettings(store, api);
+  final passport = PassportController(store);
+  final yatras = YatraController(store);
+  final memories = MemoriesController(store);
+  final submissions = SubmissionsController(store);
+  final sync = SyncService(prefs: store, api: api, auth: auth, settings: settings, passport: passport, yatras: yatras, memories: memories, submissions: submissions);
   return MultiProvider(
     providers: [
       Provider<ApiClient>.value(value: api),
@@ -47,15 +52,15 @@ Future<Widget> harness(Widget child) async {
       ChangeNotifierProvider.value(value: auth),
       ChangeNotifierProvider(create: (_) => DayController(repo)),
       ChangeNotifierProvider.value(value: passport),
-      ChangeNotifierProvider(create: (_) => FavouritesController(prefs, auth)),
+      ChangeNotifierProvider(create: (_) => FavouritesController(store, auth)),
       ChangeNotifierProvider.value(value: yatras),
       ChangeNotifierProvider.value(value: memories),
       ChangeNotifierProvider.value(value: sync),
-      ChangeNotifierProvider(create: (_) => FamilyController(prefs)),
-      ChangeNotifierProvider(create: (_) => MantraPlayer(prefs)),
-      ChangeNotifierProvider(create: (_) => RemindersController(prefs)),
-      ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
-      ChangeNotifierProvider(create: (_) => BookingsController(prefs)),
+      ChangeNotifierProvider(create: (_) => FamilyController(store)),
+      ChangeNotifierProvider(create: (_) => MantraPlayer(store)),
+      ChangeNotifierProvider(create: (_) => RemindersController(store)),
+      ChangeNotifierProvider(create: (_) => OfflinePackController(store, repo)),
+      ChangeNotifierProvider(create: (_) => BookingsController(store)),
       ChangeNotifierProvider.value(value: submissions),
     ],
     child: MaterialApp(theme: AppTheme.light(DayTheme.today()), home: child),
@@ -63,6 +68,7 @@ Future<Widget> harness(Widget child) async {
 }
 
 void main() {
+  _passportScreenTests();
   _themeTests();
   _overflowTests();
   _pageOverflowTests();
@@ -98,6 +104,20 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(find.textContaining('first stamp'), findsOneWidget);
+
+    // One more turn reaches the back cover.
+    await tester.tap(find.byTooltip('Next page'));
+    await tester.pumpAndSettle();
+    expect(find.text('Back cover'), findsWidgets);
+
+    // Every page at once, and a tap turns the book to it.
+    await tester.tap(find.byTooltip('All pages'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cover'), findsOneWidget);
+    expect(find.text('Data page'), findsOneWidget);
+    await tester.tap(find.text('Data page'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page 1 / 2'), findsOneWidget);
   });
 }
 
@@ -194,4 +214,38 @@ void _pageOverflowTests() {
       expect(overflows, isEmpty, reason: overflows.join('\n'));
     });
   }
+}
+
+void _passportScreenTests() {
+  for (final scale in [1.0, 1.6]) {
+    testWidgets('visit detail with memory photos fits at text scale $scale', (tester) async {
+      final t = SampleData.temples.first;
+      final visit = Visit(templeSlug: t.slug, templeName: t.name, deitySlug: t.deity?.slug, visitedAt: DateTime(2026, 9, 1), city: t.location.city, note: 'With amma.', localKey: 'k1', memoryPhotos: const [MemoryPhoto(path: '/nowhere/m1.jpg'), MemoryPhoto(url: 'http://localhost:1/m2.jpg')]);
+      tester.view.physicalSize = const Size(360 * 3, 780 * 3);
+      tester.view.devicePixelRatio = 3;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpWidget(await harness(const VisitDetailScreen(visitKey: 'k1'), prefs: {'visits': jsonEncode([visit.toJson()])}));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('In your passport'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Memories · 2/3'), 200);
+      await tester.scrollUntilVisible(find.text('Add memory'), 200);
+      expect(find.text('Add memory'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('my QR asks a guest to sign in, and a passport that cannot load says so', (tester) async {
+    await tester.pumpWidget(await harness(const MyQrScreen()));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Sign in to get your own passport QR.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(await harness(const PassportViewScreen(code: 'Ab3dEf6hIj9kLm2nOp4q')));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pump();
+    expect(find.text('Try again'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

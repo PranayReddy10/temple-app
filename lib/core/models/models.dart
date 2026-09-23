@@ -719,7 +719,7 @@ class DevotionalDay {
 }
 
 class Devotee {
-  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.gender, this.isVerified = false, this.joinedAt});
+  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.gender, this.isVerified = false, this.joinedAt, this.passportUrl});
 
   final int? id;
   final String name;
@@ -735,6 +735,10 @@ class Devotee {
   final bool isVerified;
   final String? joinedAt;
 
+  /// What the devotee's own passport QR carries: a link with a random code,
+  /// never the account id. Reset from the My QR screen.
+  final String? passportUrl;
+
   factory Devotee.fromJson(Map<String, dynamic> j) => Devotee(
         id: _i(j['id']),
         name: _s(j['name']) ?? 'Devotee',
@@ -747,6 +751,7 @@ class Devotee {
         gender: _s(j['gender']),
         isVerified: _b(j['is_verified']),
         joinedAt: _s(j['joined_at']),
+        passportUrl: _s(j['passport_url']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -761,6 +766,7 @@ class Devotee {
         'gender': gender,
         'is_verified': isVerified,
         'joined_at': joinedAt,
+        'passport_url': passportUrl,
       };
 }
 
@@ -863,11 +869,16 @@ class PassportSummary {
 }
 
 class VisitPhoto {
-  const VisitPhoto({required this.id, this.templeId, this.visitId, this.originalUrl, this.stampUrl, this.hasStamp = false, this.caption, this.status, this.statusLabel, this.moderationNote, this.isPublic = false, this.isVisibleToOthers = false, this.createdAt});
+  const VisitPhoto({required this.id, this.templeId, this.visitId, this.kind = 'stamp', this.originalUrl, this.stampUrl, this.hasStamp = false, this.caption, this.status, this.statusLabel, this.moderationNote, this.isPublic = false, this.isVisibleToOthers = false, this.createdAt});
 
   final int id;
   final int? templeId;
   final int? visitId;
+
+  /// `stamp`: the photo in the passport. `memory`: one of up to three kept
+  /// with the visit, never shown to anyone else.
+  final String kind;
+  bool get isMemory => kind == 'memory';
   final String? originalUrl;
   final String? stampUrl;
   final bool hasStamp;
@@ -883,6 +894,7 @@ class VisitPhoto {
         id: _i(j['id']) ?? 0,
         templeId: _i(j['temple_id']),
         visitId: _i(j['visit_id']),
+        kind: _s(j['kind']) ?? 'stamp',
         originalUrl: _s(j['original_url']),
         stampUrl: _s(j['stamp_url']),
         hasStamp: _b(j['has_stamp']),
@@ -1064,4 +1076,33 @@ class LanguageInfo {
     LanguageInfo(code: 'ta', name: 'Tamil', nativeName: 'தமிழ்'),
     LanguageInfo(code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ'),
   ];
+}
+
+
+/// `GET /passports/{code}`: someone else's passport, from the code they
+/// showed. Public visits only, and nothing but a name and a photo about them.
+class PublicPassport {
+  const PublicPassport({required this.name, this.avatarUrl, this.homeState, this.joinedAt, this.stamps = 0, this.templesVisited = 0, this.visitsRecorded = 0, this.statesCovered = 0, this.visits = const []});
+
+  final String name;
+  final String? avatarUrl;
+  final String? homeState;
+  final String? joinedAt;
+  final int stamps;
+  final int templesVisited;
+  final int visitsRecorded;
+  final int statesCovered;
+  final List<RemoteVisit> visits;
+
+  factory PublicPassport.fromJson(Map<String, dynamic> j) => PublicPassport(
+        name: _s(j['name']) ?? 'Devotee',
+        avatarUrl: _s(j['avatar_url']),
+        homeState: _s(j['home_state']),
+        joinedAt: _s(j['joined_at']),
+        stamps: _i(j['stamps']) ?? 0,
+        templesVisited: _i(j['temples_visited']) ?? 0,
+        visitsRecorded: _i(j['visits_recorded']) ?? 0,
+        statesCovered: _i(j['states_covered']) ?? 0,
+        visits: _l(j['visits']).map((e) => RemoteVisit.fromJson(_m(e))).toList(),
+      );
 }

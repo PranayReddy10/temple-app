@@ -94,6 +94,23 @@ class AuthController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// What the devotee's passport QR carries. Stored with the profile, so it
+  /// shows offline; an account signed in before codes existed fetches it.
+  Future<String?> passportUrl() async {
+    if (!isSignedIn) return null;
+    if (_devotee!.passportUrl != null) return _devotee!.passportUrl;
+    await refresh();
+    return _devotee?.passportUrl;
+  }
+
+  /// A new code: every copy of the old one already shown or screenshotted
+  /// stops opening this passport.
+  Future<String?> resetPassportCode() async {
+    await api.post('me/passport/qr/reset', const {});
+    await refresh();
+    return _devotee?.passportUrl;
+  }
+
   Future<void> updateProfile({String? name, String? email, String? phone, String? locale, int? homeStateId, bool clearHomeState = false, String? dateOfBirth, bool clearDateOfBirth = false, String? gender, bool clearGender = false}) async {
     final json = await api.patch('me', {
       if (name != null) 'name': name,

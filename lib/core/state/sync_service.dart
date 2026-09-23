@@ -101,6 +101,18 @@ class SyncService extends ChangeNotifier {
   Future<void> queuePhoto(Visit v, {required String photoPath, String? stampPath, String? caption}) =>
       enqueue('photo_upload', {'key': v.localKey, 'photo': photoPath, if (stampPath != null) 'stamp': stampPath, if (caption != null) 'caption': caption});
 
+  /// A memory photo goes up once its visit has; it is private whatever the
+  /// account's other settings say.
+  Future<void> queueMemoryPhoto(Visit v, String path) => enqueue('memory_photo_upload', {'key': v.localKey, 'photo': path});
+
+  /// Removes a memory photo from the account. One never uploaded is simply
+  /// dropped from the queue.
+  Future<void> removeMemoryPhoto(MemoryPhoto m) async {
+    if (m.remoteId != null) return enqueue('photo_delete', {'remote_id': m.remoteId});
+    _outbox.removeWhere((o) => o.type == 'memory_photo_upload' && o.payload['photo'] == m.path);
+    await _persist();
+  }
+
   Future<void> enqueue(String type, Map<String, dynamic> payload) async {
     // One pending push per trip or memory is enough; later edits ride it.
     if (type == 'yatra_push' || type == 'memory_update') {
@@ -222,6 +234,24 @@ class SyncService extends ChangeNotifier {
         final json = await api.upload('temples/${v.templeSlug}/photos', files: {'photo': photo, if (stamp != null && File(stamp).existsSync()) 'stamp': stamp}, fields: {'visit_id': '${v.remoteId}', if (op.payload['caption'] != null) 'caption': '${op.payload['caption']}', 'is_public': '0'});
         await passport.setRemotePhoto(v.localKey, VisitPhoto.fromJson(json['data'] as Map<String, dynamic>));
         return true;
+      case 'memory_photo_upload':
+        final v = passport.byKey('${op.payload['key']}');
+        final path = '${op.payload['photo']}';
+        if (v == null) return true;
+        final m = v.memoryPhotos.where((m) => m.path == path).firstOrNull;
+        if (m == null || m.remoteId != null) return true; // removed, or already up
+        if (v.remoteId == null) return false; // wait for the visit
+        if (!File(path).existsSync()) return true;
+        final json = await api.upload('temples/${v.templeSlug}/photos', files: {'photo': path}, fields: {'visit_id': '${v.remoteId}', 'kind': 'memory', 'is_public': '0'});
+        await passport.setMemoryRemote(v.localKey, path, VisitPhoto.fromJson(json['data'] as Map<String, dynamic>));
+        return true;
+      case 'photo_delete':
+        try {
+          await api.delete('me/photos/${op.payload['remote_id']}');
+        } on ApiException catch (e) {
+          if (!e.isNotFound) rethrow; // already gone is done
+        }
+        return true;
       case 'memory_create':
         final m = memories.byLocalId('${op.payload['local_id']}');
         if (m == null || m.remoteId != null) return true;
@@ -341,6 +371,7 @@ class SyncService extends ChangeNotifier {
       await yatras.mergeRemote((results[2]['data'] as List).map((e) => RemoteYatra.fromJson(e as Map<String, dynamic>)).toList());
       await memories.mergeRemote((results[3]['data'] as List).map((e) => RemoteMemory.fromJson(e as Map<String, dynamic>)).toList());
       remotePhotos = (results[4]['data'] as List).map((e) => VisitPhoto.fromJson(e as Map<String, dynamic>)).toList();
+      await passport.mergeMemoryPhotos(remotePhotos);
       await submissions.mergeTickets((results[5]['data'] as List).map((e) => SupportTicket.fromJson(e as Map<String, dynamic>)).toList());
       lastPulledAt = DateTime.now();
       lastError = null;

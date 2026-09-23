@@ -9,11 +9,30 @@ import '../models/models.dart';
 /// stamp is earned on the first.
 /// How a visit was confirmed. GPS means the device was within range of the
 /// temple's coordinates; QR means a temple-issued code was scanned. Manual
-/// is the devotee's word, and the passport says so.
-enum Verification { manual, gps, qr }
+/// is the devotee's word, and the passport says so. Staff means the temple's
+/// own staff marked it at the counter, after scanning the devotee's passport.
+enum Verification { manual, gps, qr, staff }
+
+/// One of up to three photos kept with a visit as a memory. Never in the
+/// passport book and never shown to anyone else: only the one photo in the
+/// passport is. [path] is the device copy; [remoteId] and [url] are set once
+/// the account has it.
+class MemoryPhoto {
+  const MemoryPhoto({this.path, this.remoteId, this.url});
+
+  final String? path;
+  final int? remoteId;
+  final String? url;
+
+  Map<String, dynamic> toJson() => {'path': path, 'remote_id': remoteId, 'url': url};
+
+  factory MemoryPhoto.fromJson(Map<String, dynamic> j) => MemoryPhoto(path: j['path']?.toString(), remoteId: (j['remote_id'] as num?)?.toInt(), url: j['url']?.toString());
+
+  MemoryPhoto withRemote(int id, String? remoteUrl) => MemoryPhoto(path: path, remoteId: id, url: remoteUrl ?? url);
+}
 
 class Visit {
-  Visit({required this.templeSlug, required this.templeName, required this.deitySlug, required this.visitedAt, this.note, this.photoPath, this.city, this.state, this.verification = Verification.manual, this.members = const [], String? localKey, this.remoteId, this.remoteVerified, this.remotePhoto, this.latitude, this.longitude, this.templeId, this.qrCode})
+  Visit({required this.templeSlug, required this.templeName, required this.deitySlug, required this.visitedAt, this.note, this.photoPath, this.city, this.state, this.verification = Verification.manual, this.members = const [], String? localKey, this.remoteId, this.remoteVerified, this.remotePhoto, this.latitude, this.longitude, this.templeId, this.qrCode, this.memoryPhotos = const []})
       : localKey = localKey ?? '$templeSlug@${visitedAt.microsecondsSinceEpoch}';
 
   /// Stable device-side identity, used to match the server's copy.
@@ -33,6 +52,10 @@ class Visit {
   /// The temple code scanned for a QR check-in, sent so the server can
   /// check its signature.
   final String? qrCode;
+
+  /// Up to [maxMemoryPhotos] photos kept with the visit, outside the passport.
+  final List<MemoryPhoto> memoryPhotos;
+  static const maxMemoryPhotos = 3;
 
   final String templeSlug;
   final String templeName;
@@ -66,6 +89,7 @@ class Visit {
         'lng': longitude,
         'temple_id': templeId,
         'qr': qrCode,
+        'memories': memoryPhotos.map((m) => m.toJson()).toList(),
       };
 
   factory Visit.fromJson(Map<String, dynamic> j) => Visit(
@@ -87,13 +111,14 @@ class Visit {
         longitude: (j['lng'] as num?)?.toDouble(),
         templeId: (j['temple_id'] as num?)?.toInt(),
         qrCode: j['qr']?.toString(),
+        memoryPhotos: (j['memories'] as List? ?? const []).whereType<Map>().map((e) => MemoryPhoto.fromJson(Map<String, dynamic>.from(e))).toList(),
       );
 
   /// Whether the passport may call this a stamp: the server's verdict once
   /// synced, the device's verification before that.
   bool get isVerified => remoteVerified ?? (verification != Verification.manual);
 
-  Visit copyWith({String? note, String? photoPath, int? remoteId, bool? remoteVerified, VisitPhoto? remotePhoto}) => Visit(
+  Visit copyWith({String? note, String? photoPath, int? remoteId, bool? remoteVerified, VisitPhoto? remotePhoto, Verification? verification, List<MemoryPhoto>? memoryPhotos}) => Visit(
         templeSlug: templeSlug,
         templeName: templeName,
         deitySlug: deitySlug,
@@ -102,7 +127,7 @@ class Visit {
         photoPath: photoPath ?? this.photoPath,
         city: city,
         state: state,
-        verification: verification,
+        verification: verification ?? this.verification,
         members: members,
         localKey: localKey,
         remoteId: remoteId ?? this.remoteId,
@@ -112,6 +137,7 @@ class Visit {
         longitude: longitude,
         templeId: templeId,
         qrCode: qrCode,
+        memoryPhotos: memoryPhotos ?? this.memoryPhotos,
       );
 }
 
@@ -240,8 +266,11 @@ class PassportController extends ChangeNotifier {
     for (final r in remote) {
       final byId = _visits.indexWhere((v) => v.remoteId == r.id);
       if (byId >= 0) {
-        if (_visits[byId].remoteVerified != r.isVerified) {
-          _visits[byId] = _visits[byId].copyWith(remoteVerified: r.isVerified);
+        final method = _method(r.method);
+        // A visit the temple's staff confirmed at the counter says so.
+        final upgrade = method == Verification.staff && _visits[byId].verification != Verification.staff;
+        if (_visits[byId].remoteVerified != r.isVerified || upgrade) {
+          _visits[byId] = _visits[byId].copyWith(remoteVerified: r.isVerified, verification: upgrade ? Verification.staff : null);
           changed = true;
         }
         continue;
@@ -249,7 +278,7 @@ class PassportController extends ChangeNotifier {
       final day = r.visitedOn;
       final byDay = _visits.indexWhere((v) => v.remoteId == null && v.templeSlug == r.templeSlug && day != null && v.visitedAt.toIso8601String().startsWith(day));
       if (byDay >= 0) {
-        _visits[byDay] = _visits[byDay].copyWith(remoteId: r.id, remoteVerified: r.isVerified);
+        _visits[byDay] = _visits[byDay].copyWith(remoteId: r.id, remoteVerified: r.isVerified, verification: _method(r.method) == Verification.staff ? Verification.staff : null);
         changed = true;
         continue;
       }
@@ -261,17 +290,63 @@ class PassportController extends ChangeNotifier {
         visitedAt: when,
         note: r.note,
         city: r.city,
-        verification: switch (r.method) { 'gps' => Verification.gps, 'qr' => Verification.qr, _ => Verification.manual },
+        verification: _method(r.method),
         localKey: 'remote-${r.id}',
         remoteId: r.id,
         remoteVerified: r.isVerified,
-        remotePhoto: r.photos.firstOrNull,
+        remotePhoto: r.photos.where((p) => !p.isMemory).firstOrNull,
         templeId: r.templeId,
       ));
       changed = true;
     }
     _visits.sort((a, b) => a.visitedAt.compareTo(b.visitedAt));
     if (changed) await _save();
+  }
+
+  static Verification _method(String? m) => switch (m) { 'gps' => Verification.gps, 'qr' => Verification.qr, 'staff' => Verification.staff, _ => Verification.manual };
+
+  /// Memory photos the account holds for visits on this device, from
+  /// `GET /me/photos`: ones taken on another device appear here too.
+  Future<void> mergeMemoryPhotos(List<VisitPhoto> photos) async {
+    var changed = false;
+    for (final p in photos.where((p) => p.isMemory && p.visitId != null)) {
+      final i = _visits.indexWhere((v) => v.remoteId == p.visitId);
+      if (i < 0) continue;
+      final v = _visits[i];
+      if (v.memoryPhotos.any((m) => m.remoteId == p.id)) continue;
+      if (v.memoryPhotos.length >= Visit.maxMemoryPhotos) continue;
+      _visits[i] = v.copyWith(memoryPhotos: [...v.memoryPhotos, MemoryPhoto(remoteId: p.id, url: p.originalUrl)]);
+      changed = true;
+    }
+    if (changed) await _save();
+  }
+
+  /// Keeps a memory photo with the visit. The picked file is copied by the
+  /// caller into the app's own storage first: a picker's cache copy can be
+  /// cleared by the system at any time.
+  Future<Visit?> addMemoryPhoto(Visit visit, String path) async {
+    final i = _visits.indexWhere((v) => v.localKey == visit.localKey);
+    if (i < 0 || _visits[i].memoryPhotos.length >= Visit.maxMemoryPhotos) return null;
+    _visits[i] = _visits[i].copyWith(memoryPhotos: [..._visits[i].memoryPhotos, MemoryPhoto(path: path)]);
+    await _save();
+    return _visits[i];
+  }
+
+  Future<MemoryPhoto?> removeMemoryPhoto(Visit visit, int index) async {
+    final i = _visits.indexWhere((v) => v.localKey == visit.localKey);
+    if (i < 0 || index < 0 || index >= _visits[i].memoryPhotos.length) return null;
+    final list = [..._visits[i].memoryPhotos];
+    final removed = list.removeAt(index);
+    _visits[i] = _visits[i].copyWith(memoryPhotos: list);
+    await _save();
+    return removed;
+  }
+
+  Future<void> setMemoryRemote(String localKey, String path, VisitPhoto photo) async {
+    final i = _visits.indexWhere((v) => v.localKey == localKey);
+    if (i < 0) return;
+    _visits[i] = _visits[i].copyWith(memoryPhotos: [for (final m in _visits[i].memoryPhotos) m.path == path && m.remoteId == null ? m.withRemote(photo.id, photo.originalUrl) : m]);
+    await _save();
   }
 
   int get verifiedCount => _visits.where((v) => v.verification != Verification.manual).length;
@@ -287,7 +362,7 @@ class PassportController extends ChangeNotifier {
       stamps.where((v) => categoriesOf(v.templeSlug).contains(c.categorySlug)).length;
 
   Future<void> attachPhoto(Visit visit, String path) async {
-    final i = _visits.indexOf(visit);
+    final i = _visits.indexWhere((v) => v.localKey == visit.localKey);
     if (i < 0) return;
     _visits[i] = visit.copyWith(photoPath: path);
     await _save();
