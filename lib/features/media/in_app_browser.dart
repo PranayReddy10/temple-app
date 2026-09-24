@@ -24,6 +24,18 @@ class InAppBrowserScreen extends StatefulWidget {
 
   /// Opens [url] in the app. On the web build, where there is no web view,
   /// it opens in a new tab instead.
+  /// For pages that take payment or sign-in: a temple's booking site, a
+  /// payment gateway. The system's own in-app browser tab (Chrome Custom
+  /// Tabs, Safari View) stays inside the app but is the real browser, so
+  /// bank pages, captchas and UPI apps work. A plain web view is refused by
+  /// many gateways and cannot hand a payment to a UPI app, which is how a
+  /// booking ended at "too many attempts".
+  static Future<void> openSecure(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.inAppBrowserView);
+    if (!ok) await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   static Future<void> open(BuildContext context, String url, {String? title}) async {
     if (kIsWeb) {
       await launchUrl(Uri.parse(url), webOnlyWindowName: '_blank');
@@ -61,6 +73,9 @@ class InAppBrowserScreenState extends State<InAppBrowserScreen> {
   int _progress = 0;
   String? _pageTitle;
 
+  /// UPI and the payment apps a checkout page may open.
+  static bool isPayment(Uri u) => const {'upi', 'tez', 'gpay', 'phonepe', 'paytmmp', 'bhim', 'credpay'}.contains(u.scheme);
+
   /// Schemes a page may load. Everything else is another app.
   static bool isWebUri(Uri? u) => u != null && (u.scheme == 'https' || u.scheme == 'http' || u.scheme == 'about' || u.scheme == 'data' || u.scheme == 'blob');
 
@@ -85,6 +100,10 @@ class InAppBrowserScreenState extends State<InAppBrowserScreen> {
           if (widget.allowPaymentApps && uri != null) {
             final target = uri.scheme == 'intent' ? InAppBrowserScreen.fromIntentUrl(r.url) : uri;
             if (target != null) launchUrl(target, mode: LaunchMode.externalApplication).catchError((_) => false);
+          } else if (uri != null && isPayment(uri)) {
+            // Any other page (a temple's own booking site) may still hand a
+            // UPI payment to the payment app; nothing else leaves the app.
+            launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
           }
           return NavigationDecision.prevent;
         },

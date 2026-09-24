@@ -15,6 +15,7 @@ class AppSettings extends ChangeNotifier {
     api.baseUrl = _prefs.getString('api_base') ?? Brand.defaultApiBase;
     api.language = _locale.languageCode;
     _doorAnimations = _prefs.getBool('door_animations') ?? true;
+    _openingBell = _prefs.getBool('opening_bell') ?? true;
     final langs = _prefs.getString('languages');
     if (langs != null) {
       try {
@@ -45,10 +46,14 @@ class AppSettings extends ChangeNotifier {
   late Locale _locale;
   late ThemeMode _themeMode;
   late bool _doorAnimations;
+  late bool _openingBell;
 
   Locale get locale => _locale;
   ThemeMode get themeMode => _themeMode;
   bool get doorAnimations => _doorAnimations;
+
+  /// The ghanta rung as the doors open when the app starts.
+  bool get openingBell => _openingBell;
   String get apiBase => api.baseUrl;
 
   static const supportedLocales = [Locale('en'), Locale('te'), Locale('hi'), Locale('ta'), Locale('kn')];
@@ -69,6 +74,12 @@ class AppSettings extends ChangeNotifier {
   Future<void> setDoorAnimations(bool v) async {
     _doorAnimations = v;
     await _prefs.setBool('door_animations', v);
+    notifyListeners();
+  }
+
+  Future<void> setOpeningBell(bool v) async {
+    _openingBell = v;
+    await _prefs.setBool('opening_bell', v);
     notifyListeners();
   }
 

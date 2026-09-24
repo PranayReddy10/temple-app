@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,7 +38,7 @@ import 'package:temple_app/features/passport/visit_detail_screen.dart';
 import 'package:temple_app/features/passport/passport_view_screen.dart';
 import 'package:temple_app/features/qr/qr_screens.dart';
 
-Future<Widget> harness(Widget child, {Map<String, Object> prefs = const {}}) async {
+Future<Widget> harness(Widget child, {Map<String, Object> prefs = const {}, Locale? locale}) async {
   SharedPreferences.setMockInitialValues({'door_animations': false, ...prefs});
   final store = await SharedPreferences.getInstance();
   final api = ApiClient(baseUrl: 'http://localhost:1', timeout: const Duration(milliseconds: 50));
@@ -75,7 +76,13 @@ Future<Widget> harness(Widget child, {Map<String, Object> prefs = const {}}) asy
       ChangeNotifierProvider(create: (_) => AdsController(appConfig, auth)),
       Provider(create: (_) => PushService(prefs: store, api: api, auth: auth, config: appConfig, inbox: inbox)),
     ],
-    child: MaterialApp(theme: AppTheme.light(DayTheme.today()), home: child),
+    child: MaterialApp(
+      theme: AppTheme.light(DayTheme.today()),
+      locale: locale,
+      supportedLocales: AppSettings.supportedLocales,
+      localizationsDelegates: const [GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+      home: child,
+    ),
   );
 }
 
