@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../motifs/architecture.dart';
 import '../state/app_settings.dart';
+import '../state/sound_effects.dart';
 import '../theme/palette.dart';
 
 /// Two teak door leaves that swing open to reveal [child].
@@ -117,8 +118,14 @@ class TempleDoorRoute<T> extends PageRoute<T> {
   @override
   bool get opaque => true;
 
+  /// The doors stay shut for this share of the entrance, then open over the
+  /// rest. The temple page builds (photos, lists) in those first frames; an
+  /// animation that started opening at once lost them, so the doors seemed
+  /// to begin already half open.
+  static const shutFor = 0.3;
+
   @override
-  Duration get transitionDuration => enabled ? const Duration(milliseconds: 900) : const Duration(milliseconds: 250);
+  Duration get transitionDuration => enabled ? const Duration(milliseconds: 1700) : const Duration(milliseconds: 250);
 
   @override
   Duration get reverseTransitionDuration => enabled ? const Duration(milliseconds: 600) : const Duration(milliseconds: 200);
@@ -131,7 +138,7 @@ class TempleDoorRoute<T> extends PageRoute<T> {
     if (!enabled) return FadeTransition(opacity: animation, child: child);
     return AnimatedBuilder(
       animation: animation,
-      builder: (context, _) => TempleDoorReveal(progress: animation.value, accent: accent, child: child),
+      builder: (context, _) => TempleDoorReveal(progress: ((animation.value - shutFor) / (1 - shutFor)).clamp(0.0, 1.0), accent: accent, child: child),
     );
   }
 }
@@ -141,5 +148,7 @@ class TempleDoorRoute<T> extends PageRoute<T> {
 Future<T?> enterTemple<T>(BuildContext context, Widget page, {Color? accent}) {
   final enabled = context.read<AppSettings>().doorAnimations;
   final color = accent ?? Theme.of(context).colorScheme.primary;
+  // Om sounds from the moment the doors are touched until they stand open.
+  if (enabled) SoundEffects.play(context, SoundEffects.om, volume: 0.7);
   return Navigator.of(context).push<T>(TempleDoorRoute<T>(builder: (_) => page, accent: color, enabled: enabled));
 }

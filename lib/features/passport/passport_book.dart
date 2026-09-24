@@ -13,6 +13,7 @@ import '../../core/widgets/temple_widgets.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/passport_controller.dart';
+import '../../core/state/sound_effects.dart';
 import '../../core/state/photo_store.dart';
 import '../../core/state/sync_service.dart';
 import '../../core/theme/palette.dart';
@@ -54,8 +55,15 @@ class _PassportBookState extends State<PassportBook> with SingleTickerProviderSt
     super.dispose();
   }
 
+  /// The page last settled on, so a turn that springs back is silent.
+  int _page = 0;
+
   void _settle(double target, int count) {
     final t = target.clamp(0.0, (count - 1).toDouble());
+    if (t.round() != _page) {
+      _page = t.round();
+      SoundEffects.play(context, SoundEffects.pageTurn, volume: 0.9);
+    }
     _anim.value = _pos;
     _anim.animateTo(t, duration: Duration(milliseconds: (220 + 260 * (t - _pos).abs()).round().clamp(220, 700)), curve: Curves.easeOutCubic);
   }
