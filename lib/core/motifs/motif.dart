@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../widgets/app_image.dart';
+
 /// Symbols drawn by hand rather than shipped as images: they scale to any
 /// size, tint to any day's colour and weigh nothing on a patchy network.
 enum Motif { sun, trishul, gada, peacock, shankhaChakra, lotus, namam, om, diya, bell, kalasha, bowArrow, ganesha, veena, khadga, lion, hills, yantra }
@@ -70,7 +72,9 @@ class DeityIcon extends StatelessWidget {
         boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.35), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       clipBehavior: Clip.antiAlias,
-      child: imageUrl == null || imageUrl!.isEmpty ? emblem : Image.network(imageUrl!, fit: BoxFit.cover, width: size, height: size, errorBuilder: (_, __, ___) => emblem),
+      // The painting from the deity's record, when there is one; its emblem
+      // while it loads, offline, or when there is none.
+      child: imageUrl == null || imageUrl!.isEmpty ? emblem : AppImage(imageUrl!, placeholder: emblem, decodeWidth: (size * 3).round(), alignment: Alignment.topCenter),
     );
   }
 }

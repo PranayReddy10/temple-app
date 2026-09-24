@@ -43,6 +43,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    # Synthesised by tool/make_temple_bell.py; no recording, no licence.
+    - assets/sounds/
   # Noto fonts, SIL Open Font License 1.1 (see assets/fonts/OFL.txt). Bundled
   # so Devanagari and Telugu render on every platform without a CDN fetch.
   fonts:

@@ -129,4 +129,10 @@ void _playbackTests() {
     expect(d.photos.first.id, 9);
     expect(d.photos, hasLength(2));
   });
+  test('deity images come through from /deities and from a temple summary', () {
+    final d = DeityRef.fromJson({'slug': 'saraswati', 'name': 'Saraswati', 'image_url': 'https://x/storage/deities/saraswati.jpg', 'image_credit': 'Raja Ravi Varma'});
+    expect(d.imageUrl, 'https://x/storage/deities/saraswati.jpg');
+    final t = TempleSummary.fromJson({'slug': 't', 'name': 'T', 'location': {}, 'trust': {}, 'deity': {'slug': 'shiva', 'name': 'Shiva', 'image_url': 'https://x/shiva.jpg'}});
+    expect(t.deity!.imageUrl, 'https://x/shiva.jpg');
+  });
 }

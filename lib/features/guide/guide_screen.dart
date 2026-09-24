@@ -195,7 +195,8 @@ class _GuideBubble extends StatelessWidget {
         ),
         if (reply.temples.isNotEmpty)
           SizedBox(
-            height: scaledHeight(context, 100),
+            // Room for a compact card with a two-line name and its badges.
+            height: scaledHeight(context, 132),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.only(top: 8),

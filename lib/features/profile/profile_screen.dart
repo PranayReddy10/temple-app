@@ -300,6 +300,13 @@ class ProfileScreen extends StatelessWidget {
                 value: settings.doorAnimations,
                 onChanged: settings.setDoorAnimations,
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Temple bell on opening'),
+                subtitle: const Text('The ghanta rings as the doors open. Silent when the app is muted.'),
+                value: settings.openingBell,
+                onChanged: settings.setOpeningBell,
+              ),
             ],
           ),
         ),
