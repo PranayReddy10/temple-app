@@ -45,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         _finish();
         return;
       }
-      if (settings.openingBell && !context.read<MantraPlayer>().muted) _ring();
+      if (settings.templeSounds && !context.read<MantraPlayer>().muted) _ring();
       _c.forward().whenComplete(_finish);
     });
   }
