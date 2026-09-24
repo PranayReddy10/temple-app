@@ -4,6 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/state/notifications_controller.dart';
+import '../notifications/notifications_screen.dart';
+import '../premium/premium_screen.dart';
+
 import '../../core/brand.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
@@ -154,6 +158,18 @@ class ProfileScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
+              _ToolTile(
+                icon: Icons.workspace_premium_outlined,
+                title: s('premium'),
+                subtitle: context.watch<AuthController>().devotee?.subscriptionPlan ?? s('premium_pitch'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PremiumScreen())),
+              ),
+              _ToolTile(
+                icon: Icons.notifications_outlined,
+                title: s('notifications'),
+                subtitle: '${context.watch<NotificationsController>().unreadCount} unread',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+              ),
               _ToolTile(icon: Icons.group_rounded, title: s('family_passport'), subtitle: 'Stamps for everyone who travels with you', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen()))),
               _ToolTile(icon: Icons.workspace_premium_rounded, title: s('certificates'), subtitle: 'Completed circuits and yatras', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CertificatesScreen()))),
               _ToolTile(icon: Icons.local_fire_department_rounded, title: s('bookings'), subtitle: '${context.watch<BookingsController>().upcoming.length} upcoming', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BookingsScreen()))),
@@ -231,7 +247,11 @@ class ProfileScreen extends StatelessWidget {
                 child: ListTile(
                   leading: Icon(sync.pendingCount > 0 ? Icons.cloud_upload_outlined : Icons.cloud_done_rounded, color: sync.pendingCount > 0 ? theme.colorScheme.primary : Palette.tulsi),
                   title: Text(sync.pendingCount > 0 ? '${sync.pendingCount} change${sync.pendingCount == 1 ? '' : 's'} waiting' : 'Everything is on your account'),
-                  subtitle: Text(sync.lastError != null ? 'Last attempt: ${sync.lastError}' : sync.lastPulledAt != null ? 'Last synced ${sync.lastPulledAt!.hour.toString().padLeft(2, '0')}:${sync.lastPulledAt!.minute.toString().padLeft(2, '0')}' : 'Visits, trips, memories and reports sync when online'),
+                  subtitle: Text(sync.lastError != null
+                      ? 'Last attempt: ${sync.lastError}'
+                      : sync.lastPulledAt != null
+                          ? 'Last synced ${sync.lastPulledAt!.hour.toString().padLeft(2, '0')}:${sync.lastPulledAt!.minute.toString().padLeft(2, '0')}'
+                          : 'Visits, trips, memories and reports sync when online'),
                   trailing: sync.isFlushing ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : IconButton(icon: const Icon(Icons.sync_rounded), onPressed: () => sync.sync()),
                 ),
               );

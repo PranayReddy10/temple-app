@@ -13,15 +13,14 @@ import '../../core/state/passport_controller.dart';
 import '../../core/state/sync_service.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
-import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../certificates/certificates_screen.dart';
 import '../family/family_screen.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
 import '../qr/qr_screens.dart';
-import '../temple/temple_screen.dart';
 import 'passport_book.dart';
 import 'stamp_widget.dart';
+import 'visit_detail_screen.dart';
 
 /// The Passport: a stamp book of temples visited, the visit log, circuit
 /// collections and achievements. Styled as a bound booklet with a brass
@@ -84,7 +83,7 @@ class _PassportScreenState extends State<PassportScreen> with SingleTickerProvid
                           ],
                         ),
                       ),
-                      IconButton(tooltip: s('scan_qr'), color: Palette.gold, onPressed: () => scanTempleAndCheckIn(context), icon: const Icon(Icons.qr_code_scanner_rounded)),
+                      IconButton(tooltip: s('scan_qr'), color: Palette.gold, onPressed: () => scanCode(context), icon: const Icon(Icons.qr_code_scanner_rounded)),
                       IconButton(tooltip: s('my_qr'), color: Palette.gold, onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyQrScreen())), icon: const Icon(Icons.qr_code_2_rounded)),
                     ],
                   ),
@@ -209,7 +208,7 @@ class _VisitsPage extends StatelessWidget {
                 children: [
                   Text('${_date(v.visitedAt)}${v.city != null ? ' · ${v.city}' : ''}${v.note != null ? '\n${v.note}' : ''}'),
                   const SizedBox(height: 4),
-                  Row(children: [VerificationBadge(verification: v.verification, compact: true), if (v.members.isNotEmpty) ...[const SizedBox(width: 6), Icon(Icons.group_rounded, size: 14, color: theme.colorScheme.outline), Text(' ${v.members.length}', style: theme.textTheme.labelSmall)]]),
+                  Row(children: [VerificationBadge(verification: v.verification, compact: true), if (v.memoryPhotos.isNotEmpty) ...[const SizedBox(width: 6), Icon(Icons.photo_library_outlined, size: 14, color: theme.colorScheme.outline), Text(' ${v.memoryPhotos.length}', style: theme.textTheme.labelSmall)], if (v.members.isNotEmpty) ...[const SizedBox(width: 6), Icon(Icons.group_rounded, size: 14, color: theme.colorScheme.outline), Text(' ${v.members.length}', style: theme.textTheme.labelSmall)]]),
                 ],
               ),
               isThreeLine: true,
@@ -218,7 +217,7 @@ class _VisitsPage extends StatelessWidget {
                 icon: const Icon(Icons.auto_awesome_rounded),
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PhotoStampScreen(visit: v))),
               ),
-              onTap: () => enterTemple(context, TempleScreen(slug: v.templeSlug, preview: SampleData.bySlug(v.templeSlug)), accent: day.accent),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => VisitDetailScreen(visitKey: v.localKey))),
             ),
           ),
         );

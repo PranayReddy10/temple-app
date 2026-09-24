@@ -85,6 +85,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final day = context.watch<DayController>().theme;
     final theme = Theme.of(context);
     return Scaffold(
+      // Same teak as the native launch window, so there is no flash between.
+      backgroundColor: Palette.deep,
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {

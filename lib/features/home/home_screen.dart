@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ads/ads.dart';
 import '../../core/api/temple_repository.dart';
 import '../../core/brand.dart';
 import '../../core/l10n/strings.dart';
@@ -19,6 +20,7 @@ import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../notifications/notifications_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../days/day_screen.dart';
 import '../guide/guide_screen.dart';
@@ -140,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const SizedBox(width: 8),
                   _QuickAction(icon: Icons.calendar_month_rounded, label: s('calendar'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()))),
                   const SizedBox(width: 8),
-                  _QuickAction(icon: Icons.qr_code_scanner_rounded, label: s('scan_qr'), onTap: () => scanTempleAndCheckIn(context)),
+                  _QuickAction(icon: Icons.qr_code_scanner_rounded, label: s('scan_qr'), onTap: () => scanCode(context)),
                   const SizedBox(width: 8),
                   _QuickAction(icon: Icons.route_rounded, label: s('new_yatra'), onTap: () => widget.onTab?.call(3)),
                 ],
@@ -176,11 +178,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             SliverToBoxAdapter(child: SectionHeader(title: '${s('temples_of')} ${lead.deity?.name ?? day.deityName}', motif: day.motif, actionLabel: s('see_all'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SearchScreen(initial: TempleQuery(deity: lead.deity?.slug ?? day.deitySlug)))))),
             SliverToBoxAdapter(child: _Carousel(temples: lead.temples, onOpen: _open)),
           ],
+          const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'home'))),
           SliverToBoxAdapter(child: SectionHeader(title: s('popular'), motif: Motif.kalasha, actionLabel: s('see_all'), onAction: widget.onExplore)),
           SliverToBoxAdapter(
-            child: _popular == null
-                ? const SizedBox(height: 180, child: DiyaLoader())
-                : _Carousel(temples: _popular!.data.items, onOpen: _open),
+            child: _popular == null ? const SizedBox(height: 180, child: DiyaLoader()) : _Carousel(temples: _popular!.data.items, onOpen: _open),
           ),
           SliverToBoxAdapter(child: SectionHeader(title: s('categories'), motif: Motif.shankhaChakra, actionLabel: s('see_all'), onAction: widget.onExplore)),
           const SliverToBoxAdapter(child: _CircuitRow()),
@@ -195,6 +196,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               itemCount: _events!.data.length,
               itemBuilder: (context, i) => _EventTile(event: _events!.data[i]),
             ),
+          const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'home', compact: true))),
           SliverToBoxAdapter(child: SectionHeader(title: s('verse_of_day'), motif: Motif.lotus)),
           SliverToBoxAdapter(child: _VerseCard(day: day)),
           SliverToBoxAdapter(child: SectionHeader(title: s('temple_tips'), motif: Motif.namam)),
@@ -261,6 +263,8 @@ class _DayHeader extends StatelessWidget {
                         ],
                       ),
                     ),
+                    // Unread notices from the team: festivals, new temples.
+                    Padding(padding: const EdgeInsets.only(bottom: 40), child: NotificationBell(color: on)),
                     DeityPortrait(day: day, imageUrl: lead?.deity?.imageUrl, size: 80, color: on),
                   ],
                 ),
@@ -489,10 +493,8 @@ class _EventTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(event.title, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif')),
-                      if (event.templeName != null)
-                        Text('${event.templeName}${event.templeCity != null ? ' · ${event.templeCity}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall),
-                      if (event.dateLabel != null)
-                        Text(event.dateLabel!, style: theme.textTheme.labelSmall?.copyWith(color: scheme.primary)),
+                      if (event.templeName != null) Text('${event.templeName}${event.templeCity != null ? ' · ${event.templeCity}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall),
+                      if (event.dateLabel != null) Text(event.dateLabel!, style: theme.textTheme.labelSmall?.copyWith(color: scheme.primary)),
                     ],
                   ),
                 ),
@@ -553,7 +555,11 @@ class _ReminderBanner extends StatelessWidget {
     if (soon.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final r = soon.first;
-    final when = r.daysAway <= 0 ? 'today' : r.daysAway == 1 ? 'tomorrow' : 'in ${r.daysAway} days';
+    final when = r.daysAway <= 0
+        ? 'today'
+        : r.daysAway == 1
+            ? 'tomorrow'
+            : 'in ${r.daysAway} days';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: Material(
@@ -590,7 +596,11 @@ class _Greeting extends StatelessWidget {
     final s = S.of(context);
     final theme = Theme.of(context);
     final now = DateTime.now();
-    final part = now.hour < 12 ? s('good_morning') : now.hour < 17 ? s('good_afternoon') : s('good_evening');
+    final part = now.hour < 12
+        ? s('good_morning')
+        : now.hour < 17
+            ? s('good_afternoon')
+            : s('good_evening');
     final first = name?.trim().split(' ').first;
     String date;
     try {
@@ -673,7 +683,11 @@ class _JourneyCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  passport.stampCount == 0 ? s('journey_start') : next == null ? s('journey_all_done') : '${s('next_milestone')}: ${next.title} · ${next.description}',
+                  passport.stampCount == 0
+                      ? s('journey_start')
+                      : next == null
+                          ? s('journey_all_done')
+                          : '${s('next_milestone')}: ${next.title} · ${next.description}',
                   style: theme.textTheme.bodySmall?.copyWith(color: on.withValues(alpha: 0.92), height: 1.35),
                 ),
               ],
@@ -960,11 +974,11 @@ class _VerseCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-            Text(v.$1, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSansDevanagari', color: day.accent, height: 1.5)),
-            const SizedBox(height: 8),
-            Text('“${v.$2}”', style: theme.textTheme.bodyLarge?.copyWith(fontFamily: 'NotoSerif', fontStyle: FontStyle.italic, height: 1.45)),
-            const SizedBox(height: 8),
-            Text('— ${v.$3}', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                      Text(v.$1, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSansDevanagari', color: day.accent, height: 1.5)),
+                      const SizedBox(height: 8),
+                      Text('“${v.$2}”', style: theme.textTheme.bodyLarge?.copyWith(fontFamily: 'NotoSerif', fontStyle: FontStyle.italic, height: 1.45)),
+                      const SizedBox(height: 8),
+                      Text('— ${v.$3}', style: theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
                     ],
                   ),
                 ),

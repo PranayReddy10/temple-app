@@ -31,8 +31,23 @@
 
   <title>temple_app</title>
   <link rel="manifest" href="manifest.json">
+  <!-- The page is the temple-door teak while the app loads, with a slow
+       brass pulse, rather than a white page that looks broken. -->
+  <style>
+    html, body { margin: 0; height: 100%; background: #3E2723; }
+    #loading { position: fixed; inset: 0; display: grid; place-items: center; transition: opacity .3s; }
+    #loading div { width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle, #F7E29C, #C9A227 60%, #8C6A10); animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 50% { transform: scale(.8); opacity: .6; } }
+  </style>
 </head>
 <body>
+  <div id="loading" aria-label="Loading"><div></div></div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('loading');
+      if (el) { el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 300); }
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

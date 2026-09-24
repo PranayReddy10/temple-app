@@ -29,6 +29,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- AdMob app id. Required by the Google Mobile Ads SDK even while ads
+             are switched off in the admin panel: without it the app closes on
+             launch. This is Google's public TEST id — replace it with the app
+             id from AdMob → Apps before release. Ad UNITS come from the admin
+             panel; the app id cannot, because the SDK reads it at startup. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-3940256099942544~3347511713"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -41,6 +49,11 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- UPI apps, opened from the payment pages (GPay, PhonePe, Paytm…). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="upi"/>
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
