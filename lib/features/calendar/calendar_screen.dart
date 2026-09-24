@@ -173,7 +173,10 @@ class _EventCard extends StatelessWidget {
           if (event.description != null) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text(event.description!, style: theme.textTheme.bodySmall)),
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-            child: Row(
+            // Wraps: in Telugu or at a large text size the two buttons do
+            // not fit on one line.
+            child: Wrap(
+              spacing: 4,
               children: [
                 TextButton.icon(onPressed: onRemind, icon: Icon(reminded ? Icons.notifications_active_rounded : Icons.notifications_none_rounded), label: Text(reminded ? s('reminder_set') : s('remind_me'))),
                 TextButton.icon(onPressed: () => launchUrl(RemindersController.calendarLink(event), mode: LaunchMode.externalApplication), icon: const Icon(Icons.calendar_month_rounded), label: Text(s('add_to_calendar'))),

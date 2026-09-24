@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +28,7 @@ import 'package:temple_app/features/shell/shell_screen.dart';
 import 'package:temple_app/features/days/day_screen.dart';
 import 'package:temple_app/features/temple/temple_screen.dart';
 
-Future<Widget> harness(Widget child) async {
+Future<Widget> harness(Widget child, {Locale? locale}) async {
   SharedPreferences.setMockInitialValues({'door_animations': false});
   final prefs = await SharedPreferences.getInstance();
   final api = ApiClient(baseUrl: 'http://localhost:1', timeout: const Duration(milliseconds: 50));
@@ -58,7 +59,13 @@ Future<Widget> harness(Widget child) async {
       ChangeNotifierProvider(create: (_) => BookingsController(prefs)),
       ChangeNotifierProvider.value(value: submissions),
     ],
-    child: MaterialApp(theme: AppTheme.light(DayTheme.today()), home: child),
+    child: MaterialApp(
+      theme: AppTheme.light(DayTheme.today()),
+      locale: locale,
+      supportedLocales: AppSettings.supportedLocales,
+      localizationsDelegates: const [GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+      home: child,
+    ),
   );
 }
 

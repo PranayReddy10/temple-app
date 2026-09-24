@@ -1182,7 +1182,7 @@ class _PujaCard extends StatelessWidget {
                     Icon(b.isOfficial ? Icons.verified_rounded : Icons.info_outline_rounded, size: 16, color: b.isOfficial ? Palette.tulsi : theme.colorScheme.outline),
                     const SizedBox(width: 6),
                     Expanded(child: Text(b.label ?? (b.isOfficial ? 'Official booking' : 'Book at the temple'), style: theme.textTheme.bodySmall?.copyWith(color: b.isOfficial ? Palette.tulsi : null))),
-                    if (b.url != null) TextButton(onPressed: () => InAppBrowserScreen.open(context, b.url!), child: Text(b.isOfficial ? 'Book' : 'Open link')),
+                    if (b.url != null) TextButton(onPressed: () => InAppBrowserScreen.openSecure(context, b.url!), child: Text(b.isOfficial ? 'Book' : 'Open link')),
                   ],
                 ),
                 if (b.note != null) Text(b.note!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),

@@ -15,6 +15,18 @@ class InAppBrowserScreen extends StatefulWidget {
 
   /// Opens [url] in the app. On the web build, where there is no web view,
   /// it opens in a new tab instead.
+  /// For pages that take payment or sign-in: a temple's booking site, a
+  /// payment gateway. The system's own in-app browser tab (Chrome Custom
+  /// Tabs, Safari View) stays inside the app but is the real browser, so
+  /// bank pages, captchas and UPI apps work. A plain web view is refused by
+  /// many gateways and cannot hand a payment to a UPI app, which is how a
+  /// booking ended at "too many attempts".
+  static Future<void> openSecure(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.inAppBrowserView);
+    if (!ok) await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   static Future<void> open(BuildContext context, String url, {String? title}) async {
     if (kIsWeb) {
       await launchUrl(Uri.parse(url), webOnlyWindowName: '_blank');
@@ -32,6 +44,9 @@ class InAppBrowserScreenState extends State<InAppBrowserScreen> {
   int _progress = 0;
   String? _pageTitle;
 
+  /// UPI and the payment apps a checkout page may open.
+  static bool isPayment(Uri u) => const {'upi', 'tez', 'gpay', 'phonepe', 'paytmmp', 'bhim', 'credpay'}.contains(u.scheme);
+
   /// Schemes a page may load. Everything else is another app.
   static bool isWebUri(Uri? u) => u != null && (u.scheme == 'https' || u.scheme == 'http' || u.scheme == 'about' || u.scheme == 'data' || u.scheme == 'blob');
 
@@ -41,7 +56,13 @@ class InAppBrowserScreenState extends State<InAppBrowserScreen> {
     _web = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
-        onNavigationRequest: (r) => isWebUri(Uri.tryParse(r.url)) ? NavigationDecision.navigate : NavigationDecision.prevent,
+        onNavigationRequest: (r) {
+          final u = Uri.tryParse(r.url);
+          if (isWebUri(u)) return NavigationDecision.navigate;
+          // A payment hands off to a UPI app; that one hand-off is allowed.
+          if (u != null && isPayment(u)) launchUrl(u, mode: LaunchMode.externalApplication);
+          return NavigationDecision.prevent;
+        },
         onProgress: (p) => mounted ? setState(() => _progress = p) : null,
         onPageFinished: (_) async {
           final t = await _web.getTitle();
