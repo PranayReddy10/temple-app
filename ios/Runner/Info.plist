@@ -51,5 +51,30 @@
 	<string>Used to take a photo for your visit memory card.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Used to attach a photo to a temple visit.</string>
+	<!-- AdMob app id (Google's public TEST id: replace before release). The
+	     SDK reads it at launch, so it cannot come from the admin panel. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- Asked before ads may use the advertising identifier (iOS 14.5+). -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Lets ads be more relevant to you. Choosing not to allow it still shows ads, just less relevant ones.</string>
+	<!-- Google Sign-In: replace with the REVERSED iOS client id from the admin
+	     panel (com.googleusercontent.apps.1234-abc). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.REPLACE-WITH-IOS-CLIENT-ID</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>upi</string>
+		<string>phonepe</string>
+		<string>tez</string>
+		<string>paytmmp</string>
+	</array>
 </dict>
 </plist>

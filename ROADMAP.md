@@ -94,15 +94,42 @@ leaves the system in a working state. **Nothing is built all at once.**
 | # | Slice | Scope | Status |
 | --- | --- | --- | --- |
 | 1 | **Admin auth + Temple CRUD** | Admin login, roles, temples table, deities, categories, states/districts, draft→published workflow, seed data | ✅ **Done** |
-| 2 | Temple media + timings | Photo gallery upload, image processing, opening/darshan/aarti timings, special-day and closure overrides | ⬜ Next |
-| 3 | Puja / Seva + facilities | Published pujas with time, duration, eligibility, fee, official booking route; visitor rules and facilities | ⬜ |
-| 4 | Public REST API v1 | Read endpoints for the Flutter app: search, filter, nearby, temple detail, deity and category listings | ⬜ |
+| 2 | **Temple media + timings** | Photo gallery upload, image processing, opening/darshan/aarti timings, special-day and closure overrides | ✅ **Done** — backend in `temple-website` (photos on DigitalOcean Spaces with generated variants, timings, closures); the app shows them on the temple profile |
+| 3 | **Puja / Seva + facilities** | Published pujas with time, duration, eligibility, fee, official booking route; visitor rules and facilities | ✅ **Done** — backend in `temple-website`; the app's Puja & seva, rules and facilities sections read them |
+| 4 | **Public REST API v1** | Read endpoints for the Flutter app: search, filter, nearby, temple detail, deity and category listings | ✅ **Done** — `GET /api/v1/temples` (search, filters, nearby by real distance), `/temples/{slug}`, `/deities`, `/categories`, `/states`, `/facilities`; see `temple-website/docs/API.md` |
 | 5 | **Flutter app shell** | Temple design system tinted per weekday deity, temple-door transitions, 5-tab navigation, API client with offline fallback | ✅ **Done** |
 | 6 | **Explorer + temple profile** | Search by name/deity/city/state, nearby, filters, lamp map, day pages, full temple profile with timings, pujas, facilities and trust | ✅ **Done** |
 | 7 | **User accounts + Passport** | Registration and login, visited state, manual check-in, ink stamps, circuit collections, achievements | ✅ **Done** |
 | 8 | **Photo Stamp** | Attach a visit photo, compose a temple-themed memory card with the stamp, share; original kept untouched | ✅ **Done** |
 | 9 | **Favourites + basic Yatra planner** | Saved temples (synced to the account), itinerary by days, reorder, Yatra mode, route in Maps | ✅ **Done** |
 | 10 | **Languages: EN / TE / HI** | Interface strings in three languages with bundled Indic fonts; alternate temple names come from the API | ✅ **Done** |
+
+### App control, sign-in, notifications, premium and ads  ✅ **Done**
+
+| Feature | App | Managed from (admin panel) |
+| --- | --- | --- |
+| **Maintenance mode** | A full-screen notice over the whole app, with "try again"; honoured offline from the last answer | App → App control |
+| **Update popup** | Below the minimum version: a blocking "please update" with the store link. Below the latest: a popup offered once per version | App → App control (per platform) |
+| **Continue with Google / Sign in with Apple** | Buttons on the sign-in screen; Apple on iPhone only. Password sign-in can be hidden behind a link when switched off | App → Sign-in methods |
+| **Notifications** | Inbox with unread badge on Home and in Profile; push through Firebase started from the server's ids; taps open a temple, a weekday, a screen or a link; saving a temple follows it | App → Notifications, App → Push setup |
+| **Premium plans** | Plans with their benefits, gateway choice, checkout in the in-app browser (UPI apps open from it), result confirmed by the server; more memory photos and a gold passport cover when the plan includes them | Monetisation → Plans, Payment gateways, Payments, Subscribers |
+| **Ads** | Native ads between temple-page sections, among explore/search results, on Home and (optionally) weekday pages; labelled "Ad" with "Remove ads"; none for no-ads plans, none on passport, check-in, scan, sign-in or checkout | Monetisation → Ads |
+
+Setup that has to be compiled in (AdMob app id, Google iOS URL scheme,
+Apple and push capabilities): see `docs/PLATFORM_SETUP.md`.
+
+### Passport QR, counter check-in and memories  ✅ **Done**
+
+| Feature | App | Backend (`temple-website`) |
+| --- | --- | --- |
+| **Personal passport QR** | *My Passport QR* shows a code for the account (a random token, never the account id); it can be reset from the menu, which retires every old copy. The passport book's back cover carries it too | `passport_url` on `/me`, `GET /me/passport/qr`, `POST /me/passport/qr/reset` |
+| **Scanning someone's passport** | One scanner for both kinds of code: a temple code opens the temple's check-in, a devotee's passport QR opens their passport (name, photo, public stamps only) | `GET /passports/{code}`, open and throttled; a phone camera without the app opens `/passport/{code}` |
+| **Temple staff mark visits** | A visit marked at a temple counter syncs back as *Marked by temple staff*, verified | Temple portal → **Scan passport**: scan, see the passport, **Mark visited today** at the temple(s) the account manages. One stamp a day per temple; a self-recorded visit that day is verified rather than doubled; records who marked it |
+| **Admin passport scan** | — | Admin → Devotees → **Scan passport**: shows the passport and links to the devotee record |
+| **Temple QR printing for temple staff** | — | Temple portal: *Check-in QR code*, **Print QR** (an A4 poster) and SVG download on their own temples; a 404 for anyone else's |
+| **Passport book: back cover and all pages** | The book ends on a leather back cover; **All pages** shows cover to back cover at once, and a tap turns to that page | — |
+| **Memory photos** | Each visit opens to a detail page: the one photo in the passport, plus up to three memory photos that stay with the visit, never in the passport and never shown to anyone. Kept in app storage (not the picker's cache), uploaded privately once the visit has synced, removable | `kind = memory` on `POST /temples/{slug}/photos`: three per visit, always private, never in the moderation queue |
+| **No white launch screen** | Android (including the Android 12+ splash), iOS and web open on the temple-door teak with the icon instead of white; a tap skips the door animation | — |
 
 ### Phase 2 — Profile and media  ✅ **Done** (app)
 

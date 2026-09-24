@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ads/ads.dart';
 import '../../core/api/temple_repository.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
@@ -206,7 +207,10 @@ class _SearchScreenState extends State<SearchScreen> {
                             child: ListView.separated(
                               padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
                               itemCount: _items.length + (_loadingMore ? 1 : 0),
-                              separatorBuilder: (_, __) => const SizedBox(height: 10),
+                              // One native ad among the results every N temples
+                              // (set in the admin panel); none while picking
+                              // temples for a trip.
+                              separatorBuilder: (context, i) => !widget.picker && (i + 1) % context.read<AdsController>().listInterval == 0 ? const NativeAdSlot(placement: 'explore', compact: true, padding: EdgeInsets.symmetric(vertical: 10)) : const SizedBox(height: 10),
                               itemBuilder: (context, i) {
                                 if (i >= _items.length) return const SizedBox(height: 60, child: DiyaLoader(size: 32));
                                 final t = _items[i];

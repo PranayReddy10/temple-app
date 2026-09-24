@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import 'core/brand.dart';
 import 'core/state/app_settings.dart';
 import 'core/state/day_controller.dart';
+import 'core/platform.dart';
 import 'core/theme/app_theme.dart';
+import 'features/app_gate/app_gate.dart';
 import 'features/splash/splash_screen.dart';
 
 class TempleApp extends StatelessWidget {
@@ -28,6 +30,10 @@ class TempleApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      navigatorKey: rootNavigatorKey,
+      scaffoldMessengerKey: rootMessengerKey,
+      // Maintenance and required updates cover every screen.
+      builder: (context, child) => AppGate(child: child ?? const SizedBox.shrink()),
       home: const SplashScreen(),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/ads/ads.dart';
 import '../../core/api/temple_repository.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
@@ -165,20 +166,21 @@ class _DayScreenState extends State<DayScreen> {
             ),
           ],
           if (lead != null && lead.media.isNotEmpty) ...[
+            const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'day_page'))),
             SliverToBoxAdapter(child: SectionHeader(title: s('songs_videos'), motif: Motif.bell, subtitle: 'For ${lead.deity?.name ?? day.deityName}')),
             if (lead.media.any(isVideoLike))
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: scaledHeight(context, 206),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: lead.media.where(isVideoLike).take(8).length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, i) => MediaCard(media: lead.media.where(isVideoLike).elementAt(i), day: day, width: 150),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: scaledHeight(context, 206),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: lead.media.where(isVideoLike).take(8).length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) => MediaCard(media: lead.media.where(isVideoLike).elementAt(i), day: day, width: 150),
+                  ),
                 ),
               ),
-            ),
             SliverToBoxAdapter(child: MediaSections(media: lead.media.where((m) => !isVideoLike(m)).toList(), day: day)),
           ],
           SliverToBoxAdapter(

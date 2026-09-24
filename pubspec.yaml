@@ -1,7 +1,7 @@
 name: temple_app
 description: Temple pilgrimage companion for India. Discover temples, plan yatras, collect stamps.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.6.0+6
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -27,6 +27,14 @@ dependencies:
   webview_flutter: ^4.10.0
   audioplayers: ^6.1.0
   flutter_tts: ^4.2.0
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^7.0.1
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+  google_mobile_ads: ^7.0.0
+  applovin_max: ^4.6.4
+  crypto: ^3.0.7
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:

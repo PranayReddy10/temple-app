@@ -37,8 +37,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     });
   }
 
+  bool _finished = false;
+
   void _finish() {
-    if (!mounted) return;
+    if (!mounted || _finished) return;
+    _finished = true;
     Navigator.of(context).pushReplacement(PageRouteBuilder(
       pageBuilder: (_, __, ___) => const ShellScreen(),
       transitionDuration: Duration.zero,
@@ -56,48 +59,56 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final day = context.watch<DayController>().theme;
     final theme = Theme.of(context);
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) {
-          // Hold the doors shut for the first 45% while the title glows,
-          // then open over the remaining time.
-          final open = ((_c.value - 0.45) / 0.55).clamp(0.0, 1.0);
-          final titleOpacity = (_c.value / 0.3).clamp(0.0, 1.0) * (1 - open);
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              TempleDoorReveal(
-                progress: open,
-                accent: day.accent,
-                child: _Sanctum(day: day),
-              ),
-              IgnorePointer(
-                child: Opacity(
-                  opacity: titleOpacity,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: const BoxDecoration(shape: BoxShape.circle, gradient: Palette.brass),
-                          child: const MotifIcon(Motif.om, size: 48, color: Palette.deep),
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          Brand.name,
-                          style: theme.textTheme.headlineMedium?.copyWith(color: Palette.sandal, fontFamily: 'NotoSerif', letterSpacing: 1),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(Brand.tagline, style: theme.textTheme.bodyMedium?.copyWith(color: Palette.gold)),
-                      ],
+      // Same teak as the native launch window, so there is no flash between.
+      backgroundColor: Palette.deep,
+      // A tap skips the doors: someone opening the app for the tenth time
+      // today should not have to wait for them.
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _finish,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            // Hold the doors shut for the first 45% while the title glows,
+            // then open over the remaining time.
+            final open = ((_c.value - 0.45) / 0.55).clamp(0.0, 1.0);
+            final titleOpacity = (_c.value / 0.3).clamp(0.0, 1.0) * (1 - open);
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                TempleDoorReveal(
+                  progress: open,
+                  accent: day.accent,
+                  child: _Sanctum(day: day),
+                ),
+                IgnorePointer(
+                  child: Opacity(
+                    opacity: titleOpacity,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: const BoxDecoration(shape: BoxShape.circle, gradient: Palette.brass),
+                            child: const MotifIcon(Motif.om, size: 48, color: Palette.deep),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            Brand.name,
+                            style: theme.textTheme.headlineMedium?.copyWith(color: Palette.sandal, fontFamily: 'NotoSerif', letterSpacing: 1),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(Brand.tagline, style: theme.textTheme.bodyMedium?.copyWith(color: Palette.gold)),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
