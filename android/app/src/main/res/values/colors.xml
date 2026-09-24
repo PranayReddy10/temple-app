@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Palette.deep: the teak of the temple doors the app opens on. The
+         launch window is this colour, not white, so the hand-over to the
+         first Flutter frame is invisible. -->
+    <color name="launch_background">#3E2723</color>
+</resources>

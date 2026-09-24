@@ -70,6 +70,26 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// "Continue with Google" / "Sign in with Apple": the provider's identity
+  /// token, obtained on the device, exchanged for our own. The server
+  /// verifies it; nothing here is trusted on the device's word.
+  Future<void> loginWithIdToken(String provider, Map<String, dynamic> body) async {
+    _busy = true;
+    notifyListeners();
+    try {
+      final json = await api.post('auth/$provider', body);
+      final data = json['data'] as Map<String, dynamic>;
+      await _store(Devotee.fromJson(data['devotee'] as Map<String, dynamic>), data['token'] as String);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Called when something the account holds changed on the server (a plan
+  /// bought, for one), so entitlements are fresh without signing in again.
+  Future<void> reload() => refresh();
+
   Future<void> logout() async {
     try {
       await api.post('auth/logout', const {});
@@ -92,6 +112,23 @@ class AuthController extends ChangeNotifier {
     } on ApiException catch (e) {
       if (e.isUnauthenticated) await logout();
     } catch (_) {}
+  }
+
+  /// What the devotee's passport QR carries. Stored with the profile, so it
+  /// shows offline; an account signed in before codes existed fetches it.
+  Future<String?> passportUrl() async {
+    if (!isSignedIn) return null;
+    if (_devotee!.passportUrl != null) return _devotee!.passportUrl;
+    await refresh();
+    return _devotee?.passportUrl;
+  }
+
+  /// A new code: every copy of the old one already shown or screenshotted
+  /// stops opening this passport.
+  Future<String?> resetPassportCode() async {
+    await api.post('me/passport/qr/reset', const {});
+    await refresh();
+    return _devotee?.passportUrl;
   }
 
   Future<void> updateProfile({String? name, String? email, String? phone, String? locale, int? homeStateId, bool clearHomeState = false, String? dateOfBirth, bool clearDateOfBirth = false, String? gender, bool clearGender = false}) async {

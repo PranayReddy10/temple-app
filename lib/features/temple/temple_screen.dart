@@ -16,6 +16,8 @@ import '../../core/state/auth_controller.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/state/sync_service.dart';
 import '../../core/state/family_controller.dart';
+import '../../core/ads/ads.dart';
+import '../../core/services/push_service.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
@@ -51,6 +53,13 @@ class TempleScreen extends StatefulWidget {
 }
 
 class _TempleScreenState extends State<TempleScreen> {
+  /// Saving a temple also follows it, so its festival notices reach the phone.
+  void _toggleSave(FavouritesController favs, TempleSummary t) {
+    final follow = !favs.contains(t.slug);
+    favs.toggle(t);
+    context.read<PushService>().followTemple(t.id, follow);
+  }
+
   Result<TempleDetail>? _detail;
   Result<List<DevotionalMedia>>? _media;
   String? _error;
@@ -150,7 +159,7 @@ class _TempleScreenState extends State<TempleScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          _Hero(temple: t, photos: photos, index: _photo, onPage: (i) => setState(() => _photo = i), day: day, saved: saved, onSave: () => favs.toggle(t), onOpenPhoto: (i) => _openViewer(photos, i)),
+          _Hero(temple: t, photos: photos, index: _photo, onPage: (i) => setState(() => _photo = i), day: day, saved: saved, onSave: () => _toggleSave(favs, t), onOpenPhoto: (i) => _openViewer(photos, i)),
           SliverPersistentHeader(pinned: true, delegate: _AnchorBar(day: day, onTap: _jump, labels: [s('overview'), s('gallery'), s('songs_videos'), s('darshan'), s('seva')])),
           // ---- Overview -------------------------------------------------
           SliverToBoxAdapter(
@@ -184,7 +193,8 @@ class _TempleScreenState extends State<TempleScreen> {
                     children: [
                       TrustBadge(trust: t.trust),
                       if (t.deity != null) Chip(avatar: MotifIcon(day.motif, size: 16, color: day.accent), label: Text(t.deity!.name), visualDensity: VisualDensity.compact),
-                      if (d != null) for (final c in d.categories) Chip(label: Text(c.name), visualDensity: VisualDensity.compact),
+                      if (d != null)
+                        for (final c in d.categories) Chip(label: Text(c.name), visualDensity: VisualDensity.compact),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -202,11 +212,10 @@ class _TempleScreenState extends State<TempleScreen> {
                     day: day,
                     actions: [
                       _Action(Icons.route_rounded, inYatra ? s('in_yatra') : s('add_to_yatra'), () => _addToYatra(t), highlighted: inYatra),
-                      if (t.location.hasCoordinates)
-                        _Action(Icons.directions_rounded, s('directions'), () => launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${t.location.latitude},${t.location.longitude}'), mode: LaunchMode.externalApplication)),
+                      if (t.location.hasCoordinates) _Action(Icons.directions_rounded, s('directions'), () => launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${t.location.latitude},${t.location.longitude}'), mode: LaunchMode.externalApplication)),
                       _Action(Icons.schedule_rounded, s('timings_short'), () => _jump(_Section.darshan)),
                       _Action(Icons.local_fire_department_rounded, s('pujas'), () => _jump(_Section.seva)),
-                      _Action(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, saved ? s('saved') : s('save'), () => favs.toggle(t), highlighted: saved),
+                      _Action(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, saved ? s('saved') : s('save'), () => _toggleSave(favs, t), highlighted: saved),
                       _Action(Icons.share_rounded, s('share'), () => Share.share('${t.name}${t.location.city == null ? '' : ', ${t.location.city}'} · ${Brand.name}')),
                     ],
                   ),
@@ -274,14 +283,16 @@ class _TempleScreenState extends State<TempleScreen> {
                         fit: StackFit.expand,
                         children: [
                           TempleImage(url: photos[i].thumbnail ?? photos[i].best, deitySlug: t.deity?.slug, motifSize: 28),
-                          if (photos[i].category != null)
-                            Positioned(left: 6, bottom: 6, child: _Pill(text: photos[i].category!, color: Colors.black54)),
+                          if (photos[i].category != null) Positioned(left: 6, bottom: 6, child: _Pill(text: photos[i].category!, color: Colors.black54)),
                         ],
                       ),
                     ),
                   ),
                 ),
               ),
+            // A native ad between sections, never above the temple's own
+            // facts; off for no-ads plans and wherever the admin turns it off.
+            const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'temple_detail'))),
             // ---- Songs & videos -----------------------------------------
             SliverToBoxAdapter(key: _keys[_Section.media], child: SectionHeader(title: s('songs_videos'), motif: Motif.bell, subtitle: t.deity != null ? '${s('temples_of')} ${t.deity!.name}'.replaceFirst(s('temples_of'), 'For').trim() : null)),
             if (_media == null && media.isEmpty)
@@ -290,18 +301,18 @@ class _TempleScreenState extends State<TempleScreen> {
               SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _EmptyLine(icon: Icons.music_off_rounded, text: s('no_media'))))
             else ...[
               if (media.any(isVideoLike))
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: scaledHeight(context, 206),
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: media.where(isVideoLike).length.clamp(0, 8),
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, i) => MediaCard(media: media.where(isVideoLike).elementAt(i), day: day, width: 150),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: scaledHeight(context, 206),
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: media.where(isVideoLike).length.clamp(0, 8),
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, i) => MediaCard(media: media.where(isVideoLike).elementAt(i), day: day, width: 150),
+                    ),
                   ),
                 ),
-              ),
               SliverToBoxAdapter(child: MediaSections(media: media.where((m) => !isVideoLike(m)).toList(), day: day)),
             ],
             // ---- Darshan ------------------------------------------------
@@ -392,13 +403,13 @@ class _TempleScreenState extends State<TempleScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final f in d.facilities)
-                        Chip(avatar: Icon(f.isVerified ? Icons.check_circle_rounded : Icons.circle_outlined, size: 16, color: f.isVerified ? Palette.tulsi : theme.colorScheme.outline), label: Text(f.name)),
+                      for (final f in d.facilities) Chip(avatar: Icon(f.isVerified ? Icons.check_circle_rounded : Icons.circle_outlined, size: 16, color: f.isVerified ? Palette.tulsi : theme.colorScheme.outline), label: Text(f.name)),
                     ],
                   ),
                 ),
               ),
             ],
+            const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'temple_detail', compact: true))),
             if (d.website != null || d.phone != null || d.email != null) ...[
               SliverToBoxAdapter(child: SectionHeader(title: s('contact'), motif: Motif.shankhaChakra)),
               SliverPadding(
@@ -502,7 +513,11 @@ class _TempleScreenState extends State<TempleScreen> {
     String? photoPath;
     var verification = preset == null ? Verification.manual : Verification.qr;
     String? qrCode = preset?.raw;
-    String? verifyNote = preset == null ? null : preset.verified == true ? 'Genuine temple code. Verified by temple QR.' : 'Temple code scanned offline. It is checked when you are back online.';
+    String? verifyNote = preset == null
+        ? null
+        : preset.verified == true
+            ? 'Genuine temple code. Verified by temple QR.'
+            : 'Temple code scanned offline. It is checked when you are back online.';
     bool verifying = false;
     double? lat;
     double? lng;
@@ -797,12 +812,15 @@ class _DarshanCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (firstVisit != null) StampWidget(visit: firstVisit!, size: 84) else Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: day.accent.withValues(alpha: 0.15), border: Border.all(color: day.accent, width: 2)),
-            child: Icon(Icons.approval_rounded, color: day.accent, size: 32),
-          ),
+          if (firstVisit != null)
+            StampWidget(visit: firstVisit!, size: 84)
+          else
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: day.accent.withValues(alpha: 0.15), border: Border.all(color: day.accent, width: 2)),
+              child: Icon(Icons.approval_rounded, color: day.accent, size: 32),
+            ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -933,13 +951,11 @@ class _Hero extends StatelessWidget {
                 bottom: 18,
                 child: Row(
                   children: [
-                    for (var i = 0; i < photos.length; i++)
-                      Container(width: i == index ? 16 : 6, height: 6, margin: const EdgeInsets.only(left: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: i == index ? 1 : 0.5), borderRadius: BorderRadius.circular(3))),
+                    for (var i = 0; i < photos.length; i++) Container(width: i == index ? 16 : 6, height: 6, margin: const EdgeInsets.only(left: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: i == index ? 1 : 0.5), borderRadius: BorderRadius.circular(3))),
                   ],
                 ),
               ),
-            if (photos.isNotEmpty && photos[index].credit != null)
-              Positioned(left: 16, bottom: 44, child: Text('© ${photos[index].credit}', style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70))),
+            if (photos.isNotEmpty && photos[index].credit != null) Positioned(left: 16, bottom: 44, child: Text('© ${photos[index].credit}', style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70))),
           ],
         ),
       ),
@@ -1105,7 +1121,14 @@ class _TimingsTable extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  Icon(timings[i].kind == 'aarti' ? Icons.local_fire_department_rounded : timings[i].kind == 'darshan' ? Icons.visibility_rounded : Icons.schedule_rounded, color: accent, size: 20),
+                  Icon(
+                      timings[i].kind == 'aarti'
+                          ? Icons.local_fire_department_rounded
+                          : timings[i].kind == 'darshan'
+                              ? Icons.visibility_rounded
+                              : Icons.schedule_rounded,
+                      color: accent,
+                      size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
