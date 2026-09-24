@@ -165,11 +165,7 @@ class _TempleScreenState extends State<TempleScreen> {
                     children: [
                       Expanded(child: Text(t.name, style: theme.textTheme.headlineSmall)),
                       const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: day.accent.withValues(alpha: 0.12), border: Border.all(color: day.accent.withValues(alpha: 0.4))),
-                        child: MotifIcon(day.motif, size: 34, color: day.accent, secondary: day.secondary),
-                      ),
+                      DeityIcon(slug: t.deity?.slug, imageUrl: t.deity?.imageUrl, size: 56, accent: day.accent, secondary: day.secondary, onAccent: day.onAccent()),
                     ],
                   ),
                   if (d != null && d.alternateNames.isNotEmpty) ...[
@@ -183,7 +179,7 @@ class _TempleScreenState extends State<TempleScreen> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       TrustBadge(trust: t.trust),
-                      if (t.deity != null) Chip(avatar: MotifIcon(day.motif, size: 16, color: day.accent), label: Text(t.deity!.name), visualDensity: VisualDensity.compact),
+                      if (t.deity != null) Chip(avatar: DeityIcon(slug: t.deity!.slug, imageUrl: t.deity!.imageUrl, size: 24, accent: day.accent, secondary: day.secondary, onAccent: day.onAccent()), label: Text(t.deity!.name), visualDensity: VisualDensity.compact),
                       if (d != null) for (final c in d.categories) Chip(label: Text(c.name), visualDensity: VisualDensity.compact),
                     ],
                   ),

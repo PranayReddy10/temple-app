@@ -757,31 +757,47 @@ class _PracticeCard extends StatelessWidget {
   }
 }
 
-/// Every deity as a round emblem; tapping one lists their temples.
-class _DeityRow extends StatelessWidget {
+/// Every deity with their image from the server (or their emblem, until
+/// an editor adds one); tapping one lists their temples.
+class _DeityRow extends StatefulWidget {
   const _DeityRow();
+
+  @override
+  State<_DeityRow> createState() => _DeityRowState();
+}
+
+class _DeityRowState extends State<_DeityRow> {
+  List<DeityRef> _deities = SampleData.deities;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<TempleRepository>().deities().then((r) {
+      if (mounted && r.data.isNotEmpty) setState(() => _deities = r.data);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SizedBox(
-      height: scaledHeight(context, 104),
+      height: scaledHeight(context, 112),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: SampleData.deities.length,
+        itemCount: _deities.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, i) {
-          final d = SampleData.deities[i];
+          final d = _deities[i];
           final dt = DayTheme.forDeity(d.slug);
           return InkWell(
             borderRadius: BorderRadius.circular(40),
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SearchScreen(initial: TempleQuery(deity: d.slug)))),
             child: Column(
               children: [
-                DeityIcon(slug: d.slug, imageUrl: d.imageUrl, size: 62, accent: dt.accent, secondary: dt.secondary, onAccent: dt.onAccent()),
+                DeityIcon(slug: d.slug, imageUrl: d.imageUrl, size: 68, accent: dt.accent, secondary: dt.secondary, onAccent: dt.onAccent()),
                 const SizedBox(height: 6),
-                SizedBox(width: 72, child: FittedBox(fit: BoxFit.scaleDown, child: Text(d.name, maxLines: 1, style: theme.textTheme.labelMedium?.copyWith(fontFamily: 'NotoSerif')))),
+                SizedBox(width: 76, child: FittedBox(fit: BoxFit.scaleDown, child: Text(d.name, maxLines: 1, style: theme.textTheme.labelMedium?.copyWith(fontFamily: 'NotoSerif')))),
               ],
             ),
           );
