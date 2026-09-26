@@ -99,6 +99,11 @@ class EngagementController extends ChangeNotifier {
   }
 
   Future<void> clearAll() async {
+    // Unsubscribed first: forgetting a follow here does not stop the phone
+    // receiving that temple's pushes, which would reach the next account.
+    for (final f in _follows.values) {
+      onFollowChanged?.call(f.temple.id, false);
+    }
     _liked.clear();
     _follows.clear();
     _states.clear();

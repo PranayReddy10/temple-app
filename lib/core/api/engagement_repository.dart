@@ -16,11 +16,13 @@ class FollowedTemple {
         notifyEvents: j['notify_events'] == true,
       );
 
-  /// Kept on the device the way saved temples are: enough to draw a card.
-  Map<String, dynamic> toJson() => {'temple': SavedTemple.fromSummary(temple).toJson(), 'notify_festivals': notifyFestivals, 'notify_events': notifyEvents};
+  /// Kept on the device the way saved temples are: enough to draw a card,
+  /// plus the temple's id, which names its push topic. Without it, a follow
+  /// read back after a restart could never be unsubscribed.
+  Map<String, dynamic> toJson() => {'temple': SavedTemple.fromSummary(temple).toJson(), 'temple_id': temple.id, 'notify_festivals': notifyFestivals, 'notify_events': notifyEvents};
 
   factory FollowedTemple.fromStored(Map<String, dynamic> j) => FollowedTemple(
-        temple: SavedTemple.fromJson(Map<String, dynamic>.from(j['temple'] as Map)).toSummary(),
+        temple: SavedTemple.fromJson(Map<String, dynamic>.from(j['temple'] as Map)).toSummary(id: (j['temple_id'] as num?)?.toInt()),
         notifyFestivals: j['notify_festivals'] == true,
         notifyEvents: j['notify_events'] == true,
       );
