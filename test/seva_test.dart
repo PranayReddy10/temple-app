@@ -386,4 +386,22 @@ void main() {
     expect(find.text('UPI reference / UTR number'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a donor sees their donation marked paid, and everyone sees supporters', (tester) async {
+    final json = verifiedDrive()
+      ..['my_donations'] = [
+        {'id': 1, 'amount': 501, 'payment_app_label': 'Google Pay', 'paid_on': '2026-09-25', 'upi_ref': '425399991111', 'confirmed': true},
+        {'id': 2, 'amount': 101, 'payment_app_label': 'PhonePe', 'paid_on': '2026-09-26', 'confirmed': false},
+      ]
+      ..['supporters'] = [
+        {'name': 'Lakshmi', 'amount': 501, 'paid_on': '2026-09-25'},
+      ];
+    await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), json);
+    await tester.scrollUntilVisible(find.text('Your donations'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Paid ✓'), findsOneWidget);
+    expect(find.text('Waiting for the organiser'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Supporters'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Lakshmi'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -136,6 +136,8 @@ class SevaDrive {
     this.canRequestVerification = false,
     this.isVerified = false,
     this.verificationRequested = false,
+    this.myDonations = const [],
+    this.supporters = const [],
     this.moderationNote,
     this.myUpiId,
     this.myUpiName,
@@ -214,6 +216,12 @@ class SevaDrive {
 
   /// The organiser asked and the team has not answered yet.
   final bool verificationRequested;
+
+  /// What the signed-in devotee gave, each marked paid once confirmed.
+  final List<MyDonation> myDonations;
+
+  /// Confirmed donations, for everyone to see.
+  final List<SevaSupporter> supporters;
 
   /// What staff said, for the organiser.
   final String? moderationNote;
@@ -301,6 +309,8 @@ class SevaDrive {
       canRequestVerification: viewer['can_request_verification'] == true,
       isVerified: j['is_verified'] == true,
       verificationRequested: (j['verification'] as Map?)?['requested'] == true,
+      myDonations: (j['my_donations'] as List? ?? const []).map((e) => MyDonation.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
+      supporters: (j['supporters'] as List? ?? const []).map((e) => SevaSupporter.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
       moderationNote: mine?['moderation_note']?.toString(),
       myUpiId: mine?['upi_id']?.toString(),
       myUpiName: mine?['upi_name']?.toString(),
@@ -386,3 +396,41 @@ const sevaPaymentApps = <(String, String)>[
   ('bank', 'Bank transfer'),
   ('cash', 'Cash'),
 ];
+
+/// One of the signed-in devotee's own donations to a drive.
+class MyDonation {
+  const MyDonation({required this.id, required this.amount, this.paymentApp, this.paidOn, this.upiRef, this.confirmed = false});
+
+  final int id;
+  final int amount;
+  final String? paymentApp;
+  final DateTime? paidOn;
+  final String? upiRef;
+
+  /// The organiser confirmed it arrived: shown as paid.
+  final bool confirmed;
+
+  factory MyDonation.fromJson(Map<String, dynamic> j) => MyDonation(
+        id: (j['id'] as num).toInt(),
+        amount: (j['amount'] as num?)?.toInt() ?? 0,
+        paymentApp: j['payment_app_label']?.toString(),
+        paidOn: DateTime.tryParse('${j['paid_on'] ?? ''}'),
+        upiRef: j['upi_ref']?.toString(),
+        confirmed: j['confirmed'] == true,
+      );
+}
+
+/// A confirmed donation as everyone sees it.
+class SevaSupporter {
+  const SevaSupporter({required this.name, required this.amount, this.paidOn});
+
+  final String name;
+  final int amount;
+  final DateTime? paidOn;
+
+  factory SevaSupporter.fromJson(Map<String, dynamic> j) => SevaSupporter(
+        name: '${j['name'] ?? 'A devotee'}',
+        amount: (j['amount'] as num?)?.toInt() ?? 0,
+        paidOn: DateTime.tryParse('${j['paid_on'] ?? ''}'),
+      );
+}

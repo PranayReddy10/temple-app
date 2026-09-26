@@ -211,7 +211,9 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
             // The organiser's own tools come first on their own drive, and
             // the donation box before the details for everyone else.
             if (d.isOrganiser) SliverToBoxAdapter(child: _organiserTools(d)),
+            if (d.myDonations.isNotEmpty) SliverToBoxAdapter(child: _MyDonations(donations: d.myDonations)),
             if (d.donations.open) SliverToBoxAdapter(child: _DonateCard(drive: d, onReport: () => _reportDonation(d))),
+            if (d.supporters.isNotEmpty) SliverToBoxAdapter(child: _Supporters(supporters: d.supporters)),
             SliverToBoxAdapter(child: _facts(d)),
             if (d.completionNote != null) SliverToBoxAdapter(child: _Prose(title: 'What was done', icon: Icons.task_alt_rounded, text: d.completionNote!, color: Palette.tulsi)),
             SliverToBoxAdapter(child: _Prose(title: 'The place now', icon: Icons.report_rounded, text: d.problem, color: Palette.kumkum)),
@@ -1407,6 +1409,93 @@ class _WhoIsComing extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+
+/// The devotee's own donations: "Paid" once the organiser confirmed it
+/// arrived, "Waiting for the organiser" until then.
+class _MyDonations extends StatelessWidget {
+  const _MyDonations({required this.donations});
+
+  final List<MyDonation> donations;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(18), border: Border.all(color: Palette.tulsi.withValues(alpha: 0.4))),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [const Icon(Icons.favorite_rounded, color: Palette.kumkum, size: 20), const SizedBox(width: 8), Text('Your donations', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800))]),
+            const SizedBox(height: 8),
+            for (final m in donations)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(rupees(m.amount), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                          Text(
+                            [if (m.paymentApp != null) m.paymentApp!, if (m.paidOn != null) DateFormat('d MMM yyyy').format(m.paidOn!), if (m.upiRef != null) 'Ref ${m.upiRef}'].join(' · '),
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: m.confirmed
+                          ? const SevaPill(text: 'Paid ✓', color: Palette.tulsi, icon: Icons.verified_rounded, solid: true)
+                          : const SevaPill(text: 'Waiting for the organiser', color: Palette.gold, icon: Icons.hourglass_top_rounded),
+                    ),
+                  ],
+                ),
+              ),
+            if (donations.any((m) => !m.confirmed))
+              Text('The organiser marks it paid once they see it in their account.', style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Who has supported the drive — confirmed donations only.
+class _Supporters extends StatelessWidget {
+  const _Supporters({required this.supporters});
+
+  final List<SevaSupporter> supporters;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [const Icon(Icons.volunteer_activism_rounded, color: Palette.tulsi, size: 20), const SizedBox(width: 8), Text('Supporters', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800))]),
+          const SizedBox(height: 8),
+          for (final p in supporters)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(radius: 16, backgroundColor: Palette.tulsi.withValues(alpha: 0.15), child: Text(p.name.characters.firstOrNull?.toUpperCase() ?? '?', style: const TextStyle(fontWeight: FontWeight.w800))),
+              title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: p.paidOn == null ? null : Text(DateFormat('d MMM yyyy').format(p.paidOn!)),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [Text(rupees(p.amount), style: const TextStyle(fontWeight: FontWeight.w800)), const SizedBox(width: 6), const Icon(Icons.verified_rounded, size: 16, color: Palette.tulsi)]),
+            ),
         ],
       ),
     );
