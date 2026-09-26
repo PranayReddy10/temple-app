@@ -125,6 +125,14 @@ class TempleRepository {
   /// before the bundled sample when the API is unreachable.
   final Map<String, Map<String, dynamic>> packed = {};
 
+  /// Forgets temple pages fetched while signed in, for signing out: each
+  /// carries the viewer's own review, like and follow, which would otherwise
+  /// show on the temple page as the next account's.
+  void clearPersonal() {
+    _detailCache.clear();
+    packed.clear();
+  }
+
   /// Fetches a temple's raw payload into [packed]. Returns false on failure.
   Future<bool> fetchRaw(String slug) async {
     try {
@@ -225,20 +233,39 @@ class TempleRepository {
     );
   }
 
-  Future<Result<List<DeityRef>>> deities() async => _deities ??= await _tryLive(
-        () async => ((await api.get('deities'))['data'] as List).map((e) => DeityRef.fromJson(e as Map<String, dynamic>)).toList(),
-        () => SampleData.deities,
-      );
+  // Deities, categories and states change rarely, so a live answer is kept
+  // for the session. Only a live one: keeping the bundled fallback from a
+  // first request that failed left the whole session on sample data, and
+  // pull-to-refresh could not get past it. [fresh] asks the server again.
+  Future<Result<List<DeityRef>>> deities({bool fresh = false}) async {
+    if (!fresh && _deities != null) return _deities!;
+    final r = await _tryLive(
+      () async => ((await api.get('deities'))['data'] as List).map((e) => DeityRef.fromJson(e as Map<String, dynamic>)).toList(),
+      () => SampleData.deities,
+    );
+    if (!r.isOffline) _deities = r;
+    return r.isOffline && _deities != null ? _deities! : r;
+  }
 
-  Future<Result<List<CategoryRef>>> categories() async => _categories ??= await _tryLive(
-        () async => ((await api.get('categories'))['data'] as List).map((e) => CategoryRef.fromJson(e as Map<String, dynamic>)).toList(),
-        () => SampleData.categories,
-      );
+  Future<Result<List<CategoryRef>>> categories({bool fresh = false}) async {
+    if (!fresh && _categories != null) return _categories!;
+    final r = await _tryLive(
+      () async => ((await api.get('categories'))['data'] as List).map((e) => CategoryRef.fromJson(e as Map<String, dynamic>)).toList(),
+      () => SampleData.categories,
+    );
+    if (!r.isOffline) _categories = r;
+    return r.isOffline && _categories != null ? _categories! : r;
+  }
 
-  Future<Result<List<StateRef>>> states() async => _states ??= await _tryLive(
-        () async => ((await api.get('states'))['data'] as List).map((e) => StateRef.fromJson(e as Map<String, dynamic>)).toList(),
-        () => SampleData.states,
-      );
+  Future<Result<List<StateRef>>> states({bool fresh = false}) async {
+    if (!fresh && _states != null) return _states!;
+    final r = await _tryLive(
+      () async => ((await api.get('states'))['data'] as List).map((e) => StateRef.fromJson(e as Map<String, dynamic>)).toList(),
+      () => SampleData.states,
+    );
+    if (!r.isOffline) _states = r;
+    return r.isOffline && _states != null ? _states! : r;
+  }
 
   Future<Result<List<TempleEvent>>> events() => _tryLive(
         () async => ((await api.get('events'))['data'] as List).map((e) => TempleEvent.fromJson(e as Map<String, dynamic>)).toList(),
@@ -267,10 +294,12 @@ class TempleRepository {
 
   /// Songs, chants and videos for a temple: whatever the API has published
   /// for its deity's day, else the bundled catalogue.
-  Future<Result<List<DevotionalMedia>>> templeMedia(TempleSummary temple) async {
+  Future<Result<List<DevotionalMedia>>> templeMedia(TempleSummary temple, {bool fresh = false}) async {
     final deity = temple.deity?.slug;
+    if (fresh) _week = null;
     try {
-      _week ??= await week();
+      // Kept only once live, for the same reason as deities().
+      if (_week == null || _week!.isOffline) _week = await week();
       if (!_week!.isOffline) {
         final live = [for (final d in _week!.data) if (d.deity?.slug == deity) ...d.media];
         if (live.isNotEmpty) return Result(live, DataSource.live);

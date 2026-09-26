@@ -44,6 +44,7 @@ Future<void> main() async {
   final settings = AppSettings(prefs, api);
   final auth = AuthController(prefs, api);
   final repo = TempleRepository(api);
+  final offlinePacks = OfflinePackController(prefs, repo);
   final passport = PassportController(prefs);
   final yatras = YatraController(prefs);
   final memories = MemoriesController(prefs);
@@ -62,6 +63,10 @@ Future<void> main() async {
   }
   final appConfig = AppConfigController(prefs, api);
   final inbox = NotificationsController(prefs, api, auth);
+  // Temple pages and trip packs fetched with the old account carry its own
+  // review, like and follow; the inbox's read markers were theirs too.
+  auth.onSignOut(offlinePacks.clearAll);
+  auth.onSignOut(inbox.clearAll);
   final push = PushService(prefs: prefs, api: api, auth: auth, config: appConfig, inbox: inbox);
   // Following a temple is what subscribes to its push topic; saving is a bookmark.
   engagement.onFollowChanged = push.followTemple;
@@ -105,7 +110,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (context) => AudioQueueController(mantra: context.read<MantraPlayer>())),
         ChangeNotifierProvider<RemindersController>.value(value: reminders),
         ChangeNotifierProvider<LocationController>.value(value: location),
-        ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
+        ChangeNotifierProvider<OfflinePackController>.value(value: offlinePacks),
         ChangeNotifierProvider<BookingsController>.value(value: bookings),
         ChangeNotifierProvider<EngagementController>.value(value: engagement),
         ChangeNotifierProvider<SubmissionsController>.value(value: submissions),

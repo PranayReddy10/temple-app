@@ -3,6 +3,11 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:temple_app/core/api/api_client.dart';
+import 'package:temple_app/core/api/temple_repository.dart';
+import 'package:temple_app/core/models/models.dart';
+import 'package:temple_app/core/state/engagement_controller.dart';
+import 'package:temple_app/core/state/notifications_controller.dart';
+import 'package:temple_app/core/state/offline_pack_controller.dart';
 import 'package:temple_app/core/data/sample_data.dart';
 import 'package:temple_app/core/state/app_settings.dart';
 import 'package:temple_app/core/state/auth_controller.dart';
@@ -48,6 +53,41 @@ void main() {
     expect(PassportController(prefs).visits, isEmpty);
     expect(FavouritesController(prefs, auth).items, isEmpty);
     expect(prefs.getString('outbox'), isNull);
+  });
+
+  test('the next account does not get the last one\'s photo, reviews, packs, pushes or read marks', () async {
+    SharedPreferences.setMockInitialValues({
+      'avatar_path': '/old-user/avatar.jpg',
+      'notices_read': ['1', '2'],
+      'offline_packs': '{"trip-1":["srisailam"]}',
+      'offline_temples': '{"srisailam":{"slug":"srisailam","name":"Srisailam"}}',
+      'followed_temples': '[{"temple":{"slug":"srisailam","name":"Srisailam"},"temple_id":7,"notify_festivals":true,"notify_events":true}]',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final api = ApiClient(baseUrl: 'http://localhost', client: MockClient((_) async => http.Response('{}', 200)));
+    final auth = AuthController(prefs, api);
+    final repo = TempleRepository(api);
+    final packs = OfflinePackController(prefs, repo);
+    final inbox = NotificationsController(prefs, api, auth);
+    final engagement = EngagementController(prefs, auth, api: api);
+    final unfollowed = <int?>[];
+    engagement.onFollowChanged = (id, follow) {
+      if (!follow) unfollowed.add(id);
+    };
+    for (final clear in [engagement.clearAll, packs.clearAll, inbox.clearAll]) {
+      auth.onSignOut(clear);
+    }
+    expect(auth.localAvatarPath, isNotNull);
+    expect(repo.packed, isNotEmpty);
+    expect(inbox.isRead(const AppNotice(id: 1, title: '', body: '')), isTrue);
+
+    await auth.logout();
+
+    expect(auth.localAvatarPath, isNull, reason: 'the old profile photo showed as the new account\'s');
+    expect(repo.packed, isEmpty);
+    expect(prefs.getString('offline_temples'), isNull);
+    expect(inbox.isRead(const AppNotice(id: 1, title: '', body: '')), isFalse);
+    expect(unfollowed, [7], reason: 'the phone must stop receiving the old account\'s temple pushes');
   });
 
   group('distance', () {

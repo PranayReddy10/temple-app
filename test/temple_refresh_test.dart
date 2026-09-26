@@ -61,4 +61,30 @@ void main() {
     expect(offline.isOffline, isTrue);
     expect(offline.data.engagement.reviews.count, 3);
   });
+
+  test('a list that first came from the bundled sample is fetched again, not kept', () async {
+    var up = false;
+    var deityCalls = 0;
+    final r = TempleRepository(ApiClient(
+      baseUrl: 'http://api.test',
+      client: MockClient((req) async {
+        if (!up) throw http.ClientException('offline');
+        deityCalls++;
+        return http.Response(jsonEncode({'data': [{'slug': 'shiva', 'name': 'Shiva (live)'}]}), 200, headers: {'content-type': 'application/json'});
+      }),
+    ));
+
+    final first = await r.deities();
+    expect(first.isOffline, isTrue);
+
+    up = true;
+    final second = await r.deities();
+    expect(second.isOffline, isFalse, reason: 'the offline fallback must not be kept for the session');
+    expect(second.data.single.name, 'Shiva (live)');
+
+    await r.deities();
+    expect(deityCalls, 1, reason: 'a live answer is kept');
+    await r.deities(fresh: true);
+    expect(deityCalls, 2, reason: 'pull-to-refresh asks again');
+  });
 }
