@@ -53,9 +53,15 @@ class NativeCheckout {
   /// PhonePe's app SDK (Standard Checkout v2): initialise with the merchant,
   /// then open the order the server created with its token. PhonePe hands
   /// UPI to its own app or any other installed UPI app.
+  /// The app's URL scheme, registered in ios/Runner/Info.plist.
+  static const appSchema = 'templepassport';
+
   static Future<CheckoutResult> _phonepe(Map<String, dynamic> sdk) async {
     try {
-      final ready = await PhonePePaymentSdk.init('${sdk['environment']}', '${sdk['merchant_id']}', '${sdk['flow_id'] ?? 'templepassport'}', false);
+      final sandbox = sdk['environment'] != 'PRODUCTION';
+      // Logs only while testing in sandbox: they help when a payment will
+      // not open, and have no place in a released app.
+      final ready = await PhonePePaymentSdk.init(sandbox ? 'SANDBOX' : 'PRODUCTION', '${sdk['merchant_id']}', '${sdk['flow_id'] ?? 'templepassport'}', sandbox);
       if (!ready) return const CheckoutResult(completed: false, message: 'PhonePe could not start on this phone.');
       final request = jsonEncode({
         'orderId': sdk['order_id'],
@@ -63,7 +69,9 @@ class NativeCheckout {
         'token': sdk['token'],
         'paymentMode': {'type': 'PAY_PAGE'},
       });
-      final result = await PhonePePaymentSdk.startTransaction(request, '');
+      // appSchema: the URL scheme PhonePe returns to after payment on iOS
+      // (registered in Info.plist); ignored on Android.
+      final result = await PhonePePaymentSdk.startTransaction(request, appSchema);
       final status = '${result?['status'] ?? ''}'.toUpperCase();
       // INTERRUPTED: the devotee backed out. SUCCESS or FAILURE: the server
       // asks PhonePe how the order ended; the app's word is not enough.
