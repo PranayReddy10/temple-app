@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -16,10 +15,10 @@ import 'in_app_browser.dart';
 
 /// Plays a song, chant or video inside the app.
 ///
-/// A YouTube link plays in the official embedded player, a direct audio
-/// file in the app's own player, and any other page in an in-app web view,
-/// so a devotee never loses the app to a browser. "Open outside" stays in
-/// the menu for anyone who wants it.
+/// A YouTube link plays in the official embedded player and any other page
+/// in an in-app web view, so a devotee never loses the app to a browser. A
+/// direct recording never arrives here: openMedia sends it to the queue
+/// player (NowPlayingScreen), which keeps playing with the screen locked.
 class MediaPlayerScreen extends StatefulWidget {
   const MediaPlayerScreen({super.key, required this.media, required this.day});
 
@@ -36,13 +35,8 @@ const String embedHost = 'https://www.youtube-nocookie.com';
 class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
   YoutubePlayerController? _yt;
   WebViewController? _web;
-  ap.AudioPlayer? _audio;
-  Duration _pos = Duration.zero;
-  Duration _len = Duration.zero;
-  bool _playing = false;
   YoutubeError _ytError = YoutubeError.none;
   StreamSubscription<YoutubePlayerValue>? _ytSub;
-  StreamSubscription<dynamic>? _s1, _s2, _s3;
 
   String? get _videoId => widget.media.playback.youtubeId ?? (widget.media.url == null ? null : YoutubePlayerController.convertUrlToId(widget.media.url!));
   late final MantraPlayer _mantra = context.read<MantraPlayer>();
@@ -89,14 +83,7 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
       _ytSub = _yt!.stream.listen((v) {
         if (v.error != _ytError && mounted) setState(() => _ytError = v.error);
       });
-    } else if (kind == 'audio' || (kind != 'video' && kind != 'vimeo' && isDirectAudio(url, widget.media.sourceType))) {
-      _audio = ap.AudioPlayer();
-      _s1 = _audio!.onPositionChanged.listen((d) => setState(() => _pos = d));
-      _s2 = _audio!.onDurationChanged.listen((d) => setState(() => _len = d));
-      _s3 = _audio!.onPlayerStateChanged.listen((s) => setState(() => _playing = s == ap.PlayerState.playing));
-      _audio!.setVolume(_mantra.muted ? 0 : 1);
-      _audio!.play(ap.UrlSource(url));
-    } else if (!kIsWeb) {
+    } else if (!kIsWeb && kind != 'audio' && !isDirectAudio(url, widget.media.sourceType)) {
       // A Vimeo or other page, or a video file: the in-app web view plays
       // it where it is published.
       _web = WebViewController()
@@ -110,7 +97,6 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
   /// The app-wide mute switch reaches whichever player is running.
   void _applyMute() {
     if (_yt != null) _mantra.muted ? _yt!.mute() : _yt!.unMute();
-    _audio?.setVolume(_mantra.muted ? 0 : 1);
   }
 
   @override
@@ -118,16 +104,11 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
     _mantra.removeListener(_applyMute);
     _ytSub?.cancel();
     _yt?.close();
-    _s1?.cancel();
-    _s2?.cancel();
-    _s3?.cancel();
-    _audio?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final m = widget.media;
     final day = widget.day;
     Widget body;
@@ -143,30 +124,6 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
             _Details(media: m, day: day),
           ],
         ),
-      );
-    } else if (_audio != null) {
-      body = ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-        children: [
-          Center(child: MediaArt(media: m, day: day, size: 220, radius: 28)),
-          const SizedBox(height: 20),
-          Slider(
-            value: _len.inMilliseconds == 0 ? 0 : (_pos.inMilliseconds / _len.inMilliseconds).clamp(0.0, 1.0),
-            onChanged: (v) => _audio!.seek(Duration(milliseconds: (v * _len.inMilliseconds).round())),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [Text(_fmt(_pos), style: theme.textTheme.labelSmall), Text(_fmt(_len), style: theme.textTheme.labelSmall)],
-          ),
-          Center(
-            child: IconButton.filled(
-              iconSize: 44,
-              onPressed: () => _playing ? _audio!.pause() : _audio!.resume(),
-              icon: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded),
-            ),
-          ),
-          _Details(media: m, day: day),
-        ],
       );
     } else if (_web != null) {
       body = Column(
@@ -205,7 +162,6 @@ class _MediaPlayerScreenState extends State<MediaPlayerScreen> {
     );
   }
 
-  static String _fmt(Duration d) => '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 }
 
 class _Details extends StatelessWidget {

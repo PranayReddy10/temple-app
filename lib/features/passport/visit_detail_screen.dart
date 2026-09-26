@@ -57,12 +57,34 @@ class VisitDetailScreen extends StatelessWidget {
     if (passportPhoto) {
       await passport.attachPhoto(visit, path);
       final updated = passport.byKey(visitKey);
-      if (signedIn && updated != null && updated.remotePhoto == null) await sync.queuePhoto(updated, photoPath: path);
+      if (signedIn && updated != null && updated.remotePhoto == null) {
+        // Their choice, asked once, before anything leaves the phone.
+        final offer = context.mounted ? await _askToOffer(context) : false;
+        await sync.queuePhoto(updated, photoPath: path, offerToGallery: offer);
+      }
       return;
     }
     final limit = context.mounted ? context.read<AuthController>().devotee?.entitlements.memoryPhotosPerVisit ?? Visit.maxMemoryPhotos : Visit.maxMemoryPhotos;
     final updated = await passport.addMemoryPhoto(visit, path, limit: limit);
     if (updated != null && signedIn) await sync.queueMemoryPhoto(updated, path);
+  }
+
+  /// Whether the passport photo may be offered to the temple's gallery.
+  static Future<bool> _askToOffer(BuildContext context) async {
+    final s = S.of(context);
+    final answer = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.photo_library_rounded, color: Palette.tulsi),
+        title: Text(s('offer_to_gallery')),
+        content: Text(s('offer_to_gallery_note')),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(s('keep_private'))),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(s('offer_to_gallery'))),
+        ],
+      ),
+    );
+    return answer ?? false;
   }
 
   Future<void> _remove(BuildContext context, Visit visit, int index) async {

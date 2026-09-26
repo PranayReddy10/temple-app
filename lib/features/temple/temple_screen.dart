@@ -15,10 +15,10 @@ import '../../core/motifs/motif.dart';
 import '../../core/state/location_controller.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/day_controller.dart';
+import '../../core/state/engagement_controller.dart';
 import '../../core/state/sync_service.dart';
 import '../../core/state/family_controller.dart';
 import '../../core/ads/ads.dart';
-import '../../core/services/push_service.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
@@ -31,7 +31,10 @@ import '../bookings/bookings_screen.dart';
 import '../family/family_screen.dart';
 import '../media/in_app_browser.dart';
 import '../passport/stamp_widget.dart';
+import '../auth/auth_screen.dart';
+import '../notifications/follows_screen.dart';
 import '../qr/qr_screens.dart';
+import '../reviews/reviews_screen.dart';
 import '../seva/seva_screen.dart';
 import '../submissions/submissions_screen.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
@@ -56,12 +59,8 @@ class TempleScreen extends StatefulWidget {
 }
 
 class _TempleScreenState extends State<TempleScreen> {
-  /// Saving a temple also follows it, so its festival notices reach the phone.
-  void _toggleSave(FavouritesController favs, TempleSummary t) {
-    final follow = !favs.contains(t.slug);
-    favs.toggle(t);
-    context.read<PushService>().followTemple(t.id, follow);
-  }
+  /// Saving is a bookmark. Following (the bell) is what asks to be told.
+  void _toggleSave(FavouritesController favs, TempleSummary t) => favs.toggle(t);
 
   Result<TempleDetail>? _detail;
   Result<List<DevotionalMedia>>? _media;
@@ -104,6 +103,7 @@ class _TempleScreenState extends State<TempleScreen> {
       final r = await context.read<TempleRepository>().temple(widget.slug);
       if (!mounted) return;
       setState(() => _detail = r);
+      if (!r.isOffline) context.read<EngagementController>().adopt(widget.slug, r.data.engagement);
       if (widget.initialQr != null && !_qrOffered) {
         _qrOffered = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -147,6 +147,10 @@ class _TempleScreenState extends State<TempleScreen> {
     final visited = passport.hasVisited(t.slug);
     final visitCount = passport.visits.where((v) => v.templeSlug == t.slug).length;
     final saved = favs.contains(t.slug);
+    final engagementCtl = context.watch<EngagementController>();
+    final engagement = engagementCtl.stateFor(t.slug, d?.engagement ?? Engagement.none);
+    final liked = engagementCtl.isLiked(t.slug);
+    final following = engagementCtl.isFollowing(t.slug);
     final inYatra = context.watch<YatraController>().yatras.any((y) => y.allStops.any((st) => st.slug == t.slug));
     final photos = d?.photos.isNotEmpty == true ? d!.photos : [if (t.primaryPhoto != null) t.primaryPhoto!];
     // Sevas the temple has opened for booking in the app. None is the norm:
@@ -165,8 +169,22 @@ class _TempleScreenState extends State<TempleScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          _Hero(temple: t, photos: photos, index: _photo, onPage: (i) => setState(() => _photo = i), day: day, saved: saved, onSave: () => _toggleSave(favs, t), onOpenPhoto: (i) => _openViewer(photos, i)),
-          SliverPersistentHeader(pinned: true, delegate: _AnchorBar(day: day, onTap: _jump, labels: [s('overview'), s('gallery'), s('songs_videos'), s('darshan'), s('seva')])),
+          _Hero(
+            temple: t,
+            photos: photos,
+            index: _photo,
+            onPage: (i) => setState(() => _photo = i),
+            day: day,
+            saved: saved,
+            onSave: () => _toggleSave(favs, t),
+            onOpenPhoto: (i) => _openViewer(photos, i),
+            liked: liked,
+            likes: engagement.likesCount,
+            onLike: () => _like(t),
+            following: following,
+            onFollow: () => _follow(t),
+          ),
+          SliverPersistentHeader(pinned: true, delegate: _AnchorBar(day: day, onTap: _jump, labels: [s('overview'), s('gallery'), s('songs_videos'), s('darshan'), s('seva'), s('reviews')])),
           // ---- Overview -------------------------------------------------
           SliverToBoxAdapter(
             key: _keys[_Section.overview],
@@ -226,6 +244,20 @@ class _TempleScreenState extends State<TempleScreen> {
                         ),
                     ],
                   ),
+                  if (engagement.likesCount > 0 || engagement.followsCount > 0) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.favorite_rounded, size: 14, color: Palette.kumkum),
+                        const SizedBox(width: 4),
+                        Text('${engagement.likesCount}', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800)),
+                        const SizedBox(width: 12),
+                        Icon(Icons.notifications_active_rounded, size: 14, color: day.accent),
+                        const SizedBox(width: 4),
+                        Text('${engagement.followsCount} ${s('following').toLowerCase()}', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ],
                   if (d?.isClosedToday == true) ...[const SizedBox(height: 12), _Banner(icon: Icons.door_front_door_rounded, text: s('closed_today'), color: Palette.kumkum)],
                   if (_detail?.isOffline == true) const Padding(padding: EdgeInsets.only(top: 8), child: OfflineNote()),
                   const SizedBox(height: 16),
@@ -237,6 +269,7 @@ class _TempleScreenState extends State<TempleScreen> {
                       _Action(Icons.schedule_rounded, s('timings_short'), () => _jump(_Section.darshan)),
                       _Action(Icons.local_fire_department_rounded, bookable.isNotEmpty ? s('book_in_app') : s('pujas'), () => _jump(_Section.seva), highlighted: bookable.isNotEmpty),
                       _Action(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, saved ? s('saved') : s('save'), () => _toggleSave(favs, t), highlighted: saved),
+                      _Action(following ? Icons.notifications_active_rounded : Icons.notifications_none_rounded, following ? s('following') : s('follow'), () => _follow(t), highlighted: following),
                       _Action(Icons.share_rounded, s('share'), () => Share.share('${t.name}${t.location.city == null ? '' : ', ${t.location.city}'} · ${Brand.name}')),
                     ],
                   ),
@@ -308,7 +341,10 @@ class _TempleScreenState extends State<TempleScreen> {
                         fit: StackFit.expand,
                         children: [
                           TempleImage(url: photos[i].thumbnail ?? photos[i].best, deitySlug: t.deity?.slug, motifSize: 28),
-                          if (photos[i].category != null) Positioned(left: 6, bottom: 6, child: _Pill(text: photos[i].category!, color: Colors.black54)),
+                          if (photos[i].isDevoteePhoto)
+                            Positioned(left: 6, bottom: 6, right: 6, child: _Pill(text: '${s('photo_by')} ${photos[i].devoteeName ?? photos[i].credit ?? ''}'.trim(), color: Palette.tulsi.withValues(alpha: 0.85)))
+                          else if (photos[i].category != null)
+                            Positioned(left: 6, bottom: 6, child: _Pill(text: photos[i].category!, color: Colors.black54)),
                         ],
                       ),
                     ),
@@ -481,6 +517,46 @@ class _TempleScreenState extends State<TempleScreen> {
                 ),
               ),
             ],
+            // ---- How visits went ------------------------------------------
+            SliverToBoxAdapter(
+              key: _keys[_Section.reviews],
+              child: SectionHeader(
+                title: s('reviews'),
+                motif: Motif.lotus,
+                subtitle: engagement.reviews.count == 0 ? null : '${engagement.reviews.count} ${engagement.reviews.count == 1 ? s('review_one') : s('review_many')}',
+                actionLabel: engagement.reviews.count == 0 ? null : s('see_all_reviews'),
+                onAction: engagement.reviews.count == 0 ? null : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReviewsScreen(temple: t, initialSummary: engagement.reviews))),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ReviewSummaryCard(summary: engagement.reviews, day: day, compact: true),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.tonalIcon(
+                            onPressed: () => writeReview(context, t).then((r) {
+                              if (r != null) _load();
+                            }),
+                            icon: const Icon(Icons.rate_review_rounded),
+                            label: Text(s('review_write')),
+                          ),
+                        ),
+                        if (engagement.reviews.count > 0) ...[
+                          const SizedBox(width: 10),
+                          OutlinedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReviewsScreen(temple: t, initialSummary: engagement.reviews))), child: Text(s('see_all_reviews'))),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'temple_detail', compact: true))),
             if (d.website != null || d.phone != null || d.email != null) ...[
               SliverToBoxAdapter(child: SectionHeader(title: s('contact'), motif: Motif.shankhaChakra)),
@@ -560,6 +636,31 @@ class _TempleScreenState extends State<TempleScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _like(TempleSummary t) async {
+    final ctl = context.read<EngagementController>();
+    if (!context.read<AuthController>().isSignedIn) {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
+      if (!mounted || !context.read<AuthController>().isSignedIn) return;
+    }
+    await ctl.toggleLike(t);
+  }
+
+  Future<void> _follow(TempleSummary t) async {
+    final s = S.of(context);
+    final ctl = context.read<EngagementController>();
+    if (!context.read<AuthController>().isSignedIn) {
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
+      if (!mounted || !context.read<AuthController>().isSignedIn) return;
+    }
+    final wasFollowing = ctl.isFollowing(t.slug);
+    await ctl.toggleFollow(t);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(wasFollowing ? '${s('unfollow')}: ${t.name}' : s('follow_explain')),
+      action: wasFollowing ? null : SnackBarAction(label: s('followed_temples'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowsScreen()))),
+    ));
   }
 
   void _openViewer(List<Photo> photos, int i) {
@@ -815,7 +916,7 @@ class _TempleScreenState extends State<TempleScreen> {
   }
 }
 
-enum _Section { overview, gallery, media, darshan, seva }
+enum _Section { overview, gallery, media, darshan, seva, reviews }
 
 class _Action {
   const _Action(this.icon, this.label, this.onTap, {this.highlighted = false});
@@ -989,7 +1090,7 @@ class _BottomActions extends StatelessWidget {
 /// Collapsing hero: a swipeable gallery under a torana, with the trust badge
 /// and the save button.
 class _Hero extends StatelessWidget {
-  const _Hero({required this.temple, required this.photos, required this.index, required this.onPage, required this.day, required this.saved, required this.onSave, required this.onOpenPhoto});
+  const _Hero({required this.temple, required this.photos, required this.index, required this.onPage, required this.day, required this.saved, required this.onSave, required this.onOpenPhoto, required this.liked, required this.likes, required this.onLike, required this.following, required this.onFollow});
 
   final TempleSummary temple;
   final List<Photo> photos;
@@ -999,6 +1100,11 @@ class _Hero extends StatelessWidget {
   final bool saved;
   final VoidCallback onSave;
   final ValueChanged<int> onOpenPhoto;
+  final bool liked;
+  final int likes;
+  final VoidCallback onLike;
+  final bool following;
+  final VoidCallback onFollow;
 
   @override
   Widget build(BuildContext context) {
@@ -1010,7 +1116,25 @@ class _Hero extends StatelessWidget {
       backgroundColor: day.accent,
       foregroundColor: day.onAccent(),
       title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: 340),
-      actions: [IconButton(tooltip: saved ? S.of(context)('saved') : S.of(context)('save'), onPressed: onSave, icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded))],
+      actions: [
+        // A like: one tap, the lightest signal. A heart with its count.
+        Tooltip(
+          message: liked ? S.of(context)('liked') : S.of(context)('like'),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: onLike,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(liked ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: liked ? Palette.kumkum : null),
+                if (likes > 0) ...[const SizedBox(width: 4), Text('$likes', style: TextStyle(fontWeight: FontWeight.w800, color: day.onAccent()))],
+              ]),
+            ),
+          ),
+        ),
+        IconButton(tooltip: following ? S.of(context)('following') : S.of(context)('follow'), onPressed: onFollow, icon: Icon(following ? Icons.notifications_active_rounded : Icons.notifications_none_rounded)),
+        IconButton(tooltip: saved ? S.of(context)('saved') : S.of(context)('save'), onPressed: onSave, icon: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded)),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         stretchModes: const [StretchMode.zoomBackground],
         background: Stack(
@@ -1093,7 +1217,7 @@ class _AnchorBar extends SliverPersistentHeaderDelegate {
     );
   }
 
-  static const _icons = [Icons.temple_hindu_rounded, Icons.photo_library_rounded, Icons.music_note_rounded, Icons.schedule_rounded, Icons.local_fire_department_rounded];
+  static const _icons = [Icons.temple_hindu_rounded, Icons.photo_library_rounded, Icons.music_note_rounded, Icons.schedule_rounded, Icons.local_fire_department_rounded, Icons.rate_review_rounded];
 
   @override
   bool shouldRebuild(_AnchorBar old) => old.day != day || old.labels != labels;

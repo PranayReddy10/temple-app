@@ -98,8 +98,10 @@ class SyncService extends ChangeNotifier {
 
   Future<void> _queueVisit(Visit v) => enqueue('visit_create', {'key': v.localKey});
 
-  Future<void> queuePhoto(Visit v, {required String photoPath, String? stampPath, String? caption}) =>
-      enqueue('photo_upload', {'key': v.localKey, 'photo': photoPath, if (stampPath != null) 'stamp': stampPath, if (caption != null) 'caption': caption});
+  /// [offerToGallery]: the devotee asked for it to be shared; once the
+  /// moderators approve, staff may put it in the temple's own gallery.
+  Future<void> queuePhoto(Visit v, {required String photoPath, String? stampPath, String? caption, bool offerToGallery = false}) =>
+      enqueue('photo_upload', {'key': v.localKey, 'photo': photoPath, if (stampPath != null) 'stamp': stampPath, if (caption != null) 'caption': caption, 'is_public': offerToGallery});
 
   /// A memory photo goes up once its visit has; it is private whatever the
   /// account's other settings say.
@@ -231,7 +233,7 @@ class SyncService extends ChangeNotifier {
         final photo = '${op.payload['photo']}';
         if (!File(photo).existsSync()) return true;
         final stamp = op.payload['stamp']?.toString();
-        final json = await api.upload('temples/${v.templeSlug}/photos', files: {'photo': photo, if (stamp != null && File(stamp).existsSync()) 'stamp': stamp}, fields: {'visit_id': '${v.remoteId}', if (op.payload['caption'] != null) 'caption': '${op.payload['caption']}', 'is_public': '0'});
+        final json = await api.upload('temples/${v.templeSlug}/photos', files: {'photo': photo, if (stamp != null && File(stamp).existsSync()) 'stamp': stamp}, fields: {'visit_id': '${v.remoteId}', if (op.payload['caption'] != null) 'caption': '${op.payload['caption']}', 'is_public': op.payload['is_public'] == true ? '1' : '0'});
         await passport.setRemotePhoto(v.localKey, VisitPhoto.fromJson(json['data'] as Map<String, dynamic>));
         return true;
       case 'memory_photo_upload':
