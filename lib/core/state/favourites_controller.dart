@@ -77,6 +77,16 @@ class FavouritesController extends ChangeNotifier {
   final AuthController _auth;
   final Map<String, SavedTemple> _items = {};
 
+  /// Forgets everything kept on this device, for signing out: the next
+  /// person to use the phone must not see, or sync into their own account,
+  /// what the last one recorded.
+  Future<void> clearAll() async {
+    _items.clear();
+    await _prefs.remove('favourites_v2');
+    await _prefs.remove('favourites');
+    notifyListeners();
+  }
+
   List<SavedTemple> get items => _items.values.toList()..sort((a, b) => b.savedAt.compareTo(a.savedAt));
   Set<String> get slugs => _items.keys.toSet();
   bool contains(String slug) => _items.containsKey(slug);

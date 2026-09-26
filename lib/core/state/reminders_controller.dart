@@ -54,6 +54,15 @@ class RemindersController extends ChangeNotifier {
   final SharedPreferences _prefs;
   final Map<String, Reminder> _items = {};
 
+  /// Forgets everything kept on this device, for signing out: the next
+  /// person to use the phone must not see, or sync into their own account,
+  /// what the last one recorded.
+  Future<void> clearAll() async {
+    _items.clear();
+    await _prefs.remove('reminders');
+    notifyListeners();
+  }
+
   List<Reminder> get upcoming => _items.values.where((r) => !r.isPast).toList()..sort((a, b) => a.startsOn.compareTo(b.startsOn));
   bool has(TempleEvent e) => _items.containsKey(Reminder.keyFor(e));
 

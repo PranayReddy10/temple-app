@@ -129,7 +129,7 @@ class ProfileScreen extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              IconButton(tooltip: s('sign_out'), style: IconButton.styleFrom(foregroundColor: Palette.sandal, side: const BorderSide(color: Palette.gold)), onPressed: auth.logout, icon: const Icon(Icons.logout_rounded)),
+                              IconButton(tooltip: s('sign_out'), style: IconButton.styleFrom(foregroundColor: Palette.sandal, side: const BorderSide(color: Palette.gold)), onPressed: () => confirmSignOut(context), icon: const Icon(Icons.logout_rounded)),
                             ],
                           ),
                   ],
@@ -486,4 +486,30 @@ class _ToolTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Signing out clears this device of the account, so say so first — and
+/// say plainly if anything recorded here has not reached the account yet.
+Future<void> confirmSignOut(BuildContext context) async {
+  final sync = context.read<SyncService>();
+  final pending = sync.pendingCount;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      icon: const Icon(Icons.logout_rounded),
+      title: const Text('Sign out?'),
+      content: Text(
+        pending == 0
+            ? 'Your visits, photos, memories and trips are saved to your account and are removed from this phone. Sign in again to see them.'
+            : '$pending change${pending == 1 ? ' has' : 's have'} not reached your account yet and will be lost. Connect to the internet and wait a moment to keep ${pending == 1 ? 'it' : 'them'}.\n\nEverything else is saved to your account and removed from this phone.',
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sign out')),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  await context.read<AuthController>().logout();
+  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signed out. Nothing of your account is left on this phone.')));
 }

@@ -18,10 +18,12 @@ import 'core/state/day_controller.dart';
 import 'core/state/family_controller.dart';
 import 'core/state/favourites_controller.dart';
 import 'core/state/mantra_player.dart';
+import 'core/state/location_controller.dart';
 import 'core/state/memories_controller.dart';
 import 'core/state/notifications_controller.dart';
 import 'core/state/offline_pack_controller.dart';
 import 'core/state/passport_controller.dart';
+import 'core/state/photo_store.dart';
 import 'core/state/reminders_controller.dart';
 import 'core/state/submissions_controller.dart';
 import 'core/state/subscription_controller.dart';
@@ -44,7 +46,17 @@ Future<void> main() async {
   final yatras = YatraController(prefs);
   final memories = MemoriesController(prefs);
   final submissions = SubmissionsController(prefs);
+  final favourites = FavouritesController(prefs, auth);
+  final family = FamilyController(prefs);
+  final bookings = BookingsController(prefs);
+  final reminders = RemindersController(prefs);
+  final location = LocationController(prefs)..refreshIfAllowed();
   final sync = SyncService(prefs: prefs, api: api, auth: auth, settings: settings, passport: passport, yatras: yatras, memories: memories, submissions: submissions);
+  // Signing out leaves nothing of the account on the device. The outbox
+  // goes first, so nothing of the old account is sent while the rest clears.
+  for (final clear in [sync.clearAll, passport.clearAll, memories.clearAll, yatras.clearAll, favourites.clearAll, family.clearAll, bookings.clearAll, submissions.clearAll, reminders.clearAll, PhotoStore.wipe]) {
+    auth.onSignOut(clear);
+  }
   final appConfig = AppConfigController(prefs, api);
   final inbox = NotificationsController(prefs, api, auth);
   final push = PushService(prefs: prefs, api: api, auth: auth, config: appConfig, inbox: inbox);
@@ -74,15 +86,16 @@ Future<void> main() async {
         ChangeNotifierProvider<AuthController>.value(value: auth),
         ChangeNotifierProvider(create: (_) => DayController(repo)),
         ChangeNotifierProvider<PassportController>.value(value: passport),
-        ChangeNotifierProvider(create: (_) => FavouritesController(prefs, auth)),
+        ChangeNotifierProvider<FavouritesController>.value(value: favourites),
         ChangeNotifierProvider<YatraController>.value(value: yatras),
         ChangeNotifierProvider<MemoriesController>.value(value: memories),
         ChangeNotifierProvider<SyncService>.value(value: sync),
-        ChangeNotifierProvider(create: (_) => FamilyController(prefs)),
+        ChangeNotifierProvider<FamilyController>.value(value: family),
         ChangeNotifierProvider(create: (_) => MantraPlayer(prefs)),
-        ChangeNotifierProvider(create: (_) => RemindersController(prefs)),
+        ChangeNotifierProvider<RemindersController>.value(value: reminders),
+        ChangeNotifierProvider<LocationController>.value(value: location),
         ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
-        ChangeNotifierProvider(create: (_) => BookingsController(prefs)),
+        ChangeNotifierProvider<BookingsController>.value(value: bookings),
         ChangeNotifierProvider<SubmissionsController>.value(value: submissions),
         ChangeNotifierProvider<AppConfigController>.value(value: appConfig),
         ChangeNotifierProvider<NotificationsController>.value(value: inbox),

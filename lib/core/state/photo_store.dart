@@ -30,6 +30,18 @@ class PhotoStore {
     }
   }
 
+  /// Deletes every photo [keep] made, for signing out.
+  static Future<void> wipe() async {
+    if (kIsWeb) return;
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      for (final folder in const ['passport', 'memories']) {
+        final dir = Directory('${docs.path}/$folder');
+        if (dir.existsSync()) await dir.delete(recursive: true);
+      }
+    } catch (_) {}
+  }
+
   /// Deletes a copy made by [keep]. Anything else is left alone.
   static Future<void> discard(String? path) async {
     if (kIsWeb || path == null) return;

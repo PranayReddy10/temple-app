@@ -4,7 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../core/models/seva.dart';
+import '../../core/state/location_controller.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/app_image.dart';
 
@@ -238,7 +241,7 @@ class SevaDriveCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                     ],
-                    _Line(icon: Icons.place_rounded, text: drive.where),
+                    _Line(icon: Icons.place_rounded, text: drive.where, trailing: context.watch<LocationController?>()?.labelTo(drive.latitude, drive.longitude)),
                     const SizedBox(height: 4),
                     _Line(icon: drive.isMultiDay ? Icons.date_range_rounded : Icons.event_rounded, text: sevaDateRange(drive)),
                     const SizedBox(height: 10),
@@ -294,10 +297,13 @@ class _CausePlaceholder extends StatelessWidget {
 }
 
 class _Line extends StatelessWidget {
-  const _Line({required this.icon, required this.text});
+  const _Line({required this.icon, required this.text, this.trailing});
 
   final IconData icon;
   final String text;
+
+  /// "12 km away", beside the place.
+  final String? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -307,6 +313,10 @@ class _Line extends StatelessWidget {
         Icon(icon, size: 16, color: theme.colorScheme.primary),
         const SizedBox(width: 6),
         Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium)),
+        if (trailing != null) ...[
+          const SizedBox(width: 8),
+          Flexible(child: SevaPill(text: trailing!, color: Palette.ash, icon: Icons.near_me_rounded)),
+        ],
       ],
     );
   }
