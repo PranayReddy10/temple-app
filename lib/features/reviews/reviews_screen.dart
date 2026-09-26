@@ -96,7 +96,7 @@ class _Bar extends StatelessWidget {
 
 /// One devotee's account, as the list shows it.
 class ReviewCard extends StatelessWidget {
-  const ReviewCard({super.key, required this.review, required this.day, this.onDelete, this.onTap, this.onEdit});
+  const ReviewCard({super.key, required this.review, required this.day, this.onDelete, this.onTap, this.onEdit, this.compact = false});
 
   final Review review;
   final DayTheme day;
@@ -106,13 +106,17 @@ class ReviewCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
 
+  /// A card in the temple page's sideways row: no gap below, long text cut
+  /// short (the whole review is one tap away).
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
     final theme = Theme.of(context);
     final rated = review.ratings.where((r) => r.value != null).toList();
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: compact ? EdgeInsets.zero : const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -161,7 +165,7 @@ class ReviewCard extends StatelessWidget {
                 ],
               ),
             ],
-            if (review.body != null) ...[const SizedBox(height: 10), Text(review.body!, style: theme.textTheme.bodyMedium?.copyWith(height: 1.45))],
+            if (review.body != null) ...[const SizedBox(height: 10), Text(review.body!, maxLines: compact ? 4 : null, overflow: compact ? TextOverflow.ellipsis : null, style: theme.textTheme.bodyMedium?.copyWith(height: 1.45))],
             if (review.isMine && review.moderationNote != null) ...[const SizedBox(height: 8), Text('${s('review_team_said')} ${review.moderationNote}', style: theme.textTheme.bodySmall?.copyWith(color: Palette.kumkum))],
             if (review.templeReply != null) ...[
               const SizedBox(height: 10),
@@ -173,12 +177,12 @@ class ReviewCard extends StatelessWidget {
                   children: [
                     Row(children: [const Icon(Icons.temple_hindu_rounded, size: 14, color: Palette.tulsi), const SizedBox(width: 6), Flexible(child: Text(s('review_temple_replied').toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(color: Palette.tulsi, letterSpacing: 1.2, fontWeight: FontWeight.w800)))]),
                     const SizedBox(height: 4),
-                    Text(review.templeReply!, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
+                    Text(review.templeReply!, maxLines: compact ? 2 : null, overflow: compact ? TextOverflow.ellipsis : null, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
                   ],
                 ),
               ),
             ],
-            if (onTap != null && review.templeName != null) ...[
+            if (!compact && onTap != null && review.templeName != null) ...[
               const SizedBox(height: 8),
               Row(children: [Icon(Icons.temple_hindu_rounded, size: 14, color: day.accent), const SizedBox(width: 6), Expanded(child: Text(review.templeName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(color: day.accent, fontWeight: FontWeight.w700))), Icon(Icons.chevron_right_rounded, size: 18, color: day.accent)]),
             ],

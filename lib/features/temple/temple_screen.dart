@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -545,7 +547,9 @@ class _TempleScreenState extends State<TempleScreen> {
                   final mine = engagement.viewer?.myReview;
                   // Published accounts, newest first, without repeating the
                   // devotee's own (it has its own card, with Edit).
-                  final latest = engagement.reviews.latest.where((r) => mine == null || r.id != mine.id).toList();
+                  // Only the newest few, side by side; "All reviews" has the rest.
+                  final latest = engagement.reviews.latest.where((r) => mine == null || r.id != mine.id).take(3).toList();
+                  void openAll() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReviewsScreen(temple: t, initialSummary: engagement.reviews)));
                   Future<void> write() async {
                     final r = await writeReview(context, t, existing: mine);
                     if (r == null || !context.mounted) return;
@@ -565,7 +569,11 @@ class _TempleScreenState extends State<TempleScreen> {
                         const SizedBox(height: 6),
                         ReviewCard(review: mine, day: day, onEdit: write),
                       ],
-                      for (final r in latest) ReviewCard(review: r, day: day),
+                      if (latest.isNotEmpty) ...[
+                        if (mine != null) const SizedBox(height: 4),
+                        _ReviewStrip(reviews: latest, day: day, onOpen: openAll),
+                        const SizedBox(height: 12),
+                      ],
                       Wrap(
                         spacing: 10,
                         runSpacing: 8,
@@ -575,8 +583,8 @@ class _TempleScreenState extends State<TempleScreen> {
                             icon: Icon(mine == null ? Icons.rate_review_rounded : Icons.edit_rounded),
                             label: Text(mine == null ? s('review_write') : s('review_edit')),
                           ),
-                          if (engagement.reviews.count > latest.length + (mine?.isPending == false ? 1 : 0))
-                            OutlinedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReviewsScreen(temple: t, initialSummary: engagement.reviews))), child: Text(s('see_all_reviews'))),
+                          if (engagement.reviews.count > 0)
+                            OutlinedButton.icon(onPressed: openAll, icon: const Icon(Icons.reviews_outlined, size: 18), label: Text(s('see_all_reviews'))),
                         ],
                       ),
                     ],
@@ -945,6 +953,37 @@ class _TempleScreenState extends State<TempleScreen> {
     if (chosen == null || !mounted) return;
     await yatras.addStop(chosen, chosen.days.length - 1, stop);
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added to ${chosen.name}')));
+  }
+}
+
+/// The latest reviews, side by side and scrolled sideways, each card the same
+/// height so the row reads as one strip. Tapping one opens all reviews.
+class _ReviewStrip extends StatelessWidget {
+  const _ReviewStrip({required this.reviews, required this.day, required this.onOpen});
+
+  final List<Review> reviews;
+  final DayTheme day;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = math.min(300.0, MediaQuery.sizeOf(context).width * 0.78);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      // Out to the screen edges, so cards slide in from beyond the padding.
+      clipBehavior: Clip.none,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (i, r) in reviews.indexed) ...[
+              if (i > 0) const SizedBox(width: 10),
+              SizedBox(width: width, child: ReviewCard(review: r, day: day, compact: true, onTap: onOpen)),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
