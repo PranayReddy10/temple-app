@@ -71,7 +71,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Wrap(
             spacing: 10,
             runSpacing: 4,
-            children: [for (final d in DayTheme.all) Row(mainAxisSize: MainAxisSize.min, children: [MotifIcon(d.motif, size: 12, color: d.accent), const SizedBox(width: 3), Text('${d.dayName.substring(0, 3)} ${d.deityName}', style: theme.textTheme.labelSmall)])],
+            children: [
+              for (final d in DayTheme.all)
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  MotifIcon(d.motif, size: 12, color: d.accent),
+                  const SizedBox(width: 3),
+                  // Flexible: "Sat Venkateswara" at large text is wider than a 320 phone's free run.
+                  Flexible(child: Text('${d.dayName.substring(0, 3)} ${d.deityName}', style: theme.textTheme.labelSmall)),
+                ]),
+            ],
           ),
           if (_events?.isOffline == true) const Padding(padding: EdgeInsets.only(top: 8), child: OfflineNote()),
           SectionHeader(title: s('this_month'), motif: Motif.bell, subtitle: events.isEmpty ? 'No festivals published for this month' : '${events.length} ${events.length == 1 ? 'event' : 'events'}'),

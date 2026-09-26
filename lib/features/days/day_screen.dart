@@ -92,16 +92,21 @@ class _DayScreenState extends State<DayScreen> {
                   children: [
                     Opacity(opacity: 0.12, child: CustomPaint(painter: LatticePainter(color: on, cell: 32))),
                     Align(alignment: Alignment.bottomCenter, child: GopuramBand(color: on, height: 110, opacity: 0.16, tiers: 7)),
+                    // Scales down rather than overflowing: the hero is a
+                    // fixed height and large text does not make it taller.
                     Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 40),
-                          DeityPortrait(day: day, imageUrl: lead?.deity?.imageUrl, size: 110, color: on),
-                          const SizedBox(height: 10),
-                          Text(lead?.deity?.name ?? day.deityName, style: theme.textTheme.displaySmall?.copyWith(color: on)),
-                          Text(day.epithet, style: theme.textTheme.bodyMedium?.copyWith(color: on.withValues(alpha: 0.85), fontStyle: FontStyle.italic)),
-                        ],
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 40),
+                            DeityPortrait(day: day, imageUrl: lead?.deity?.imageUrl, size: 110, color: on),
+                            const SizedBox(height: 10),
+                            Text(lead?.deity?.name ?? day.deityName, style: theme.textTheme.displaySmall?.copyWith(color: on)),
+                            Text(day.epithet, style: theme.textTheme.bodyMedium?.copyWith(color: on.withValues(alpha: 0.85), fontStyle: FontStyle.italic)),
+                          ],
+                        ),
                       ),
                     ),
                   ],
