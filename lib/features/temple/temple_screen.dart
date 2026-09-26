@@ -30,6 +30,7 @@ import '../family/family_screen.dart';
 import '../media/in_app_browser.dart';
 import '../passport/stamp_widget.dart';
 import '../qr/qr_screens.dart';
+import '../seva/seva_screen.dart';
 import '../submissions/submissions_screen.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
 
@@ -443,6 +444,18 @@ class _TempleScreenState extends State<TempleScreen> {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: OutlinedButton.icon(onPressed: () => SubmissionsScreen.submit(context, temple: t), icon: const Icon(Icons.edit_note_rounded), label: Text(s('suggest_edit'))),
+              ),
+            ),
+            // Care for the place itself: a clean-up or a lamp for a temple
+            // that needs one, organised with other devotees.
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: OutlinedButton.icon(
+                  onPressed: () => SevaScreen.raise(context, templeSlug: t.slug, templeName: t.name),
+                  icon: const Icon(Icons.volunteer_activism_rounded),
+                  label: const Text('Organise a seva drive here'),
+                ),
               ),
             ),
             SliverToBoxAdapter(
