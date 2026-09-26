@@ -48,7 +48,7 @@ Future<void> main() async {
   final submissions = SubmissionsController(prefs);
   final favourites = FavouritesController(prefs, auth);
   final family = FamilyController(prefs);
-  final bookings = BookingsController(prefs);
+  final bookings = BookingsController(prefs, api: api, auth: auth);
   final reminders = RemindersController(prefs);
   final location = LocationController(prefs)..refreshIfAllowed();
   final sync = SyncService(prefs: prefs, api: api, auth: auth, settings: settings, passport: passport, yatras: yatras, memories: memories, submissions: submissions);
@@ -64,6 +64,7 @@ Future<void> main() async {
   final subscriptions = SubscriptionController(api, auth);
   // Anything recorded offline goes out now; the account comes in.
   sync.sync();
+  bookings.refresh();
   // Maintenance, updates, ads and push: from the admin panel, in the
   // background — the last answer is already loaded, so nothing waits.
   appConfig.load().then((_) => push.start());
@@ -75,6 +76,7 @@ Future<void> main() async {
     if (auth.isSignedIn == signedIn) return;
     signedIn = auth.isSignedIn;
     appConfig.load().then((_) => push.start());
+    bookings.refresh();
   });
 
   runApp(
