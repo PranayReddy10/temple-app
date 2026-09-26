@@ -170,9 +170,11 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
         await showDialog<void>(
           context: context,
           builder: (context) => AlertDialog(
-            icon: const Icon(Icons.hourglass_top_rounded, color: Palette.gold, size: 40),
-            title: const Text('Sent for review'),
-            content: const Text('The team checks every drive before it is listed. You will see it under Mine meanwhile, and can add more photographs there.'),
+            icon: Icon(drive.isPending ? Icons.hourglass_top_rounded : Icons.campaign_rounded, color: drive.isPending ? Palette.gold : Palette.tulsi, size: 40),
+            title: Text(drive.isPending ? 'Sent for approval' : 'Your drive is live'),
+            content: Text(drive.isPending
+                ? 'The team approves drives before they are listed. You will see it under Mine meanwhile, and can add more photographs there.'
+                : 'Everyone can see it and join now. It shows as "Not verified" until the team checks it — open it and tap Request verification to get a badge and open donations.'),
             actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
           ),
         );
@@ -263,7 +265,7 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
                   style: FilledButton.styleFrom(backgroundColor: _step == 3 ? Palette.tulsi : null),
                   child: _saving && _step == 3
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text(_step == 3 ? (_editing ? 'Save' : 'Send for review') : 'Next'),
+                      : Text(_step == 3 ? (_editing ? 'Save' : 'Publish drive') : 'Next'),
                 ),
                 const SizedBox(width: 8),
                 if (details.onStepCancel != null) TextButton(onPressed: details.onStepCancel, child: const Text('Back')),
@@ -511,7 +513,7 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Your phone (optional)', helperText: 'Shown only to volunteers who join', prefixIcon: Icon(Icons.call_rounded))),
+        TextField(scrollPadding: const EdgeInsets.only(bottom: 180), controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Your phone (optional)', helperText: 'Shown only to volunteers who join', prefixIcon: Icon(Icons.call_rounded))),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(12),
@@ -521,18 +523,18 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
             children: [
               const Icon(Icons.shield_rounded, color: Palette.tulsi),
               const SizedBox(width: 10),
-              Expanded(child: Text('Your UPI ID stays hidden until the drive is done and the team has verified the before and after photographs. Then a Donate button and a UPI QR appear on the drive.', style: theme.textTheme.bodySmall)),
+              Expanded(child: Text('Your UPI ID stays hidden until the team verifies the drive (tap Request verification on it). Then a Donate button and a UPI QR appear.', style: theme.textTheme.bodySmall)),
             ],
           ),
         ),
         const SizedBox(height: 12),
-        TextField(controller: _upi, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'UPI ID (optional)', hintText: 'yourname@okaxis', prefixIcon: Icon(Icons.account_balance_wallet_rounded))),
+        TextField(scrollPadding: const EdgeInsets.only(bottom: 180), controller: _upi, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'UPI ID (optional)', hintText: 'yourname@okaxis', prefixIcon: Icon(Icons.account_balance_wallet_rounded))),
         const SizedBox(height: 12),
-        TextField(controller: _upiName, decoration: const InputDecoration(labelText: 'Name on the UPI account', prefixIcon: Icon(Icons.badge_rounded))),
+        TextField(scrollPadding: const EdgeInsets.only(bottom: 180), controller: _upiName, decoration: const InputDecoration(labelText: 'Name on the UPI account', prefixIcon: Icon(Icons.badge_rounded))),
         const SizedBox(height: 12),
-        TextField(controller: _goal, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'Donation goal (optional)', prefixText: '₹ ')),
+        TextField(scrollPadding: const EdgeInsets.only(bottom: 180), controller: _goal, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'Donation goal (optional)', prefixText: '₹ ')),
         const SizedBox(height: 12),
-        TextField(controller: _purpose, decoration: const InputDecoration(labelText: 'What donations will pay for', hintText: 'Lamps and oil for a year, lime for the next whitewash')),
+        TextField(scrollPadding: const EdgeInsets.only(bottom: 180), controller: _purpose, decoration: const InputDecoration(labelText: 'What donations will pay for', hintText: 'Lamps and oil for a year, lime for the next whitewash')),
       ],
     );
   }

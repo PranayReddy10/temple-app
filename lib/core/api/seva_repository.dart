@@ -86,8 +86,17 @@ class SevaRepository {
 
   Future<List<SevaDonation>> donations(int id) async => ((await _api.get('me/seva-drives/$id/donations'))['data'] as List? ?? const []).map((e) => SevaDonation.fromJson(Map<String, dynamic>.from(e as Map))).toList();
 
-  Future<void> reportDonation(int id, {required int amount, String? upiRef, String? message, bool anonymous = false}) =>
-      _api.post('seva-drives/$id/donations', {'amount': amount, if (upiRef != null && upiRef.isNotEmpty) 'upi_ref': upiRef, if (message != null && message.isNotEmpty) 'message': message, 'is_anonymous': anonymous});
+  Future<void> reportDonation(int id, {required int amount, String? upiRef, String? paymentApp, DateTime? paidOn, String? message, bool anonymous = false}) => _api.post('seva-drives/$id/donations', {
+        'amount': amount,
+        if (upiRef != null && upiRef.isNotEmpty) 'upi_ref': upiRef,
+        if (paymentApp != null) 'payment_app': paymentApp,
+        if (paidOn != null) 'paid_on': '${paidOn.year.toString().padLeft(4, '0')}-${paidOn.month.toString().padLeft(2, '0')}-${paidOn.day.toString().padLeft(2, '0')}',
+        if (message != null && message.isNotEmpty) 'message': message,
+        'is_anonymous': anonymous,
+      });
+
+  /// Ask the team to verify the drive; they answer with a badge or a note.
+  Future<SevaDrive> requestVerification(int id, {String? note}) async => _one(await _api.post('me/seva-drives/$id/request-verification', {if (note != null && note.isNotEmpty) 'note': note}));
 
   /// Tell the team something is wrong with a drive. Goes through Support, so
   /// the reporter gets a reference and replies like any other report.
