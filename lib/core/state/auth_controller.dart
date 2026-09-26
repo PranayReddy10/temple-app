@@ -87,6 +87,26 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// Forgot password, step one: the server emails a 6-digit code. Answers
+  /// the same whether or not the email has an account.
+  Future<void> forgotPassword(String email) async {
+    await api.post('auth/password/forgot', {'email': email});
+  }
+
+  /// Step two: the code and a new password, which also signs them in.
+  Future<void> resetPassword({required String email, required String code, required String password}) async {
+    _busy = true;
+    notifyListeners();
+    try {
+      final json = await api.post('auth/password/reset', {'email': email, 'code': code, 'password': password, 'password_confirmation': password});
+      final data = json['data'] as Map<String, dynamic>;
+      await _store(Devotee.fromJson(data['devotee'] as Map<String, dynamic>), data['token'] as String);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
   /// Called when something the account holds changed on the server (a plan
   /// bought, for one), so entitlements are fresh without signing in again.
   Future<void> reload() => refresh();
