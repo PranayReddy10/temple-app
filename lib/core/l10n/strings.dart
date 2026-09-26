@@ -378,7 +378,7 @@ class S {
     'review_temple_replied': {'en': 'The temple replied', 'te': 'ఆలయం జవాబు', 'hi': 'मंदिर का जवाब'},
     'my_reviews': {'en': 'My visit reviews', 'te': 'నా దర్శన కథనాలు', 'hi': 'मेरे दर्शन विवरण'},
     'my_reviews_empty': {'en': 'What you write about a visit appears here, with whether the team has published it.', 'te': 'దర్శనం గురించి మీరు రాసినవి ఇక్కడ కనిపిస్తాయి, బృందం ప్రచురించిందో లేదో సహా.', 'hi': 'दर्शन के बारे में आपका लिखा यहाँ दिखता है, और टीम ने प्रकाशित किया या नहीं।'},
-    'see_all_reviews': {'en': 'All accounts', 'te': 'అన్ని కథనాలు', 'hi': 'सभी विवरण'},
+    'see_all_reviews': {'en': 'All reviews', 'te': 'అన్ని సమీక్షలు', 'hi': 'सभी समीक्षाएँ'},
     'photo_by': {'en': 'Photo by', 'te': 'ఫోటో:', 'hi': 'फ़ोटो:'},
     'offer_to_gallery': {'en': 'Offer this photo to the temple\'s gallery', 'te': 'ఈ ఫోటోను ఆలయ గ్యాలరీకి అందించండి', 'hi': 'यह फ़ोटो मंदिर की गैलरी को दें'},
     'offer_to_gallery_note': {'en': 'If the team approves it, it appears on the temple\'s page with your first name. The temple can decline.', 'te': 'బృందం ఆమోదిస్తే ఆలయ పేజీలో మీ మొదటి పేరుతో కనిపిస్తుంది. ఆలయం తిరస్కరించగలదు.', 'hi': 'टीम मंज़ूर करे तो मंदिर के पेज पर आपके पहले नाम के साथ दिखेगा। मंदिर मना कर सकता है।'},
