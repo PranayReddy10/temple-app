@@ -113,7 +113,13 @@ class TempleRepository {
 
   final ApiClient api;
 
-  final Map<String, TempleDetail> _detailCache = {};
+  /// Temples opened this session, with when each was fetched. Reused only
+  /// briefly: a page carries likes, follows and reviews, and a copy kept for
+  /// the whole session hid a review the devotee had just published.
+  final Map<String, ({TempleDetail detail, DateTime at})> _detailCache = {};
+
+  /// How long an opened temple is reused before it is fetched again.
+  static const detailFreshFor = Duration(minutes: 2);
 
   /// Raw temple payloads saved by offline packs, keyed by slug. Consulted
   /// before the bundled sample when the API is unreachable.
@@ -193,17 +199,23 @@ class TempleRepository {
     return out;
   }
 
-  Future<Result<TempleDetail>> temple(String slug) async {
+  /// A temple's full page. [fresh] skips the short-lived copy: after the
+  /// devotee changed something on it (wrote a review), the page must show
+  /// the server's answer, not what it looked like before.
+  Future<Result<TempleDetail>> temple(String slug, {bool fresh = false}) async {
     final cached = _detailCache[slug];
-    if (cached != null) return Result(cached, DataSource.live);
+    if (!fresh && cached != null && DateTime.now().difference(cached.at) < detailFreshFor) return Result(cached.detail, DataSource.live);
     return _tryLive(
       () async {
         final json = await api.get('temples/$slug');
         final d = TempleDetail.fromJson(json['data'] as Map<String, dynamic>);
-        _detailCache[slug] = d;
+        _detailCache[slug] = (detail: d, at: DateTime.now());
         return d;
       },
       () {
+        // Offline: the last copy fetched this session beats a pack or the
+        // bundled sample.
+        if (cached != null) return cached.detail;
         final raw = packed[slug];
         if (raw != null) return TempleDetail.fromJson(raw);
         final d = SampleData.detail(slug);

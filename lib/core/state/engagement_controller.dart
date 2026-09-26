@@ -71,6 +71,17 @@ class EngagementController extends ChangeNotifier {
 
   /// The server's word on a temple, from the temple page: adopted as the
   /// truth for the account, so a like made on another phone shows here.
+  /// The devotee's own review, as the server just returned it, so the
+  /// temple page shows it before the page itself is fetched again.
+  void setMyReview(String slug, Review review) {
+    final base = _states[slug] ?? Engagement.none;
+    final v = base.viewer ?? const ViewerEngagement();
+    _states[slug] = base.copyWith(
+      viewer: ViewerEngagement(liked: v.liked, following: v.following, notifyFestivals: v.notifyFestivals, notifyEvents: v.notifyEvents, saved: v.saved, myReview: review),
+    );
+    notifyListeners();
+  }
+
   void adopt(String slug, Engagement e) {
     _states[slug] = e;
     final v = e.viewer;
