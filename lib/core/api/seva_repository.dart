@@ -78,5 +78,31 @@ class SevaRepository {
   Future<void> reportDonation(int id, {required int amount, String? upiRef, String? message, bool anonymous = false}) =>
       _api.post('seva-drives/$id/donations', {'amount': amount, if (upiRef != null && upiRef.isNotEmpty) 'upi_ref': upiRef, if (message != null && message.isNotEmpty) 'message': message, 'is_anonymous': anonymous});
 
+  /// Tell the team something is wrong with a drive. Goes through Support, so
+  /// the reporter gets a reference and replies like any other report.
+  Future<String?> report(SevaDrive drive, {required String reason, required String details, String? name, String? email}) async {
+    final body = await _api.post('support', {
+      'kind': 'report',
+      'category': reason == 'inappropriate' ? 'inappropriate_content' : (reason == 'duplicate' ? 'duplicate' : 'wrong_information'),
+      'subject': 'Seva drive: ${drive.title}',
+      'body': '${reportReasons.firstWhere((r) => r.$1 == reason, orElse: () => reportReasons.last).$2}\n\n$details'.trim(),
+      'about_type': 'seva_drive',
+      'about_id': drive.id,
+      if (name != null && name.isNotEmpty) 'name': name,
+      if (email != null && email.isNotEmpty) 'email': email,
+    });
+    return (body['data'] as Map?)?['reference']?.toString();
+  }
+
+  static const reportReasons = <(String, String)>[
+    ('misleading', 'Misleading — not what it claims'),
+    ('fake', 'The place or photographs are not real'),
+    ('money', 'Asking for money dishonestly'),
+    ('unsafe', 'Unsafe, or damages a heritage site'),
+    ('inappropriate', 'Inappropriate photos or text'),
+    ('duplicate', 'Duplicate of another drive'),
+    ('other', 'Something else'),
+  ];
+
   Future<void> confirmDonation(int id, int donationId, {bool received = true}) => _api.post('me/seva-drives/$id/donations/$donationId/confirm', {'received': received});
 }
