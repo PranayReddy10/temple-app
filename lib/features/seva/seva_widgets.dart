@@ -25,7 +25,6 @@ IconData sevaCauseIcon(String value) => switch (value) {
 
 /// Status colours: green once verified, saffron while open, grey when over.
 Color sevaStatusColor(String status) => switch (status) {
-      'verified' => Palette.tulsi,
       'completed' => Palette.ash,
       'approved' => Palette.saffron,
       'rejected' => Palette.kumkum,
@@ -107,14 +106,31 @@ class SevaPill extends StatelessWidget {
   }
 }
 
-/// The four stages every drive passes through, with where this one is.
+/// The team's badge, shown on every drive: "Verified", or plainly
+/// "Not verified" so nobody mistakes an unchecked drive for a checked one.
+class SevaVerifiedPill extends StatelessWidget {
+  const SevaVerifiedPill({super.key, required this.drive, this.solid = false});
+
+  final SevaDrive drive;
+  final bool solid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (drive.isVerified) return SevaPill(text: 'Verified', color: Palette.tulsi, icon: Icons.verified_rounded, solid: solid);
+    if (drive.verificationRequested) return SevaPill(text: 'Verification requested', color: Palette.gold, icon: Icons.hourglass_top_rounded, solid: solid);
+    return SevaPill(text: 'Not verified', color: solid ? Palette.darkStone : Palette.stone, icon: Icons.help_outline_rounded, solid: solid);
+  }
+}
+
+/// The stages every drive passes through, with where this one is. Being
+/// verified is a separate badge, not a stage.
 class SevaProgressSteps extends StatelessWidget {
   const SevaProgressSteps({super.key, required this.drive});
 
   final SevaDrive drive;
 
-  static const _labels = ['Raised', 'Approved', 'Done', 'Verified'];
-  static const _icons = [Icons.flag_rounded, Icons.how_to_reg_rounded, Icons.task_alt_rounded, Icons.verified_rounded];
+  static const _labels = ['Raised', 'Open', 'Completed'];
+  static const _icons = [Icons.flag_rounded, Icons.groups_rounded, Icons.task_alt_rounded];
 
   @override
   Widget build(BuildContext context) {
@@ -124,7 +140,7 @@ class SevaProgressSteps extends StatelessWidget {
     final active = stopped ? Palette.stone : Palette.tulsi;
     return Row(
       children: [
-        for (var i = 0; i < 4; i++) ...[
+        for (var i = 0; i < 3; i++) ...[
           Expanded(
             child: Column(
               children: [
@@ -144,7 +160,7 @@ class SevaProgressSteps extends StatelessWidget {
               ],
             ),
           ),
-          if (i < 3)
+          if (i < 2)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 22),
@@ -212,7 +228,7 @@ class SevaDriveCard extends StatelessWidget {
                           Flexible(
                             child: drive.isMisleading
                                 ? const SevaPill(text: 'Flagged misleading', color: Palette.kumkum, icon: Icons.warning_amber_rounded, solid: true)
-                                : SevaPill(text: drive.statusLabel, color: sevaStatusColor(drive.status), icon: drive.isVerified ? Icons.verified_rounded : null, solid: true),
+                                : SevaVerifiedPill(drive: drive, solid: true),
                           ),
                         ],
                       ),
@@ -243,9 +259,15 @@ class SevaDriveCard extends StatelessWidget {
                     ],
                     _Line(icon: Icons.place_rounded, text: drive.where, trailing: context.watch<LocationController?>()?.labelTo(drive.latitude, drive.longitude)),
                     const SizedBox(height: 4),
-                    _Line(icon: drive.isMultiDay ? Icons.date_range_rounded : Icons.event_rounded, text: sevaDateRange(drive)),
+                    _Line(
+                      icon: drive.isMultiDay ? Icons.date_range_rounded : Icons.event_rounded,
+                      text: sevaDateRange(drive),
+                      trailing: drive.isOpen ? null : drive.statusLabel,
+                      trailingColor: sevaStatusColor(drive.status),
+                      trailingIcon: drive.isDone ? Icons.task_alt_rounded : Icons.info_outline_rounded,
+                    ),
                     const SizedBox(height: 10),
-                    if (drive.isDone && drive.donations.open)
+                    if (drive.donations.open)
                       _DonationStrip(donations: drive.donations)
                     else
                       _VolunteerStrip(drive: drive),
@@ -297,13 +319,15 @@ class _CausePlaceholder extends StatelessWidget {
 }
 
 class _Line extends StatelessWidget {
-  const _Line({required this.icon, required this.text, this.trailing});
+  const _Line({required this.icon, required this.text, this.trailing, this.trailingColor = Palette.ash, this.trailingIcon = Icons.near_me_rounded});
 
   final IconData icon;
   final String text;
 
-  /// "12 km away", beside the place.
+  /// "12 km away" beside the place, or "Completed" beside the dates.
   final String? trailing;
+  final Color trailingColor;
+  final IconData trailingIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -315,7 +339,7 @@ class _Line extends StatelessWidget {
         Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium)),
         if (trailing != null) ...[
           const SizedBox(width: 8),
-          Flexible(child: SevaPill(text: trailing!, color: Palette.ash, icon: Icons.near_me_rounded)),
+          Flexible(child: SevaPill(text: trailing!, color: trailingColor, icon: trailingIcon)),
         ],
       ],
     );

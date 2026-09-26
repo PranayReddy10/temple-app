@@ -22,8 +22,9 @@ Map<String, dynamic> verifiedDrive() => {
       'id': 1,
       'title': 'Clean the stepwell at Hampi',
       'cause': {'value': 'water_body', 'label': 'Temple tank / stepwell'},
-      'status': {'value': 'verified', 'label': 'Verified'},
+      'status': {'value': 'completed', 'label': 'Completed'},
       'is_verified': true,
+      'verification': {'verified_at': '2026-09-26T10:00:00+00:00', 'requested': false, 'requested_at': null},
       'place': {'name': 'Pushkarini', 'address': null, 'city': 'Hampi', 'state': null, 'latitude': 15.33, 'longitude': 76.46, 'meeting_point': null},
       'temple': null,
       'problem': 'Silt and plastic have filled the lower steps.',
@@ -71,7 +72,7 @@ void main() {
     test('parses a verified drive from the API', () {
       final d = SevaDrive.fromJson(verifiedDrive());
       expect(d.isVerified, isTrue);
-      expect(d.stage, 3);
+      expect(d.stage, 2);
       expect(d.cause.value, 'water_body');
       expect(d.where, 'Pushkarini, Hampi');
       expect(d.before, hasLength(1));
@@ -162,7 +163,7 @@ void main() {
   testWidgets('the drive page lays out at phone width with the UPI card', (tester) async {
     await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), verifiedDrive());
     expect(find.text('Clean the stepwell at Hampi'), findsOneWidget);
-    expect(find.text('Donate by UPI'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Donate'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('ravi@okaxis'), 300, scrollable: find.byType(Scrollable).first);
     expect(tester.takeException(), isNull);
   });
@@ -174,7 +175,7 @@ void main() {
       ..['viewer'] = {'is_organiser': true, 'has_joined': false, 'can_join': false, 'can_edit': true, 'can_complete': true}
       ..['mine'] = {'upi_id': 'ravi@okaxis', 'moderation_note': null};
     await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), json);
-    await tester.scrollUntilVisible(find.text('Mark as done'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('Mark as completed'), 300, scrollable: find.byType(Scrollable).first);
     expect(find.text('Add after photos'), findsOneWidget);
     expect(find.text('Join hands'), findsNothing);
     expect(tester.takeException(), isNull);
@@ -193,7 +194,7 @@ void main() {
   testWidgets('the raise form lays out at phone width', (tester) async {
     await pumpAtPhoneWidth(tester, const RaiseDriveScreen(templeSlug: 'hampi', templeName: 'Virupaksha Temple'), verifiedDrive());
     expect(find.text('The place'), findsOneWidget);
-    expect(find.text('Send for review'), findsNothing);
+    expect(find.text('Publish drive'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -248,7 +249,7 @@ void main() {
     await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), json);
     expect(find.text('Flagged as misleading by the team'), findsOneWidget);
     expect(find.text('The after photographs are of another temple.'), findsOneWidget);
-    expect(find.text('Donate by UPI'), findsNothing);
+    expect(find.widgetWithText(FilledButton, 'Donate'), findsNothing);
   });
 
   testWidgets('anyone can open the report sheet from the menu', (tester) async {
@@ -334,5 +335,55 @@ void main() {
       child: MaterialApp(home: Scaffold(body: SingleChildScrollView(child: SevaDriveCard(drive: SevaDrive.fromJson(verifiedDrive()), onTap: () {})))),
     ));
     expect(find.text('2.2 km away'), findsOneWidget);
+  });
+
+  testWidgets('a verified drive that is still open offers both backing out and donating', (tester) async {
+    final json = verifiedDrive()
+      ..['status'] = {'value': 'approved', 'label': 'Open for volunteers'}
+      ..['viewer'] = {'is_organiser': false, 'has_joined': true, 'can_join': false, 'can_leave': true};
+    await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), json);
+    expect(find.textContaining("You're going"), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Donate'), findsOneWidget);
+    expect(find.text('Verified'), findsWidgets);
+  });
+
+  testWidgets('an unverified drive is listed and says so', (tester) async {
+    final json = verifiedDrive()
+      ..['status'] = {'value': 'approved', 'label': 'Open for volunteers'}
+      ..['is_verified'] = false
+      ..['donations'] = {'open': false, 'raised': 0}
+      ..['viewer'] = {'can_join': true};
+    await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), json);
+    expect(find.text('Not verified'), findsOneWidget);
+    expect(find.text('Join hands'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Donate'), findsNothing);
+  });
+
+  testWidgets('the payment form asks for the amount, the app, the reference and the date', (tester) async {
+    SharedPreferences.setMockInitialValues({'devotee_token': 't', 'devotee': jsonEncode({'id': 7, 'name': 'Sita'})});
+    final prefs = await SharedPreferences.getInstance();
+    final api = ApiClient(baseUrl: 'http://localhost', client: MockClient((_) async => http.Response(jsonEncode({'data': verifiedDrive()}), 200)));
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MultiProvider(
+      providers: [Provider<ApiClient>.value(value: api), ChangeNotifierProvider(create: (_) => AuthController(prefs, api))],
+      child: const MaterialApp(home: SevaDriveScreen(driveId: 1)),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.scrollUntilVisible(find.textContaining('I sent a donation'), 300, scrollable: find.byType(Scrollable).first);
+    // Pressed directly: where it sits between the pinned header and the
+    // bottom bar depends on the test font, which is not what is under test.
+    tester.widget<ButtonStyleButton>(find.ancestor(of: find.textContaining('I sent a donation'), matching: find.byWidgetPredicate((w) => w is ButtonStyleButton))).onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.text('Payment details'), findsOneWidget);
+    expect(find.text('PhonePe'), findsOneWidget);
+    expect(find.text('Google Pay'), findsOneWidget);
+    expect(find.text('Date of payment'), findsOneWidget);
+    await tester.tap(find.text('PhonePe'));
+    await tester.pump();
+    expect(find.text('UPI reference / UTR number'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
