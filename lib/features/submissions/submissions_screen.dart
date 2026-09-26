@@ -9,6 +9,7 @@ import '../../core/state/submissions_controller.dart';
 import '../../core/state/sync_service.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../add_temple/add_temple_screen.dart';
 
 /// Help & support: requests about the app or the account, reports about a
 /// temple record, and new-temple suggestions, all filed through `/support`.
@@ -37,7 +38,7 @@ class SubmissionsScreen extends StatelessWidget {
           ? EmptyShrine(
               motif: Motif.lotus,
               message: 'Something wrong with a temple record, your account, or the app? Send a request and the editors reply here. Reports about a temple can also be filed from its page.',
-              action: Wrap(spacing: 8, children: [OutlinedButton(onPressed: () => newRequest(context), child: Text(s('new_request'))), OutlinedButton(onPressed: () => submit(context), child: Text(s('add_temple')))]),
+              action: Wrap(spacing: 8, children: [OutlinedButton(onPressed: () => newRequest(context), child: Text(s('new_request'))), OutlinedButton(onPressed: () => AddTempleScreen.open(context), child: Text(s('add_temple')))]),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
@@ -58,7 +59,7 @@ class SubmissionsScreen extends StatelessWidget {
                 if (closed.isNotEmpty) const SectionHeader(title: 'Answered', motif: Motif.bell),
                 for (final sub in closed) _TicketCard(sub: sub),
                 const SizedBox(height: 12),
-                OutlinedButton.icon(onPressed: () => submit(context), icon: const Icon(Icons.add_location_alt_rounded), label: Text(s('add_temple'))),
+                OutlinedButton.icon(onPressed: () => AddTempleScreen.open(context), icon: const Icon(Icons.add_location_alt_rounded), label: Text(s('add_temple'))),
               ],
             ),
     );
