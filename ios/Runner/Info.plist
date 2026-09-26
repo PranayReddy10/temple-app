@@ -47,11 +47,6 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Used to find temples near you.</string>
-	<!-- Bhajans and chants keep playing with the screen locked. -->
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Used to take a photo for your visit memory card.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
