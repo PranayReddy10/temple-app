@@ -229,6 +229,7 @@ class SampleData {
           booking: Booking(url: null, isOfficial: false, label: 'Book at the temple counter'),
         ),
         Puja(
+          kind: 'seva',
           name: 'Abhishekam',
           description: 'Ritual bathing of the deity with milk, honey and sandal paste.',
           startsAt: '07:30',
