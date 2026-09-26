@@ -44,6 +44,9 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
   /// Which photographs the gallery shows.
   String _stage = 'before';
 
+  /// Who is coming, loaded for the organiser only.
+  List<SevaVolunteer>? _volunteers;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +63,12 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
         _error = null;
         if (d.after.isEmpty) _stage = 'before';
       });
+      if (d.isOrganiser && d.signups > 0) {
+        final v = await _repo.volunteers(d.id);
+        if (mounted) setState(() => _volunteers = v);
+      } else if (mounted && _volunteers != null) {
+        setState(() => _volunteers = null);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e is ApiException ? e.message : 'Could not load this drive.');
@@ -125,8 +134,18 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
                 IconButton(
                   tooltip: 'Share',
                   icon: const Icon(Icons.share_rounded),
-                  onPressed: () => Share.share('${d.title}\n${d.where} · ${sevaDate(d.startsAt)}\nJoin hands on ${Brand.name}.'),
+                  onPressed: () => Share.share('${d.title}\nby ${d.organiserName ?? Brand.name}\n${d.where} · ${sevaDateRange(d)}\nJoin hands on ${Brand.name}.'),
                 ),
+                if (!d.isOrganiser)
+                  PopupMenuButton<String>(
+                    tooltip: 'More',
+                    onSelected: (v) {
+                      if (v == 'report') _report(d);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'report', child: ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.flag_rounded, color: Palette.kumkum), title: Text('Report this drive'))),
+                    ],
+                  ),
               ],
               flexibleSpace: FlexibleSpaceBar(
                 background: _Gallery(media: media, cause: d.cause.value, stage: _stage),
@@ -165,21 +184,11 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(d.title, style: theme.textTheme.headlineSmall?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w700, height: 1.2)),
-                    if (d.organiserName != null) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 13,
-                            backgroundColor: Palette.saffron.withValues(alpha: 0.2),
-                            backgroundImage: d.organiserAvatar == null ? null : NetworkImage(AppImage.resolve(d.organiserAvatar!, context.read<ApiClient>().baseUrl)),
-                            child: d.organiserAvatar == null ? Text(d.organiserName!.characters.firstOrNull?.toUpperCase() ?? '?', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)) : null,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text('Organised by ${d.organiserName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium)),
-                        ],
-                      ),
-                    ],
+                    const SizedBox(height: 14),
+                    _OrganiserAndDates(drive: d),
+                    const SizedBox(height: 14),
+                    _Stats(drive: d),
+                    if (d.isMisleading) _MisleadingBanner(note: d.misleadingNote),
                     const SizedBox(height: 20),
                     SevaProgressSteps(drive: d),
                     if (d.isOrganiser) _OrganiserNotice(drive: d),
@@ -193,6 +202,7 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
             SliverToBoxAdapter(child: _Prose(title: 'The place now', icon: Icons.report_rounded, text: d.problem, color: Palette.kumkum)),
             SliverToBoxAdapter(child: _Prose(title: 'The plan', icon: Icons.checklist_rounded, text: d.plan, color: Palette.saffron)),
             if (d.whatToBring != null && d.whatToBring!.trim().isNotEmpty) SliverToBoxAdapter(child: _Bring(text: d.whatToBring!)),
+            if (d.isOrganiser && (_volunteers?.isNotEmpty ?? false)) SliverToBoxAdapter(child: _WhoIsComing(drive: d, volunteers: _volunteers!)),
             if (d.isOrganiser) SliverToBoxAdapter(child: _organiserTools(d)),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
@@ -213,8 +223,9 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.event_rounded, color: Palette.saffron),
-              title: Text(sevaDate(d.startsAt), style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: d.endsAt == null ? null : Text('Until ${sevaDate(d.endsAt!)}'),
+              title: Text(sevaDateRange(d), style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(d.endsAt == null ? 'One day' : (d.isMultiDay ? 'From ${sevaDate(d.startsAt)}\nTo ${sevaDate(d.endsAt!)}' : 'One day')),
+              isThreeLine: d.isMultiDay,
             ),
             const Divider(height: 1, indent: 16, endIndent: 16),
             ListTile(
@@ -408,6 +419,73 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
       return;
     }
     await _run(() => _repo.reportDonation(d.id, amount: value, upiRef: ref.text.trim(), message: message.text.trim(), anonymous: anonymous), done: 'Thank you. The organiser will confirm it.');
+  }
+
+  // --- Reporting ---
+
+  Future<void> _report(SevaDrive d) async {
+    final auth = context.read<AuthController>();
+    var reason = 'misleading';
+    final details = TextEditingController();
+    final name = TextEditingController(text: auth.devotee?.name);
+    final email = TextEditingController(text: auth.devotee?.email);
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Report this drive', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 4),
+                Text('The team reviews every report and can mark a drive misleading or take it down. The organiser is not told who reported it.', style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    for (final r in SevaRepository.reportReasons)
+                      ChoiceChip(label: Text(r.$2), selected: reason == r.$1, onSelected: (_) => setSheet(() => reason = r.$1)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(controller: details, maxLines: 4, maxLength: 2000, decoration: const InputDecoration(labelText: 'What is wrong?', hintText: 'The after photos are from a different temple…', alignLabelWithHint: true)),
+                if (!auth.isSignedIn) ...[
+                  TextField(controller: name, decoration: const InputDecoration(labelText: 'Your name')),
+                  const SizedBox(height: 8),
+                  TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email, so we can reply (optional)')),
+                ],
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity, child: FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Palette.kumkum), onPressed: () => Navigator.of(context).pop(true), icon: const Icon(Icons.flag_rounded), label: const Text('Send report'))),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (ok != true) return;
+    if (details.text.trim().length < 10) {
+      _toast('Add a few words about what is wrong, so the team can check it.');
+      return;
+    }
+    if (!auth.isSignedIn && name.text.trim().isEmpty) {
+      _toast('Add your name, or sign in, to send a report.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final ref = await _repo.report(d, reason: reason, details: details.text.trim(), name: name.text.trim(), email: email.text.trim());
+      _toast(ref == null ? 'Report sent. Thank you.' : 'Report sent — reference $ref. Replies appear in Help & support.');
+    } catch (e) {
+      _toast(_explain(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   // --- Organiser tools ---
@@ -756,6 +834,7 @@ class _OrganiserNotice extends StatelessWidget {
           : (Icons.campaign_rounded, Palette.tulsi, 'Live — volunteers can join. Share it to gather more hands.'),
       'completed' => (Icons.fact_check_rounded, Palette.ash, 'Sent for verification. Donations open once the team verifies your after photographs.'),
       'verified' => (Icons.verified_rounded, Palette.tulsi, drive.myUpiId == null ? 'Verified. Add a UPI ID from the web team if you need donations.' : 'Verified. Your UPI ID is shown for donations; confirm each one you receive.'),
+      'blocked' => (Icons.shield_rounded, Palette.kumkum, 'Blocked by the team: ${drive.blockReason ?? 'no reason given'}. Nobody else can see it. Write to Help & support if you think this is a mistake.'),
       _ => (Icons.block_rounded, Palette.stone, 'This drive was cancelled.'),
     };
     return Padding(
@@ -988,6 +1067,199 @@ class _DonationsSheetState extends State<_DonationsSheet> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// Title's companions: who runs it and when, big enough to read at a glance.
+class _OrganiserAndDates extends StatelessWidget {
+  const _OrganiserAndDates({required this.drive});
+
+  final SevaDrive drive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final d = drive;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.outlineVariant)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              OrganiserAvatar(drive: d, radius: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('ORGANISER', style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.2, color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                    Text(d.organiserName ?? Brand.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+              if (d.isTeam) const SevaPill(text: 'Team drive', color: Palette.tulsi, icon: Icons.verified_user_rounded),
+              if (d.isOrganiser) const SevaPill(text: 'You', color: Palette.kumkum, icon: Icons.star_rounded),
+            ],
+          ),
+          const Divider(height: 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Palette.saffron.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
+                child: Icon(d.isMultiDay ? Icons.date_range_rounded : Icons.event_rounded, color: Palette.saffron),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(d.isMultiDay ? '${d.dayCount} DAYS' : 'ONE DAY', style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.2, color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                    Text(sevaDateRange(d), style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// How many are coming, and what has been raised, for everybody.
+class _Stats extends StatelessWidget {
+  const _Stats({required this.drive});
+
+  final SevaDrive drive;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = drive;
+    final raised = d.donations.raised ?? 0;
+    return Row(
+      children: [
+        Expanded(child: _Stat(value: '${d.volunteersJoined}', label: d.volunteersNeeded == null ? 'coming' : 'of ${d.volunteersNeeded} coming', color: Palette.saffron, icon: Icons.groups_rounded)),
+        const SizedBox(width: 8),
+        Expanded(child: _Stat(value: '${d.signups}', label: d.signups == 1 ? 'sign-up' : 'sign-ups', color: Palette.ash, icon: Icons.how_to_reg_rounded)),
+        const SizedBox(width: 8),
+        Expanded(child: _Stat(value: rupees(raised), label: d.donations.donors == 0 ? 'raised' : 'from ${d.donations.donors} donor${d.donations.donors == 1 ? '' : 's'}', color: Palette.tulsi, icon: Icons.volunteer_activism_rounded)),
+      ],
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label, required this.color, required this.icon});
+
+  final String value;
+  final String label;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 4),
+          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelSmall),
+        ],
+      ),
+    );
+  }
+}
+
+class _MisleadingBanner extends StatelessWidget {
+  const _MisleadingBanner({this.note});
+
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: Palette.kumkum.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: Palette.kumkum.withValues(alpha: 0.5))),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Palette.kumkum),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Flagged as misleading by the team', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, color: Palette.kumkum)),
+                    if (note != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(note!)),
+                    const SizedBox(height: 4),
+                    Text('Joining and donations are closed.', style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+/// For the organiser: everybody who said they are coming, on the page.
+class _WhoIsComing extends StatelessWidget {
+  const _WhoIsComing({required this.drive, required this.volunteers});
+
+  final SevaDrive drive;
+  final List<SevaVolunteer> volunteers;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.groups_rounded, color: Palette.tulsi, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text("Who's coming", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800))),
+              Text('${drive.volunteersJoined} people', style: theme.textTheme.labelLarge),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerLow, borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.outlineVariant)),
+            child: Column(
+              children: [
+                for (var i = 0; i < volunteers.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, indent: 64),
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Palette.saffron.withValues(alpha: 0.18),
+                      child: volunteers[i].avatarUrl != null
+                          ? ClipOval(child: SizedBox.expand(child: AppImage(volunteers[i].avatarUrl!)))
+                          : Text((volunteers[i].name ?? '').characters.firstOrNull?.toUpperCase() ?? '?', style: const TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                    title: Text(volunteers[i].name ?? 'A devotee', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: volunteers[i].note == null ? null : Text(volunteers[i].note!, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    trailing: volunteers[i].partySize > 1 ? SevaPill(text: '+${volunteers[i].partySize - 1} with them', color: Palette.saffron) : null,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
