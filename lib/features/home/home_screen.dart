@@ -19,6 +19,7 @@ import '../../core/state/reminders_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
+import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../notifications/notifications_screen.dart';
 import '../calendar/calendar_screen.dart';
@@ -26,6 +27,7 @@ import '../days/day_screen.dart';
 import '../guide/guide_screen.dart';
 import '../qr/qr_screens.dart';
 import '../explore/search_screen.dart';
+import '../seva/seva_screen.dart';
 import '../temple/temple_screen.dart';
 
 /// Home: today's deity, search, nearby, popular temples and festivals.
@@ -186,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           SliverToBoxAdapter(child: SectionHeader(title: s('categories'), motif: Motif.shankhaChakra, actionLabel: s('see_all'), onAction: widget.onExplore)),
           const SliverToBoxAdapter(child: _CircuitRow()),
           SliverToBoxAdapter(child: _YatraPrompt(day: day, onOpen: () => widget.onTab?.call(3))),
+          const SliverToBoxAdapter(child: _SevaPrompt()),
           SliverToBoxAdapter(child: SectionHeader(title: s('festivals'), motif: Motif.bell, actionLabel: s('calendar'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())))),
           if (_events == null)
             const SliverToBoxAdapter(child: SizedBox(height: 120, child: DiyaLoader()))
@@ -930,6 +933,52 @@ class _YatraPrompt extends StatelessWidget {
             const SizedBox(width: 10),
             FilledButton(onPressed: onOpen, style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent()), child: Text(current == null ? s('start') : s('open'))),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Seva drives: an invitation to care for an old temple or heritage place.
+class _SevaPrompt extends StatelessWidget {
+  const _SevaPrompt();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: Material(
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SevaScreen())),
+          child: Ink(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Palette.tulsi, Palette.deep])),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Palette.gold.withValues(alpha: 0.2), shape: BoxShape.circle),
+                  child: const Icon(Icons.volunteer_activism_rounded, color: Palette.gold, size: 28),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Seva drives', style: theme.textTheme.titleSmall?.copyWith(color: Palette.sandal, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text('Join hands to clean an old temple, a temple tank or a forgotten shrine — or raise one near you.', style: theme.textTheme.bodySmall?.copyWith(color: Palette.sandal.withValues(alpha: 0.85), height: 1.35)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right_rounded, color: Palette.gold),
+              ],
+            ),
+          ),
         ),
       ),
     );
