@@ -45,6 +45,15 @@ class FamilyController extends ChangeNotifier {
   final SharedPreferences _prefs;
   final List<FamilyMember> _members = [];
 
+  /// Forgets everything kept on this device, for signing out: the next
+  /// person to use the phone must not see, or sync into their own account,
+  /// what the last one recorded.
+  Future<void> clearAll() async {
+    _members.clear();
+    await _prefs.remove('family');
+    notifyListeners();
+  }
+
   static const relations = ['Spouse', 'Mother', 'Father', 'Son', 'Daughter', 'Brother', 'Sister', 'Grandparent', 'Grandchild', 'Friend', 'Other'];
 
   List<FamilyMember> get members => List.unmodifiable(_members);

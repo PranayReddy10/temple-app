@@ -12,6 +12,7 @@ import '../../core/brand.dart';
 import '../../core/models/seva.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/auth_controller.dart';
+import '../../core/state/location_controller.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/app_image.dart';
 import '../../core/widgets/temple_widgets.dart';
@@ -231,8 +232,13 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
             ListTile(
               leading: const Icon(Icons.place_rounded, color: Palette.kumkum),
               title: Text(d.where, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text([if (d.address != null) d.address!, if (d.meetingPoint != null) 'Meet: ${d.meetingPoint}', if (d.templeName != null) 'At ${d.templeName}'].join('\n').ifEmpty('No address given')),
-              isThreeLine: d.address != null && d.meetingPoint != null,
+              subtitle: Text([
+                if (context.watch<LocationController?>()?.labelTo(d.latitude, d.longitude) case final away?) '📍 $away',
+                if (d.address != null) d.address!,
+                if (d.meetingPoint != null) 'Meet: ${d.meetingPoint}',
+                if (d.templeName != null) 'At ${d.templeName}',
+              ].join('\n').ifEmpty('No address given')),
+              isThreeLine: d.address != null || d.meetingPoint != null || d.hasCoordinates,
               trailing: IconButton.filledTonal(
                 tooltip: 'Directions',
                 icon: const Icon(Icons.directions_rounded),

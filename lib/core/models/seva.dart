@@ -95,6 +95,8 @@ class SevaDrive {
     required this.statusLabel,
     required this.placeName,
     this.address,
+    this.pincode,
+    this.district,
     this.city,
     this.state,
     this.latitude,
@@ -145,6 +147,8 @@ class SevaDrive {
 
   final String placeName;
   final String? address;
+  final String? pincode;
+  final String? district;
   final String? city;
   final String? state;
   final double? latitude;
@@ -214,7 +218,7 @@ class SevaDrive {
   bool get hasCoordinates => latitude != null && longitude != null;
   bool get isUpcoming => isOpen && startsAt.isAfter(DateTime.now());
 
-  String get where => [placeName, city, state].whereType<String>().where((s) => s.isNotEmpty).join(', ');
+  String get where => [placeName, city, district, state].whereType<String>().where((s) => s.isNotEmpty).join(', ');
 
   double? get volunteerProgress => volunteersNeeded == null || volunteersNeeded == 0 ? null : (volunteersJoined / volunteersNeeded!).clamp(0, 1).toDouble();
 
@@ -243,6 +247,8 @@ class SevaDrive {
       statusLabel: '${(j['status'] as Map?)?['label'] ?? ''}',
       placeName: '${place['name'] ?? ''}',
       address: place['address']?.toString(),
+      pincode: place['pincode']?.toString(),
+      district: place['district']?.toString(),
       city: place['city']?.toString(),
       state: place['state']?.toString(),
       latitude: num_(place['latitude']),
@@ -322,5 +328,26 @@ class SevaDonation {
         message: j['message']?.toString(),
         confirmed: j['confirmed'] == true,
         createdAt: DateTime.tryParse('${j['created_at'] ?? ''}')?.toLocal(),
+      );
+}
+
+/// What a PIN code covers, from `GET /api/v1/pincode/{code}`.
+class PincodeInfo {
+  const PincodeInfo({required this.pincode, this.state, this.stateId, this.district, this.places = const []});
+
+  final String pincode;
+  final String? state;
+  final int? stateId;
+  final String? district;
+
+  /// Post office names: the villages and towns under this code.
+  final List<String> places;
+
+  factory PincodeInfo.fromJson(Map<String, dynamic> j) => PincodeInfo(
+        pincode: '${j['pincode']}',
+        state: j['state']?.toString(),
+        stateId: (j['state_id'] as num?)?.toInt(),
+        district: j['district']?.toString(),
+        places: (j['places'] as List? ?? const []).map((e) => '${(e as Map)['name']}').toList(),
       );
 }

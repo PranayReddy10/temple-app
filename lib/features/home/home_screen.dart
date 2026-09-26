@@ -11,6 +11,7 @@ import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/data/sample_data.dart';
+import '../../core/state/location_controller.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/state/passport_controller.dart';
@@ -97,6 +98,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         throw 'Location permission is needed to find temples near you.';
       }
       final pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.low));
+      if (mounted) context.read<LocationController?>()?.set(pos.latitude, pos.longitude);
       if (!mounted) return;
       final r = await context.read<TempleRepository>().temples(TempleQuery(lat: pos.latitude, lng: pos.longitude, radiusKm: 300, perPage: 10));
       if (!mounted) return;

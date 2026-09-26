@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/state/location_controller.dart';
 import '../../core/ads/ads.dart';
 import '../../core/api/temple_repository.dart';
 import '../../core/l10n/strings.dart';
@@ -121,6 +122,7 @@ class _SearchScreenState extends State<SearchScreen> {
       if (p == LocationPermission.denied) p = await Geolocator.requestPermission();
       if (p == LocationPermission.denied || p == LocationPermission.deniedForever) throw 'Location permission denied';
       final pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.low));
+      if (mounted) context.read<LocationController?>()?.set(pos.latitude, pos.longitude);
       _set(_query.copyWith(lat: pos.latitude, lng: pos.longitude, radiusKm: 500, sort: 'distance'));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));

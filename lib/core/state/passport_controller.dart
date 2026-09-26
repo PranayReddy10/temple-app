@@ -199,6 +199,16 @@ class PassportController extends ChangeNotifier {
   final SharedPreferences _prefs;
   final List<Visit> _visits = [];
 
+  /// Forgets everything kept on this device, for signing out: the next
+  /// person to use the phone must not see, or sync into their own account,
+  /// what the last one recorded.
+  Future<void> clearAll() async {
+    _visits.clear();
+    summary = null;
+    await _prefs.remove('visits');
+    notifyListeners();
+  }
+
   /// Called after a visit is recorded, so the sync layer can queue it.
   Future<void> Function(Visit visit)? onVisitCreated;
 

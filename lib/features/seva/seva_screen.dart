@@ -6,6 +6,7 @@ import '../../core/api/seva_repository.dart';
 import '../../core/models/seva.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/auth_controller.dart';
+import '../../core/state/location_controller.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../auth/auth_screen.dart';
@@ -40,6 +41,12 @@ class _SevaScreenState extends State<SevaScreen> with SingleTickerProviderStateM
   late final SevaRepository _repo = SevaRepository(context.read<ApiClient>());
 
   String? _cause;
+
+  /// Sort the list by distance from the devotee.
+  bool _nearest = false;
+
+  /// On the Completed tab: only drives the team has verified.
+  bool _verifiedOnly = false;
   final Map<int, List<SevaDrive>?> _lists = {};
   final Map<int, String?> _errors = {};
   List<SevaDrive>? _joined;
@@ -77,7 +84,7 @@ class _SevaScreenState extends State<SevaScreen> with SingleTickerProviderStateM
         });
         return;
       }
-      final page = await _repo.list(when: tab == 0 ? 'upcoming' : 'done', cause: _cause);
+      final page = await _repo.list(when: tab == 0 ? 'upcoming' : 'done', cause: _cause, verifiedOnly: tab == 1 && _verifiedOnly);
       if (!mounted) return;
       setState(() => _lists[tab] = page.items);
     } catch (e) {
@@ -179,6 +186,22 @@ class _SevaScreenState extends State<SevaScreen> with SingleTickerProviderStateM
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
           children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                avatar: const Icon(Icons.near_me_rounded, size: 16),
+                label: const Text('Nearest first'),
+                selected: _nearest,
+                onSelected: (on) async {
+                  final loc = context.read<LocationController>();
+                  if (on && !loc.known && !await loc.request()) {
+                    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Allow location to sort drives by distance.')));
+                    return;
+                  }
+                  setState(() => _nearest = on);
+                },
+              ),
+            ),
             Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: const Text('All'), selected: _cause == null, onSelected: (_) => _setCause(null))),
             for (final c in SevaCause.all)
               Padding(
@@ -189,14 +212,43 @@ class _SevaScreenState extends State<SevaScreen> with SingleTickerProviderStateM
         ),
       );
 
+  /// Nearest first when asked; drives with no pin go last.
+  List<SevaDrive> _sorted(List<SevaDrive> items) {
+    final loc = context.watch<LocationController?>();
+    if (!_nearest || loc == null || !loc.known) return items;
+    double km(SevaDrive d) => loc.kmTo(d.latitude, d.longitude) ?? double.infinity;
+    return [...items]..sort((a, b) => km(a).compareTo(km(b)));
+  }
+
   Widget _list(int tab) {
-    final items = _lists[tab];
+    final items = _lists[tab] == null ? null : _sorted(_lists[tab]!);
     return RefreshIndicator(
       onRefresh: () => _load(tab),
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _causeChips()),
           if (tab == 0) const SliverToBoxAdapter(child: _HowItWorks()),
+          if (tab == 1)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilterChip(
+                    avatar: const Icon(Icons.verified_rounded, size: 16, color: Palette.tulsi),
+                    label: const Text('Verified only'),
+                    selected: _verifiedOnly,
+                    onSelected: (on) {
+                      setState(() {
+                        _verifiedOnly = on;
+                        _lists.remove(1);
+                      });
+                      _load(1);
+                    },
+                  ),
+                ),
+              ),
+            ),
           if (items == null)
             const SliverFillRemaining(hasScrollBody: false, child: DiyaLoader(label: 'Finding drives…'))
           else if (items.isEmpty)

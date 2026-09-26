@@ -197,6 +197,15 @@ class YatraController extends ChangeNotifier {
   final SharedPreferences _prefs;
   final List<Yatra> _yatras = [];
 
+  /// Forgets everything kept on this device, for signing out: the next
+  /// person to use the phone must not see, or sync into their own account,
+  /// what the last one recorded.
+  Future<void> clearAll() async {
+    _yatras.clear();
+    await _prefs.remove('yatras');
+    notifyListeners();
+  }
+
   /// Sync hooks: a trip changed (create, edit, stops), a trip was deleted.
   Future<void> Function(Yatra y)? onChanged;
   Future<void> Function(int remoteId)? onDeleted;

@@ -38,6 +38,15 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
   late final _place = TextEditingController(text: _e?.placeName ?? widget.templeName);
   late final _address = TextEditingController(text: _e?.address);
   late final _city = TextEditingController(text: _e?.city);
+  late final _pincode = TextEditingController(text: _e?.pincode);
+  late final _district = TextEditingController(text: _e?.district);
+
+  /// From the PIN code: the state (sent as its id) and the towns to pick.
+  late String? _stateName = _e?.state;
+  int? _stateId;
+  List<String> _places = const [];
+  bool _lookingUp = false;
+  String? _pinNote;
   late final _meeting = TextEditingController(text: _e?.meetingPoint);
   late final _problem = TextEditingController(text: _e?.problem);
   late final _plan = TextEditingController(text: _e?.plan);
@@ -70,7 +79,7 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
 
   @override
   void dispose() {
-    for (final c in [_title, _place, _address, _city, _meeting, _problem, _plan, _bring, _needed, _phone, _upi, _upiName, _goal, _purpose, _videoLink]) {
+    for (final c in [_title, _place, _address, _city, _pincode, _district, _meeting, _problem, _plan, _bring, _needed, _phone, _upi, _upiName, _goal, _purpose, _videoLink]) {
       c.dispose();
     }
     super.dispose();
@@ -121,6 +130,9 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
       'place_name': t(_place),
       'address': t(_address),
       'city': t(_city),
+      'pincode': t(_pincode),
+      'district': t(_district),
+      'state_id': _stateId?.toString(),
       'meeting_point': t(_meeting),
       'problem': t(_problem),
       'plan': t(_plan),
@@ -172,6 +184,35 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _lookUpPincode(String code) async {
+    setState(() {
+      _lookingUp = true;
+      _pinNote = null;
+    });
+    try {
+      final info = await _repo.pincode(code);
+      if (!mounted || _pincode.text != code) return;
+      setState(() {
+        if (info == null) {
+          _pinNote = 'No post office has that PIN code. Check it, or fill in the rest yourself.';
+          _places = const [];
+          return;
+        }
+        _stateName = info.state;
+        _stateId = info.stateId;
+        if (info.district != null) _district.text = info.district!;
+        _places = info.places;
+        // One town under this code: that is the town.
+        if (info.places.length == 1) _city.text = info.places.first;
+        _pinNote = [info.district, info.state].whereType<String>().join(', ');
+      });
+    } catch (_) {
+      if (mounted) setState(() => _pinNote = 'Could not look it up offline. Fill in the rest yourself.');
+    } finally {
+      if (mounted) setState(() => _lookingUp = false);
     }
   }
 
@@ -272,7 +313,51 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
           const SizedBox(height: 4),
           TextField(controller: _address, enabled: !_locked, decoration: const InputDecoration(labelText: 'Address or landmark (optional)', prefixIcon: Icon(Icons.signpost_rounded))),
           const SizedBox(height: 12),
+          TextField(
+            controller: _pincode,
+            enabled: !_locked,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: (v) {
+              if (v.length == 6) _lookUpPincode(v);
+            },
+            decoration: InputDecoration(
+              labelText: 'PIN code',
+              helperText: _pinNote ?? 'Fills in the state, district and town',
+              prefixIcon: const Icon(Icons.markunread_mailbox_rounded),
+              suffixIcon: _lookingUp ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))) : (_stateName != null && _pincode.text.length == 6 ? const Icon(Icons.check_circle_rounded, color: Palette.tulsi) : null),
+            ),
+          ),
+          if (_places.length > 1) ...[
+            Align(alignment: Alignment.centerLeft, child: Text('Which village or town?', style: Theme.of(context).textTheme.labelLarge)),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  for (final p in _places)
+                    Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(p), selected: _city.text == p, onSelected: (_) => setState(() => _city.text = p))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           TextField(controller: _city, enabled: !_locked, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Village / town / city', prefixIcon: Icon(Icons.location_city_rounded))),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: TextField(controller: _district, enabled: !_locked, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'District'))),
+              const SizedBox(width: 12),
+              Expanded(
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'State'),
+                  child: Text(_stateName ?? 'From the PIN code', maxLines: 1, overflow: TextOverflow.ellipsis, style: _stateName == null ? TextStyle(color: Theme.of(context).hintColor) : null),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
