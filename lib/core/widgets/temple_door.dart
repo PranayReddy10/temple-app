@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../motifs/architecture.dart';
 import '../state/app_settings.dart';
-import '../state/sound_effects.dart';
 import '../theme/palette.dart';
 
 /// Two teak door leaves that swing open to reveal [child].
@@ -85,7 +84,10 @@ class _Leaf extends StatelessWidget {
           alignment: left ? Alignment.centerLeft : Alignment.centerRight,
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.0012)
-            ..rotateY(left ? -angle : angle),
+            // Inward, into the sanctum, the way temple doors are pushed
+            // open: the leaves recede. Swinging them towards the viewer
+            // made each one grow past the top and bottom of the screen.
+            ..rotateY(left ? angle : -angle),
           child: IgnorePointer(
             child: CustomPaint(painter: DoorLeafPainter(hingeOnLeft: left, accent: accent)),
           ),
@@ -148,7 +150,5 @@ class TempleDoorRoute<T> extends PageRoute<T> {
 Future<T?> enterTemple<T>(BuildContext context, Widget page, {Color? accent}) {
   final enabled = context.read<AppSettings>().doorAnimations;
   final color = accent ?? Theme.of(context).colorScheme.primary;
-  // Om sounds from the moment the doors are touched until they stand open.
-  if (enabled) SoundEffects.play(context, SoundEffects.om, volume: 0.7);
   return Navigator.of(context).push<T>(TempleDoorRoute<T>(builder: (_) => page, accent: color, enabled: enabled));
 }

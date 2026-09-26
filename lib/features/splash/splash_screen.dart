@@ -111,7 +111,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               children: [
                 TempleDoorReveal(
                   progress: open,
-                  accent: day.accent,
+                  // Brass every day, not the day's colour: the native launch
+                  // window shows these same doors (assets/launch/doors.png,
+                  // drawn by tool/launch_doors/render_test.dart), so there is
+                  // no jump between the two. The day's colour is behind them.
+                  accent: Palette.gold,
                   child: _Sanctum(day: day, arrived: open),
                 ),
                 // Petals, once the doors begin to part.

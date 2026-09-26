@@ -7,8 +7,9 @@ import 'auth_controller.dart';
 
 /// Plans, buying one, and the result.
 ///
-/// Checkout happens on the server's own payment page inside the app's
-/// browser; afterwards the app asks the server how the payment ended. The
+/// Checkout happens in the gateway's native SDK where it has one (Razorpay,
+/// Cashfree), otherwise on the server's payment page in the system browser
+/// tab; afterwards the app asks the server how the payment ended. The
 /// plan is switched on by the server once the gateway confirms, never by
 /// the app.
 class SubscriptionController extends ChangeNotifier {
@@ -35,11 +36,30 @@ class SubscriptionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Starts a purchase: ({checkoutUrl, doneUrl, paymentId}).
-  Future<({String checkoutUrl, String doneUrl, String paymentId})> begin(SubscriptionPlan plan, {String? gateway}) async {
-    final json = await _api.post('me/checkout', {'plan': plan.code, 'platform': AppPlatform.name, if (gateway != null) 'gateway': gateway});
+  /// Starts a purchase. [sdk] is what the gateway's native SDK needs, when
+  /// the gateway has one; otherwise the web checkout at [checkoutUrl].
+  Future<({String checkoutUrl, String doneUrl, String paymentId, Map<String, dynamic>? sdk})> begin(SubscriptionPlan plan, {String? gateway}) async {
+    final json = await _api.post('me/checkout', {'plan': plan.code, 'platform': AppPlatform.name, 'mode': 'sdk', if (gateway != null) 'gateway': gateway});
     final d = json['data'] as Map<String, dynamic>;
-    return (checkoutUrl: '${d['checkout_url']}', doneUrl: '${d['done_url']}', paymentId: '${(d['payment'] as Map)['id']}');
+    return (
+      checkoutUrl: '${d['checkout_url']}',
+      doneUrl: '${d['done_url']}',
+      paymentId: '${(d['payment'] as Map)['id']}',
+      sdk: d['sdk'] is Map ? Map<String, dynamic>.from(d['sdk'] as Map) : null,
+    );
+  }
+
+  /// Hands the SDK's result to the server, which checks it with the gateway
+  /// (Razorpay's signature, or Cashfree's own record) and answers the status.
+  Future<String> confirm(String paymentId, Map<String, String> fields) async {
+    try {
+      final json = await _api.post('me/payments/$paymentId/confirm', fields);
+      final status = '${(json['data'] as Map)['status']}';
+      if (status == 'paid') await _auth.reload();
+      return status;
+    } catch (_) {
+      return 'pending';
+    }
   }
 
   /// How a payment ended, asking a few times while the bank confirms.

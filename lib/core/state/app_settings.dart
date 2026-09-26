@@ -52,8 +52,7 @@ class AppSettings extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   bool get doorAnimations => _doorAnimations;
 
-  /// The bell as the app opens, the Om as a temple's doors part, and the
-  /// passport's page turns.
+  /// The bell as the app opens, and the passport's page turns.
   bool get templeSounds => _templeSounds;
   String get apiBase => api.baseUrl;
 
