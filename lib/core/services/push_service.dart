@@ -120,6 +120,7 @@ class PushService {
       content: Text(n.title == null ? (n.body ?? '') : '${n.title}\n${n.body ?? ''}'),
       duration: const Duration(seconds: 6),
       action: SnackBarAction(label: 'Open', onPressed: () => _onOpened(message)),
+      persist: false,
     ));
   }
 

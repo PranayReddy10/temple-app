@@ -53,13 +53,18 @@ class EngagementController extends ChangeNotifier {
   /// has not heard about yet.
   Engagement stateFor(String slug, Engagement fromDetail) {
     final base = _states[slug] ?? fromDetail;
+    // The reviews come from whichever answer carried them: an answer to a
+    // tap from an older server has none, and must not blank the section.
+    final reviews = base.reviews.hasData ? base.reviews : fromDetail.reviews;
     return base.copyWith(
+      reviews: reviews,
       viewer: ViewerEngagement(
         liked: _liked.contains(slug),
         following: _follows.containsKey(slug),
         notifyFestivals: _follows[slug]?.notifyFestivals ?? false,
         notifyEvents: _follows[slug]?.notifyEvents ?? false,
         saved: base.viewer?.saved ?? false,
+        myReview: base.viewer?.myReview ?? fromDetail.viewer?.myReview,
       ),
     );
   }

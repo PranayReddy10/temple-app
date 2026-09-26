@@ -12,14 +12,36 @@ import 'package:temple_app/core/models/models.dart';
 import 'package:temple_app/core/state/auth_controller.dart';
 import 'package:temple_app/core/state/engagement_controller.dart';
 import 'package:temple_app/features/notifications/follows_screen.dart';
+import 'package:temple_app/features/reviews/reviews_screen.dart';
+import 'package:temple_app/features/temple/temple_screen.dart';
 
 import 'booking_test.dart' show templeHarness, templeJson;
 
-Map<String, dynamic> engagementJson({int likes = 3, int follows = 2, bool liked = false, bool following = false}) => {
+Map<String, dynamic> reviewJson({int id = 11, String name = 'Ravi K.', String body = 'Quiet on a weekday morning.', bool mine = false, String? status}) => {
+      'id': id,
+      'temple': {'slug': 'booking-temple', 'name': 'Sri Someshwara Swamy Temple', 'city': 'Kolanupaka', 'deity_slug': 'shiva'},
+      'devotee': {'name': name},
+      'visited_on': '2026-09-20',
+      'ratings': [
+        {'key': 'queue_rating', 'label': 'Queue and waiting', 'value': 4},
+        {'key': 'cleanliness_rating', 'label': 'Cleanliness', 'value': 5},
+      ],
+      'wait_minutes': 20,
+      'body': body,
+      'temple_reply': null,
+      'is_mine': mine,
+      if (status != null) 'status': {'value': status, 'label': status == 'pending' ? 'Waiting for review' : 'Published'},
+    };
+
+Map<String, dynamic> engagementJson({int likes = 3, int follows = 2, bool liked = false, bool following = false, bool withMine = false}) => {
       'likes_count': likes,
       'follows_count': follows,
-      'viewer': {'liked': liked, 'following': following, 'notify_festivals': following, 'notify_events': false, 'saved': false},
+      'viewer': {
+        'liked': liked, 'following': following, 'notify_festivals': following, 'notify_events': false, 'saved': false,
+        'my_review': withMine ? reviewJson(id: 12, name: 'Anu', body: 'My own account.', mine: true, status: 'pending') : null,
+      },
       'reviews': {
+        'latest': [reviewJson()],
         'count': 2,
         'dimensions': {
           'queue_rating': {'label': 'Queue and waiting', 'average': 2.5, 'count': 2},
@@ -236,5 +258,98 @@ void main() {
     expect(switches[0].value, isTrue);
     expect(switches[1].value, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the follow tip closes on its own', (tester) async {
+    final client = MockClient((r) async {
+      if (r.url.path == '/api/v1/temples/booking-temple') return _json({'data': {...templeJson(), 'engagement': engagementJson()}});
+      if (r.url.path.endsWith('/me/follows/booking-temple')) return _json({'data': engagementJson(following: true)}, 201);
+      return _json({'data': []});
+    });
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(await templeHarness(client));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(find.byTooltip('Follow'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Following tells you about festivals'), findsOneWidget);
+
+    // A snack bar with an action would stay until tapped; this one goes.
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('Following tells you about festivals'), findsNothing);
+  });
+
+  testWidgets('the temple page shows published accounts, and the devotee\'s own with Edit, not a second Write', (tester) async {
+    final client = MockClient((r) async {
+      if (r.url.path == '/api/v1/temples/booking-temple') return _json({'data': {...templeJson(), 'engagement': engagementJson(withMine: true)}});
+      if (r.url.path.endsWith('/me/likes/booking-temple')) {
+        // An older server answers a tap without the reviews block.
+        return _json({'data': {'likes_count': 4, 'follows_count': 2, 'viewer': {'liked': true}}}, 201);
+      }
+      return _json({'data': []});
+    });
+    tester.view.physicalSize = const Size(320 * 3, 720 * 3);
+    tester.view.devicePixelRatio = 3;
+    tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpWidget(await templeHarness(client));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // A like must not blank the reviews section.
+    await tester.tap(find.byIcon(Icons.favorite_border_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    for (var i = 0; i < 16 && find.text('Quiet on a weekday morning.').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      await tester.pump();
+    }
+    expect(find.text('Quiet on a weekday morning.'), findsOneWidget);
+    expect(find.text('Ravi K.'), findsOneWidget);
+    for (var i = 0; i < 4 && find.text('My own account.').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+      await tester.pump();
+    }
+    expect(find.text('My own account.'), findsOneWidget);
+    expect(find.text('Waiting for review'), findsOneWidget);
+    expect(find.text('Edit your review'), findsWidgets);
+    expect(find.text('Write about your visit'), findsNothing);
+    expect(tester.takeException(), isNull);
+
+    // Edit opens the sheet with the account filled in.
+    await Scrollable.ensureVisible(tester.element(find.widgetWithText(FilledButton, 'Edit your review')), alignment: 0.5);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Edit your review'));
+    await tester.pumpAndSettle();
+    expect(find.text('Save changes'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'My own account.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a review in My visit reviews opens its temple', (tester) async {
+    final client = MockClient((r) async {
+      if (r.url.path == '/api/v1/me/reviews') return _json({'data': [reviewJson(mine: true, status: 'approved')]});
+      if (r.url.path == '/api/v1/temples/booking-temple') return _json({'data': {...templeJson(), 'engagement': engagementJson()}});
+      return _json({'data': []});
+    });
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(await templeHarness(client, home: const MyReviewsScreen()));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Published'), findsOneWidget);
+
+    await tester.tap(find.text('Quiet on a weekday morning.'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.byType(TempleScreen), findsOneWidget);
   });
 }

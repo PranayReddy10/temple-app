@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/temple_repository.dart';
 import '../../core/l10n/strings.dart';
+import '../../core/models/models.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/theme/day_theme.dart';
@@ -166,6 +167,9 @@ class _UserBubble extends StatelessWidget {
 class _GuideBubble extends StatelessWidget {
   const _GuideBubble({required this.reply, required this.day});
 
+  /// Rows shown under one answer; the rest are counted, not listed.
+  static const _shown = 6;
+
   final GuideReply reply;
   final DayTheme day;
 
@@ -193,22 +197,85 @@ class _GuideBubble extends StatelessWidget {
             ],
           ),
         ),
+        // A list, not a fixed-height strip: each row is as tall as its own
+        // text, so no temple name, trust label or font size can overflow it.
         if (reply.temples.isNotEmpty)
-          SizedBox(
-            // Room for a compact card with a two-line name and its badges.
-            height: scaledHeight(context, 132),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(top: 8),
-              itemCount: reply.temples.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, i) {
-                final t = reply.temples[i];
-                return SizedBox(width: 280, child: TempleCard(temple: t, compact: true, onTap: () => enterTemple(context, TempleScreen(slug: t.slug, preview: t), accent: DayTheme.forDeity(t.deity?.slug).accent)));
-              },
+          Container(
+            margin: const EdgeInsets.only(top: 8, right: 16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < reply.temples.length && i < _shown; i++) ...[
+                  if (i > 0) Divider(height: 1, indent: 70, color: theme.colorScheme.outlineVariant),
+                  _GuideTempleRow(temple: reply.temples[i]),
+                ],
+                if (reply.temples.length > _shown)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                    child: Text('+ ${reply.temples.length - _shown} more · ask about one by name', style: theme.textTheme.bodySmall?.copyWith(color: d.accent)),
+                  ),
+              ],
             ),
           ),
       ],
+    );
+  }
+}
+
+/// One temple in a guide answer: photo, name, deity and place, trust and
+/// distance. Every text wraps or ellipsises and the row takes the height it
+/// needs, so it lays out at any width and any text size.
+class _GuideTempleRow extends StatelessWidget {
+  const _GuideTempleRow({required this.temple});
+
+  final TempleSummary temple;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = DayTheme.forDeity(temple.deity?.slug).accent;
+    final place = [temple.deity?.name, temple.location.short].where((e) => e != null && e.isNotEmpty).join(' · ');
+    final km = temple.distanceKm;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => enterTemple(context, TempleScreen(slug: temple.slug, preview: temple), accent: accent),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(width: 48, height: 48, child: TempleImage(url: temple.primaryPhoto?.thumbnail ?? temple.primaryPhoto?.best, deitySlug: temple.deity?.slug, motifSize: 22)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
+                  if (place.isNotEmpty) Text(place, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      TrustBadge(trust: temple.trust, compact: true),
+                      if (km != null) Text('${km.toStringAsFixed(km < 10 ? 1 : 0)} km', style: theme.textTheme.labelSmall?.copyWith(color: accent, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Padding(padding: const EdgeInsets.only(top: 12), child: Icon(Icons.chevron_right_rounded, color: theme.colorScheme.outline)),
+          ],
+        ),
+      ),
     );
   }
 }

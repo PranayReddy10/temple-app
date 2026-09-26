@@ -531,30 +531,43 @@ class _TempleScreenState extends State<TempleScreen> {
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ReviewSummaryCard(summary: engagement.reviews, day: day, compact: true),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: () => writeReview(context, t).then((r) {
-                              if (r != null) _load();
-                            }),
-                            icon: const Icon(Icons.rate_review_rounded),
-                            label: Text(s('review_write')),
-                          ),
-                        ),
-                        if (engagement.reviews.count > 0) ...[
-                          const SizedBox(width: 10),
-                          OutlinedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReviewsScreen(temple: t, initialSummary: engagement.reviews))), child: Text(s('see_all_reviews'))),
-                        ],
+                child: Builder(builder: (context) {
+                  final mine = engagement.viewer?.myReview;
+                  // Published accounts, newest first, without repeating the
+                  // devotee's own (it has its own card, with Edit).
+                  final latest = engagement.reviews.latest.where((r) => mine == null || r.id != mine.id).toList();
+                  Future<void> write() async {
+                    final r = await writeReview(context, t, existing: mine);
+                    if (r != null) _load();
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ReviewSummaryCard(summary: engagement.reviews, day: day, compact: true),
+                      const SizedBox(height: 10),
+                      if (mine != null) ...[
+                        Text(s('review_yours').toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: day.accent, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 6),
+                        ReviewCard(review: mine, day: day, onEdit: write),
                       ],
-                    ),
-                  ],
-                ),
+                      for (final r in latest) ReviewCard(review: r, day: day),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.tonalIcon(
+                            onPressed: write,
+                            icon: Icon(mine == null ? Icons.rate_review_rounded : Icons.edit_rounded),
+                            label: Text(mine == null ? s('review_write') : s('review_edit')),
+                          ),
+                          if (engagement.reviews.count > latest.length + (mine?.isPending == false ? 1 : 0))
+                            OutlinedButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReviewsScreen(temple: t, initialSummary: engagement.reviews))), child: Text(s('see_all_reviews'))),
+                        ],
+                      ),
+                    ],
+                  );
+                }),
               ),
             ),
             const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'temple_detail', compact: true))),
@@ -660,6 +673,10 @@ class _TempleScreenState extends State<TempleScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(wasFollowing ? '${s('unfollow')}: ${t.name}' : s('follow_explain')),
       action: wasFollowing ? null : SnackBarAction(label: s('followed_temples'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowsScreen()))),
+      // A snack bar with an action stays until tapped unless told otherwise;
+      // this one is a tip, and goes on its own.
+      persist: false,
+      duration: const Duration(seconds: 5),
     ));
   }
 

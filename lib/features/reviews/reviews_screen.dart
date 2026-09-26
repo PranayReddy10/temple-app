@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/engagement_repository.dart';
+import '../../core/data/sample_data.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/motif.dart';
@@ -12,8 +13,10 @@ import '../../core/state/passport_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/app_image.dart';
+import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../auth/auth_screen.dart';
+import '../temple/temple_screen.dart';
 
 /// How visits went, per dimension, as bars. There is no overall score and no
 /// stars on the temple: a place of worship is not ranked.
@@ -40,7 +43,7 @@ class ReviewSummaryCard extends StatelessWidget {
               Icon(Icons.groups_rounded, size: 18, color: day.accent),
               const SizedBox(width: 8),
               Expanded(child: Text(summary.count == 0 ? s('reviews_none_yet') : '${summary.count} ${summary.count == 1 ? s('review_one') : s('review_many')}', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800))),
-              if (summary.averageWaitMinutes != null) Text('${s('reviews_wait')} ~${summary.averageWaitMinutes} min', style: theme.textTheme.labelSmall?.copyWith(color: day.accent, fontWeight: FontWeight.w700)),
+              if (summary.averageWaitMinutes != null) Flexible(child: Text('${s('reviews_wait')} ~${summary.averageWaitMinutes} min', textAlign: TextAlign.end, style: theme.textTheme.labelSmall?.copyWith(color: day.accent, fontWeight: FontWeight.w700))),
             ],
           ),
           const SizedBox(height: 10),
@@ -93,11 +96,15 @@ class _Bar extends StatelessWidget {
 
 /// One devotee's account, as the list shows it.
 class ReviewCard extends StatelessWidget {
-  const ReviewCard({super.key, required this.review, required this.day, this.onDelete});
+  const ReviewCard({super.key, required this.review, required this.day, this.onDelete, this.onTap, this.onEdit});
 
   final Review review;
   final DayTheme day;
   final VoidCallback? onDelete;
+
+  /// Opens what the card is about (the temple, from My visit reviews).
+  final VoidCallback? onTap;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +113,10 @@ class ReviewCard extends StatelessWidget {
     final rated = review.ratings.where((r) => r.value != null).toList();
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,15 +138,18 @@ class ReviewCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (review.isMine && review.status != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: (review.isPending ? Palette.gold : review.isRejected ? Palette.kumkum : Palette.tulsi).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(999)),
-                    child: Text(review.statusLabel ?? review.status!, style: theme.textTheme.labelSmall?.copyWith(color: review.isPending ? Palette.gold : review.isRejected ? Palette.kumkum : Palette.tulsi, fontWeight: FontWeight.w700)),
-                  ),
-                if (onDelete != null) IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline_rounded, size: 18)),
+                if (onEdit != null) IconButton(tooltip: s('review_edit'), onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 18)),
+                if (onDelete != null) IconButton(tooltip: s('remove'), onPressed: onDelete, icon: const Icon(Icons.delete_outline_rounded, size: 18)),
               ],
             ),
+            if (review.isMine && review.status != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: (review.isPending ? Palette.gold : review.isRejected ? Palette.kumkum : Palette.tulsi).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(999)),
+                child: Text(review.statusLabel ?? review.status!, style: theme.textTheme.labelSmall?.copyWith(color: review.isPending ? Palette.gold : review.isRejected ? Palette.kumkum : Palette.tulsi, fontWeight: FontWeight.w700)),
+              ),
+            ],
             if (rated.isNotEmpty || review.waitMinutes != null) ...[
               const SizedBox(height: 10),
               Wrap(
@@ -158,15 +171,20 @@ class ReviewCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [const Icon(Icons.temple_hindu_rounded, size: 14, color: Palette.tulsi), const SizedBox(width: 6), Text(s('review_temple_replied').toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(color: Palette.tulsi, letterSpacing: 1.2, fontWeight: FontWeight.w800))]),
+                    Row(children: [const Icon(Icons.temple_hindu_rounded, size: 14, color: Palette.tulsi), const SizedBox(width: 6), Flexible(child: Text(s('review_temple_replied').toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(color: Palette.tulsi, letterSpacing: 1.2, fontWeight: FontWeight.w800)))]),
                     const SizedBox(height: 4),
                     Text(review.templeReply!, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
                   ],
                 ),
               ),
             ],
+            if (onTap != null && review.templeName != null) ...[
+              const SizedBox(height: 8),
+              Row(children: [Icon(Icons.temple_hindu_rounded, size: 14, color: day.accent), const SizedBox(width: 6), Expanded(child: Text(review.templeName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(color: day.accent, fontWeight: FontWeight.w700))), Icon(Icons.chevron_right_rounded, size: 18, color: day.accent)]),
+            ],
           ],
         ),
+      ),
       ),
     );
   }
@@ -208,6 +226,9 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   late ReviewSummary _summary = widget.initialSummary ?? ReviewSummary.empty;
   String? _error;
 
+  /// The devotee's own account of this temple, found among theirs.
+  Review? _mine;
+
   @override
   void initState() {
     super.initState();
@@ -217,10 +238,17 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   Future<void> _load() async {
     try {
       final page = await _repo.reviews(widget.temple.slug);
+      Review? mine;
+      if (mounted && context.read<AuthController>().isSignedIn) {
+        try {
+          mine = (await _repo.myReviews()).where((r) => r.templeSlug == widget.temple.slug).firstOrNull;
+        } catch (_) {}
+      }
       if (mounted) {
         setState(() {
           _reviews = page.reviews;
           _summary = page.summary;
+          _mine = mine;
           _error = null;
         });
       }
@@ -237,13 +265,13 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(s('reviews'))),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => writeReview(context, widget.temple).then((r) {
+        onPressed: () => writeReview(context, widget.temple, existing: _mine).then((r) {
           if (r != null) _load();
         }),
         backgroundColor: day.accent,
         foregroundColor: day.onAccent(),
-        icon: const Icon(Icons.rate_review_rounded),
-        label: Text(s('review_write')),
+        icon: Icon(_mine == null ? Icons.rate_review_rounded : Icons.edit_rounded),
+        label: Text(_mine == null ? s('review_write') : s('review_edit')),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -271,7 +299,10 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
 /// "Write about your visit": the sheet. Rates the visit, never the temple.
 /// Returns the review the server kept, or null.
-Future<Review?> writeReview(BuildContext context, TempleSummary temple, {Visit? visit}) async {
+///
+/// There is one account per temple: pass [existing] (the devotee's own, from
+/// the temple page) and the sheet opens with it filled in, to edit.
+Future<Review?> writeReview(BuildContext context, TempleSummary temple, {Visit? visit, Review? existing}) async {
   final auth = context.read<AuthController>();
   if (!auth.isSignedIn) {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
@@ -281,26 +312,29 @@ Future<Review?> writeReview(BuildContext context, TempleSummary temple, {Visit? 
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (_) => _WriteReviewSheet(temple: temple, visit: visit),
+    builder: (_) => _WriteReviewSheet(temple: temple, visit: visit, existing: existing),
   );
 }
 
 class _WriteReviewSheet extends StatefulWidget {
-  const _WriteReviewSheet({required this.temple, this.visit});
+  const _WriteReviewSheet({required this.temple, this.visit, this.existing});
 
   final TempleSummary temple;
   final Visit? visit;
+  final Review? existing;
 
   @override
   State<_WriteReviewSheet> createState() => _WriteReviewSheetState();
 }
 
 class _WriteReviewSheetState extends State<_WriteReviewSheet> {
-  final Map<String, int> _ratings = {};
-  final _body = TextEditingController();
-  late DateTime _visitedOn = widget.visit?.visitedAt ?? _lastVisitDate() ?? DateTime.now();
-  int? _wait;
+  late final Map<String, int> _ratings = {...?widget.existing?.ratingValues};
+  late final _body = TextEditingController(text: widget.existing?.body);
+  late DateTime _visitedOn = widget.visit?.visitedAt ?? DateTime.tryParse(widget.existing?.visitedOn ?? '') ?? _lastVisitDate() ?? DateTime.now();
+  late int? _wait = widget.existing?.waitMinutes;
   bool _saving = false;
+
+  bool get _editing => widget.existing != null;
 
   DateTime? _lastVisitDate() {
     try {
@@ -359,15 +393,17 @@ class _WriteReviewSheetState extends State<_WriteReviewSheet> {
           children: [
             Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: theme.colorScheme.outlineVariant, borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 14),
-            Text(s('review_write'), style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'NotoSerif')),
+            Text(_editing ? s('review_edit') : s('review_write'), style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'NotoSerif')),
             Text(widget.temple.name, style: theme.textTheme.bodySmall),
             const SizedBox(height: 6),
-            Text(s('review_intro'), style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
+            Text(_editing ? s('review_edit_intro') : s('review_intro'), style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(s('review_visited'), style: theme.textTheme.labelLarge),
-                const SizedBox(width: 8),
                 ActionChip(
                   avatar: const Icon(Icons.calendar_month_rounded, size: 16),
                   label: Text(DateFormat('d MMM yyyy').format(_visitedOn)),
@@ -383,7 +419,8 @@ class _WriteReviewSheetState extends State<_WriteReviewSheet> {
               Row(
                 children: [
                   Expanded(child: Text(d.$2, style: theme.textTheme.labelLarge)),
-                  Text(_ratings[d.$1] == null ? s('review_skip') : (_ratings[d.$1]! <= 2 ? d.$3 : _ratings[d.$1]! >= 4 ? d.$4 : s('review_fair')), style: theme.textTheme.labelSmall?.copyWith(color: day.accent)),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(_ratings[d.$1] == null ? s('review_skip') : (_ratings[d.$1]! <= 2 ? d.$3 : _ratings[d.$1]! >= 4 ? d.$4 : s('review_fair')), textAlign: TextAlign.end, style: theme.textTheme.labelSmall?.copyWith(color: day.accent))),
                 ],
               ),
               const SizedBox(height: 4),
@@ -429,7 +466,7 @@ class _WriteReviewSheetState extends State<_WriteReviewSheet> {
               onPressed: _saving ? null : _submit,
               style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent(), minimumSize: const Size.fromHeight(48)),
               icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded),
-              label: Text(s('review_send')),
+              label: Text(_editing ? s('review_save_changes') : s('review_send')),
             ),
           ],
         ),
@@ -457,6 +494,36 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
     _load();
   }
 
+  TempleSummary _templeOf(Review r) => SampleData.bySlug(r.templeSlug!) ?? TempleSummary(slug: r.templeSlug!, name: r.templeName ?? r.templeSlug!, deity: r.templeDeitySlug == null ? null : DeityRef(slug: r.templeDeitySlug!, name: ''), location: const Location(), trust: const Trust(level: TrustLevel.unverified));
+
+  Future<void> _openTemple(Review r) async {
+    final t = _templeOf(r);
+    await enterTemple(context, TempleScreen(slug: t.slug, preview: t), accent: DayTheme.forDeity(r.templeDeitySlug).accent);
+    if (mounted) _load();
+  }
+
+  Future<void> _edit(Review r) async {
+    final saved = await writeReview(context, _templeOf(r), existing: r);
+    if (saved != null) _load();
+  }
+
+  Future<void> _delete(Review r) async {
+    final s = S.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(s('review_remove_title')),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(s('keep'))),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(s('remove'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _repo.remove(r.id!);
+    _load();
+  }
+
   Future<void> _load() async {
     try {
       final items = await _repo.myReviews();
@@ -481,19 +548,15 @@ class _MyReviewsScreenState extends State<MyReviewsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
                     children: [
-                      for (final r in items) ...[
-                        if (r.templeName != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(r.templeName!, style: Theme.of(context).textTheme.labelLarge)),
+                      for (final r in items)
                         ReviewCard(
                           review: r,
-                          day: DayTheme.today(),
-                          onDelete: r.id == null
-                              ? null
-                              : () async {
-                                  await _repo.remove(r.id!);
-                                  _load();
-                                },
+                          day: DayTheme.forDeity(r.templeDeitySlug),
+                          // The card opens the temple it is about.
+                          onTap: r.templeSlug == null ? null : () => _openTemple(r),
+                          onEdit: r.templeSlug == null ? null : () => _edit(r),
+                          onDelete: r.id == null ? null : () => _delete(r),
                         ),
-                      ],
                     ],
                   ),
                 ),
