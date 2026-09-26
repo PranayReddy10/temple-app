@@ -20,7 +20,8 @@ class SavedTemple {
   final String? photoUrl;
   final DateTime savedAt;
 
-  TempleSummary toSummary() => TempleSummary(
+  TempleSummary toSummary({int? id}) => TempleSummary(
+        id: id,
         slug: slug,
         name: name,
         deity: deitySlug == null ? null : DeityRef(slug: deitySlug!, name: deityName ?? deitySlug!),

@@ -112,6 +112,9 @@ class AuthController extends ChangeNotifier {
     api.token = null;
     await _prefs.remove('devotee_token');
     await _prefs.remove('devotee');
+    // The profile photo picked on this phone is shown before the account's
+    // own, so left behind it became the next account's photo.
+    await _prefs.remove('avatar_path');
     for (final hook in _signOutHooks) {
       try {
         await hook();

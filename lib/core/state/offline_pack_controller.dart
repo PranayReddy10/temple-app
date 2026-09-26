@@ -35,6 +35,18 @@ class OfflinePackController extends ChangeNotifier {
   final Map<String, List<String>> _packs = {};
   final Set<String> _downloading = {};
 
+  /// Forgets every pack, for signing out: packs belong to the last
+  /// person's trips, which sign-out removes, and were fetched with their
+  /// account, their reviews and follows included.
+  Future<void> clearAll() async {
+    _packs.clear();
+    _downloading.clear();
+    _repo.clearPersonal();
+    await _prefs.remove('offline_packs');
+    await _prefs.remove('offline_temples');
+    notifyListeners();
+  }
+
   bool hasPack(String yatraId) => _packs.containsKey(yatraId);
   bool isDownloading(String yatraId) => _downloading.contains(yatraId);
   int packedTemples(String yatraId) => (_packs[yatraId] ?? const []).where(_repo.packed.containsKey).length;

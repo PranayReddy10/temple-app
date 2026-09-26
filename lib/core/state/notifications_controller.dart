@@ -34,6 +34,15 @@ class NotificationsController extends ChangeNotifier {
     }
   }
 
+  /// Forgets what was read and listed, for signing out; the inbox is loaded
+  /// again for whoever is next.
+  Future<void> clearAll() async {
+    _localRead.clear();
+    items = const [];
+    await _prefs.remove('notices_read');
+    notifyListeners();
+  }
+
   bool isRead(AppNotice n) => n.isRead ?? _localRead.contains('${n.id}');
   int get unreadCount => items.where((n) => !isRead(n)).length;
 

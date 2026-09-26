@@ -120,9 +120,16 @@ class _TempleScreenState extends State<TempleScreen> {
     }
   }
 
-  Future<void> _loadMedia(TempleSummary t) async {
-    final r = await context.read<TempleRepository>().templeMedia(t);
+  Future<void> _loadMedia(TempleSummary t, {bool fresh = false}) async {
+    final r = await context.read<TempleRepository>().templeMedia(t, fresh: fresh);
     if (mounted) setState(() => _media = r);
+  }
+
+  /// Pull-to-refresh: the page itself (not the short-lived copy), and the
+  /// songs and videos when they were loaded separately.
+  Future<void> _refresh() async {
+    await _load(fresh: true);
+    if (mounted) await _loadMedia(_summary, fresh: true);
   }
 
   TempleSummary get _summary => _detail?.data.summary ?? widget.preview!;
@@ -167,7 +174,10 @@ class _TempleScreenState extends State<TempleScreen> {
         onYatra: () => _addToYatra(t),
         onMark: () => _checkIn(t),
       ),
-      body: CustomScrollView(
+      // Pull down to fetch the page again: reviews, likes, timings, media.
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: CustomScrollView(
         slivers: [
           _Hero(
             temple: t,
@@ -651,6 +661,7 @@ class _TempleScreenState extends State<TempleScreen> {
             ),
           ],
         ],
+        ),
       ),
     );
   }

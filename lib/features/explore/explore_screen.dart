@@ -39,9 +39,9 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool fresh = false}) async {
     final repo = context.read<TempleRepository>();
-    final r = await Future.wait([repo.categories(), repo.deities(), repo.states(), repo.temples(const TempleQuery(perPage: 50))]);
+    final r = await Future.wait([repo.categories(fresh: fresh), repo.deities(fresh: fresh), repo.states(fresh: fresh), repo.temples(const TempleQuery(perPage: 50))]);
     if (!mounted) return;
     setState(() {
       _categories = r[0] as Result<List<CategoryRef>>;
@@ -60,7 +60,7 @@ class _ExploreScreenState extends State<ExploreScreen> with AutomaticKeepAliveCl
     final theme = Theme.of(context);
     final top = MediaQuery.paddingOf(context).top;
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () => _load(fresh: true),
       child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
