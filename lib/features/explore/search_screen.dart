@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/state/location_controller.dart';
+import '../add_temple/add_temple_screen.dart';
 import '../../core/ads/ads.dart';
 import '../../core/api/temple_repository.dart';
 import '../../core/l10n/strings.dart';
@@ -200,7 +201,17 @@ class _SearchScreenState extends State<SearchScreen> {
                 : _error != null
                     ? EmptyShrine(motif: Motif.diya, message: _error!, action: OutlinedButton(onPressed: _run, child: const Text('Try again')))
                     : _items.isEmpty
-                        ? EmptyShrine(motif: Motif.lotus, message: s('no_results'))
+                        ? EmptyShrine(
+                            motif: Motif.lotus,
+                            message: s('no_results'),
+                            // Not every temple is listed yet; the people who
+                            // know one can add it.
+                            action: FilledButton.icon(
+                              onPressed: () => AddTempleScreen.open(context, name: _query.q),
+                              icon: const Icon(Icons.add_location_alt_rounded),
+                              label: const Text('Not listed? Add this temple'),
+                            ),
+                          )
                         : NotificationListener<ScrollNotification>(
                             onNotification: (n) {
                               if (n.metrics.pixels > n.metrics.maxScrollExtent - 300) _more();

@@ -258,7 +258,11 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
           onStepCancel: _step == 0 ? null : () => setState(() => _step--),
           controlsBuilder: (context, details) => Padding(
             padding: const EdgeInsets.only(top: 16),
-            child: Row(
+            // Wraps rather than overflowing on a narrow phone or large text.
+            child: Wrap(
+              spacing: 0,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 FilledButton(
                   onPressed: details.onStepContinue,

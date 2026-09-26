@@ -33,6 +33,7 @@ import '../certificates/certificates_screen.dart';
 import '../diagnostics/diagnostics_screen.dart';
 import '../family/family_screen.dart';
 import '../qr/qr_screens.dart';
+import '../add_temple/add_temple_screen.dart';
 import '../seva/seva_screen.dart';
 import '../submissions/submissions_screen.dart';
 import '../temple/temple_screen.dart';
@@ -171,6 +172,7 @@ class ProfileScreen extends StatelessWidget {
                 subtitle: '${context.watch<NotificationsController>().unreadCount} unread',
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
               ),
+              _ToolTile(icon: Icons.add_location_alt_rounded, title: 'Temples I added', subtitle: 'Add a temple that is not listed, and follow the ones you sent', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyAddedTemplesScreen()))),
               _ToolTile(icon: Icons.volunteer_activism_rounded, title: 'Seva drives', subtitle: 'Clean-ups of old temples and heritage places you raised or joined', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SevaScreen()))),
               _ToolTile(icon: Icons.group_rounded, title: s('family_passport'), subtitle: 'Stamps for everyone who travels with you', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen()))),
               _ToolTile(icon: Icons.workspace_premium_rounded, title: s('certificates'), subtitle: 'Completed circuits and yatras', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CertificatesScreen()))),

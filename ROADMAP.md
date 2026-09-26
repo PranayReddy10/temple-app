@@ -262,6 +262,15 @@ temples would produce a leaderboard of places of worship. Rating the *visit*
 — queue length, accessibility, facilities, how accurate our listing turned
 out to be — says something useful without ranking the sacred.
 
+### Phase 6 — The temple's own app  ⬜ **Next**
+
+| Slice | Scope | Status |
+| --- | --- | --- |
+| **Add a temple** | "Not listed? Add this temple" from search, Profile → Temples I added, and Help & support: a five-step form (name with a check against listed temples, PIN-code address and map pin, deity and history, timings and contact, photos and who you are). Temple members leave a number; the team reviews every one | ✅ |
+| **Temple member app** | A separate app for trustees, priests and temple offices to claim and manage their temple: timings, closures, pujas, events, photos | ⬜ |
+| **Puja & seva booking** | Book and pay for pujas and sevas in the app, confirmed by the temple | ⬜ |
+| **Stay & travel** | Hotels, dharmashalas and transport near each temple | ⬜ |
+
 ### Later phases
 
 Community submissions and moderation · GPS and QR visit verification ·
