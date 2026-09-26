@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -43,13 +42,7 @@ class AudioQueue {
   AudioQueue at(int i) => AudioQueue(items: items, index: i.clamp(0, items.isEmpty ? 0 : items.length - 1));
 }
 
-/// Plays the queue, in the app and out of it.
-///
-/// Like a music app: the song keeps playing when the phone is locked or
-/// another app is in front, the lock screen and the notification carry the
-/// title, the art and play / pause / next / previous, and when a song ends
-/// the next one starts. The device's media buttons and a car's controls
-/// reach it through the same handler.
+/// Plays the queue in the app: when a song ends the next one starts.
 ///
 /// The player is created on first use, so screens that merely show the
 /// mini bar cost nothing until somebody presses play.
@@ -66,8 +59,6 @@ class AudioQueueController extends ChangeNotifier {
   bool _loading = false;
   Duration _position = Duration.zero;
   Duration? _duration;
-  _TempleAudioHandler? _handler;
-  bool _serviceTried = false;
 
   AudioQueue get queue => _queue;
   DevotionalMedia? get current => _queue.current;
@@ -85,7 +76,6 @@ class AudioQueueController extends ChangeNotifier {
     _queue = q;
     notifyListeners();
     await _mantra?.stop();
-    await _ensureService();
     await _loadCurrent(play: true);
   }
 
@@ -134,7 +124,6 @@ class AudioQueueController extends ChangeNotifier {
     _playing = false;
     _position = Duration.zero;
     _duration = null;
-    _handler?.sync();
     notifyListeners();
   }
 
@@ -150,7 +139,6 @@ class AudioQueueController extends ChangeNotifier {
         unawaited(next());
         return;
       }
-      _handler?.sync();
       notifyListeners();
     }));
     _subs.add(p.positionStream.listen((d) {
@@ -159,7 +147,6 @@ class AudioQueueController extends ChangeNotifier {
     }));
     _subs.add(p.durationStream.listen((d) {
       _duration = d;
-      _handler?.sync();
       notifyListeners();
     }));
     p.setVolume(_mantra?.muted == true ? 0 : 1);
@@ -173,34 +160,12 @@ class AudioQueueController extends ChangeNotifier {
     try {
       _loading = true;
       notifyListeners();
-      await p.setAudioSource(AudioSource.uri(Uri.parse(m!.url!), tag: _handler?.itemFor(m)));
-      _handler?.sync();
+      await p.setAudioSource(AudioSource.uri(Uri.parse(m!.url!)));
       if (play) await p.play();
     } catch (_) {
       _loading = false;
       _playing = false;
       notifyListeners();
-    }
-  }
-
-  /// Registers with the system's media session once, so the lock screen and
-  /// the notification show and control what is playing. Skipped on the web
-  /// and wherever it cannot start; playback itself does not depend on it.
-  Future<void> _ensureService() async {
-    if (_serviceTried || kIsWeb) return;
-    _serviceTried = true;
-    try {
-      _handler = await AudioService.init(
-        builder: () => _TempleAudioHandler(this),
-        config: const AudioServiceConfig(
-          androidNotificationChannelId: 'app.templepassport.audio',
-          androidNotificationChannelName: 'Bhajans and chants',
-          androidNotificationOngoing: true,
-          androidStopForegroundOnPause: true,
-        ),
-      );
-    } catch (e) {
-      debugPrint('Media session unavailable: $e');
     }
   }
 
@@ -221,70 +186,4 @@ class AudioQueueController extends ChangeNotifier {
     _player?.dispose();
     super.dispose();
   }
-}
-
-/// What the lock screen, the notification and the car see, and what their
-/// buttons do. Everything delegates to the controller; this only mirrors it.
-class _TempleAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
-  _TempleAudioHandler(this._ctl) {
-    _ctl.addListener(sync);
-    sync();
-  }
-
-  final AudioQueueController _ctl;
-
-  MediaItem itemFor(DevotionalMedia m) => MediaItem(
-        id: m.url ?? m.title,
-        title: m.title,
-        artist: m.artist,
-        album: m.type == 'chant' ? 'Chants' : 'Bhajans',
-        artUri: m.posterUrl == null ? null : Uri.tryParse(m.posterUrl!),
-        duration: _ctl.isCurrent(m) ? _ctl.duration : null,
-      );
-
-  void sync() {
-    final q = _ctl.queue;
-    queue.add(q.items.map(itemFor).toList());
-    final c = _ctl.current;
-    mediaItem.add(c == null ? null : itemFor(c));
-    playbackState.add(playbackState.value.copyWith(
-      controls: [
-        if (q.hasPrevious) MediaControl.skipToPrevious,
-        _ctl.isPlaying ? MediaControl.pause : MediaControl.play,
-        MediaControl.stop,
-        if (q.hasNext) MediaControl.skipToNext,
-      ],
-      systemActions: const {MediaAction.seek, MediaAction.seekForward, MediaAction.seekBackward},
-      androidCompactActionIndices: const [0, 1, 3],
-      processingState: q.isEmpty
-          ? AudioProcessingState.idle
-          : _ctl.isLoading
-              ? AudioProcessingState.buffering
-              : AudioProcessingState.ready,
-      playing: _ctl.isPlaying,
-      updatePosition: _ctl.position,
-      queueIndex: q.index,
-    ));
-  }
-
-  @override
-  Future<void> play() => _ctl.play();
-
-  @override
-  Future<void> pause() => _ctl.pause();
-
-  @override
-  Future<void> stop() => _ctl.stop();
-
-  @override
-  Future<void> seek(Duration position) => _ctl.seek(position);
-
-  @override
-  Future<void> skipToNext() => _ctl.next();
-
-  @override
-  Future<void> skipToPrevious() => _ctl.previous();
-
-  @override
-  Future<void> skipToQueueItem(int index) => _ctl.skipTo(index);
 }
