@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:temple_app/core/ads/ads.dart';
 import 'package:temple_app/core/api/api_client.dart';
+import 'package:temple_app/core/audio/audio_queue.dart';
 import 'package:temple_app/core/services/push_service.dart';
 import 'package:temple_app/core/state/app_config_controller.dart';
 import 'package:temple_app/core/state/notifications_controller.dart';
@@ -17,6 +18,7 @@ import 'package:temple_app/core/state/app_settings.dart';
 import 'package:temple_app/core/state/auth_controller.dart';
 import 'package:temple_app/core/state/bookings_controller.dart';
 import 'package:temple_app/core/state/day_controller.dart';
+import 'package:temple_app/core/state/engagement_controller.dart';
 import 'package:temple_app/core/state/family_controller.dart';
 import 'package:temple_app/core/state/favourites_controller.dart';
 import 'package:temple_app/core/state/mantra_player.dart';
@@ -66,6 +68,8 @@ Future<Widget> harness(Widget child, {Map<String, Object> prefs = const {}, Loca
       ChangeNotifierProvider.value(value: sync),
       ChangeNotifierProvider(create: (_) => FamilyController(store)),
       ChangeNotifierProvider(create: (_) => MantraPlayer(store)),
+      ChangeNotifierProvider(create: (_) => EngagementController(store, auth, api: api)),
+      ChangeNotifierProvider(create: (_) => AudioQueueController()),
       ChangeNotifierProvider(create: (_) => RemindersController(store)),
       ChangeNotifierProvider(create: (_) => OfflinePackController(store, repo)),
       ChangeNotifierProvider(create: (_) => BookingsController(store)),

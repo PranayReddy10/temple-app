@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -8,8 +10,12 @@ import '../motifs/architecture.dart';
 import '../motifs/motif.dart';
 import '../state/mantra_player.dart';
 import '../theme/day_theme.dart';
+import 'package:provider/provider.dart';
+
 import '../../features/media/in_app_browser.dart';
 import '../../features/media/media_player_screen.dart';
+import '../../features/media/now_playing_screen.dart';
+import '../audio/audio_queue.dart';
 import '../theme/palette.dart';
 import 'app_image.dart';
 
@@ -26,8 +32,20 @@ IconData mediaIcon(String? type) => switch (type) {
 
 /// Plays inside the app. On the web build, where the in-app web view is not
 /// available, a non-YouTube link opens in a new tab instead.
-Future<void> openMedia(BuildContext context, DevotionalMedia m, {DayTheme? day}) async {
+///
+/// A recording plays in the app's own player, which keeps going when the
+/// screen locks; [queue] (the list it was tapped in) lines up what comes
+/// after, so a song is followed by the next one rather than silence.
+Future<void> openMedia(BuildContext context, DevotionalMedia m, {DayTheme? day, List<DevotionalMedia>? queue}) async {
   if (m.url == null) return;
+  if (AudioQueue.isPlayable(m)) {
+    final ctl = context.read<AudioQueueController?>();
+    if (ctl != null) {
+      unawaited(ctl.playQueue(queue ?? [m], start: m));
+      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => NowPlayingScreen(day: day ?? DayTheme.today())));
+      return;
+    }
+  }
   // Everything plays inside the app: a video in the embedded player, audio
   // in the app's own player, and a search or any other page in the in-app
   // browser. Only the web build, which has no web view, opens a new tab.
@@ -46,10 +64,13 @@ Future<void> openMedia(BuildContext context, DevotionalMedia m, {DayTheme? day})
 
 /// A list row for a song, chant or video, with its rights line.
 class MediaTile extends StatelessWidget {
-  const MediaTile({super.key, required this.media, required this.day});
+  const MediaTile({super.key, required this.media, required this.day, this.queue});
 
   final DevotionalMedia media;
   final DayTheme day;
+
+  /// The list this row sits in; what plays after it.
+  final List<DevotionalMedia>? queue;
 
   @override
   Widget build(BuildContext context) {
@@ -66,8 +87,12 @@ class MediaTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall,
         ),
-        trailing: const Icon(Icons.play_circle_outline_rounded, size: 20),
-        onTap: media.url == null ? null : () => openMedia(context, media, day: day),
+        trailing: Builder(builder: (context) {
+          final ctl = context.watch<AudioQueueController?>();
+          final playingThis = ctl != null && ctl.isCurrent(media) && ctl.isPlaying;
+          return Icon(playingThis ? Icons.graphic_eq_rounded : Icons.play_circle_outline_rounded, size: 20, color: playingThis ? day.accent : null);
+        }),
+        onTap: media.url == null ? null : () => openMedia(context, media, day: day, queue: queue),
       ),
     );
   }
@@ -196,10 +221,11 @@ class MediaSections extends StatelessWidget {
                   Icon(mediaIcon(g.value.first.type), size: 18, color: day.accent),
                   const SizedBox(width: 8),
                   Expanded(child: Text(g.key, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif'))),
+                  if (context.read<AudioQueueController?>() != null) PlayAllButton(media: g.value, day: day),
                 ],
               ),
             ),
-            for (final m in g.value) MediaTile(media: m, day: day),
+            for (final m in g.value) MediaTile(media: m, day: day, queue: g.value),
           ],
           const SizedBox(height: 8),
           Text(s('media_note'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),

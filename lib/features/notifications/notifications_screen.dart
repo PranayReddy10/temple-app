@@ -6,6 +6,7 @@ import '../../core/motifs/motif.dart';
 import '../../core/state/notifications_controller.dart';
 import '../../core/widgets/app_image.dart';
 import '../../core/widgets/temple_widgets.dart';
+import 'follows_screen.dart';
 import 'notice_links.dart';
 
 /// The notification inbox: festival reminders, new temples, app news.
@@ -33,6 +34,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         title: Text(s('notifications')),
         actions: [
           if (inbox.unreadCount > 0) TextButton(onPressed: inbox.markAllRead, child: Text(s('mark_all_read'))),
+          IconButton(tooltip: s('followed_temples'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowsScreen())), icon: const Icon(Icons.tune_rounded)),
         ],
       ),
       body: RefreshIndicator(

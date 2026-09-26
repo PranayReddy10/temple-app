@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:temple_app/core/ads/ads.dart';
 import 'package:temple_app/core/api/api_client.dart';
+import 'package:temple_app/core/audio/audio_queue.dart';
 import 'package:temple_app/core/api/booking_repository.dart';
 import 'package:temple_app/core/api/seva_repository.dart';
 import 'package:temple_app/core/api/temple_repository.dart';
@@ -19,6 +20,7 @@ import 'package:temple_app/core/state/app_settings.dart';
 import 'package:temple_app/core/state/auth_controller.dart';
 import 'package:temple_app/core/state/bookings_controller.dart';
 import 'package:temple_app/core/state/day_controller.dart';
+import 'package:temple_app/core/state/engagement_controller.dart';
 import 'package:temple_app/core/state/family_controller.dart';
 import 'package:temple_app/core/state/favourites_controller.dart';
 import 'package:temple_app/core/state/location_controller.dart';
@@ -132,6 +134,8 @@ Future<Widget> templeHarness(http.Client client, {bool signedIn = true}) async {
       ChangeNotifierProvider.value(value: sync),
       ChangeNotifierProvider(create: (_) => FamilyController(store)),
       ChangeNotifierProvider(create: (_) => MantraPlayer(store)),
+      ChangeNotifierProvider(create: (_) => EngagementController(store, auth, api: api)),
+      ChangeNotifierProvider(create: (_) => AudioQueueController()),
       ChangeNotifierProvider(create: (_) => RemindersController(store)),
       ChangeNotifierProvider(create: (_) => LocationController(store)),
       ChangeNotifierProvider(create: (_) => OfflinePackController(store, repo)),

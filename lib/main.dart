@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'core/api/api_client.dart';
 import 'core/api/temple_repository.dart';
+import 'core/audio/audio_queue.dart';
 import 'core/ads/ads.dart';
 import 'core/brand.dart';
 import 'core/platform.dart';
@@ -15,6 +16,7 @@ import 'core/state/app_settings.dart';
 import 'core/state/auth_controller.dart';
 import 'core/state/bookings_controller.dart';
 import 'core/state/day_controller.dart';
+import 'core/state/engagement_controller.dart';
 import 'core/state/family_controller.dart';
 import 'core/state/favourites_controller.dart';
 import 'core/state/mantra_player.dart';
@@ -49,22 +51,26 @@ Future<void> main() async {
   final favourites = FavouritesController(prefs, auth);
   final family = FamilyController(prefs);
   final bookings = BookingsController(prefs, api: api, auth: auth);
+  final engagement = EngagementController(prefs, auth, api: api);
   final reminders = RemindersController(prefs);
   final location = LocationController(prefs)..refreshIfAllowed();
   final sync = SyncService(prefs: prefs, api: api, auth: auth, settings: settings, passport: passport, yatras: yatras, memories: memories, submissions: submissions);
   // Signing out leaves nothing of the account on the device. The outbox
   // goes first, so nothing of the old account is sent while the rest clears.
-  for (final clear in [sync.clearAll, passport.clearAll, memories.clearAll, yatras.clearAll, favourites.clearAll, family.clearAll, bookings.clearAll, submissions.clearAll, reminders.clearAll, PhotoStore.wipe]) {
+  for (final clear in [sync.clearAll, passport.clearAll, memories.clearAll, yatras.clearAll, favourites.clearAll, family.clearAll, bookings.clearAll, engagement.clearAll, submissions.clearAll, reminders.clearAll, PhotoStore.wipe]) {
     auth.onSignOut(clear);
   }
   final appConfig = AppConfigController(prefs, api);
   final inbox = NotificationsController(prefs, api, auth);
   final push = PushService(prefs: prefs, api: api, auth: auth, config: appConfig, inbox: inbox);
+  // Following a temple is what subscribes to its push topic; saving is a bookmark.
+  engagement.onFollowChanged = push.followTemple;
   final ads = AdsController(appConfig, auth);
   final subscriptions = SubscriptionController(api, auth);
   // Anything recorded offline goes out now; the account comes in.
   sync.sync();
   bookings.refresh();
+  engagement.refresh();
   // Maintenance, updates, ads and push: from the admin panel, in the
   // background — the last answer is already loaded, so nothing waits.
   appConfig.load().then((_) => push.start());
@@ -77,6 +83,7 @@ Future<void> main() async {
     signedIn = auth.isSignedIn;
     appConfig.load().then((_) => push.start());
     bookings.refresh();
+    engagement.refresh();
   });
 
   runApp(
@@ -94,10 +101,14 @@ Future<void> main() async {
         ChangeNotifierProvider<SyncService>.value(value: sync),
         ChangeNotifierProvider<FamilyController>.value(value: family),
         ChangeNotifierProvider(create: (_) => MantraPlayer(prefs)),
+        // Songs and chants: one queue for the whole app, alive while the
+        // screen is locked, with the lock screen's controls.
+        ChangeNotifierProvider(create: (context) => AudioQueueController(mantra: context.read<MantraPlayer>())),
         ChangeNotifierProvider<RemindersController>.value(value: reminders),
         ChangeNotifierProvider<LocationController>.value(value: location),
         ChangeNotifierProvider(create: (_) => OfflinePackController(prefs, repo)),
         ChangeNotifierProvider<BookingsController>.value(value: bookings),
+        ChangeNotifierProvider<EngagementController>.value(value: engagement),
         ChangeNotifierProvider<SubmissionsController>.value(value: submissions),
         ChangeNotifierProvider<AppConfigController>.value(value: appConfig),
         ChangeNotifierProvider<NotificationsController>.value(value: inbox),

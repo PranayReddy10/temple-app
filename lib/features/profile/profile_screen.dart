@@ -16,6 +16,7 @@ import '../../core/motifs/motif.dart';
 import '../../core/state/app_settings.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/bookings_controller.dart';
+import '../../core/state/engagement_controller.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/state/offline_pack_controller.dart';
 import '../../core/state/submissions_controller.dart';
@@ -29,6 +30,8 @@ import '../../core/widgets/app_image.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../auth/auth_screen.dart';
 import '../bookings/bookings_screen.dart';
+import '../notifications/follows_screen.dart';
+import '../reviews/reviews_screen.dart';
 import '../certificates/certificates_screen.dart';
 import '../diagnostics/diagnostics_screen.dart';
 import '../family/family_screen.dart';
@@ -172,6 +175,8 @@ class ProfileScreen extends StatelessWidget {
                 subtitle: '${context.watch<NotificationsController>().unreadCount} unread',
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsScreen())),
               ),
+              _ToolTile(icon: Icons.notifications_active_outlined, title: s('followed_temples'), subtitle: '${context.watch<EngagementController>().follows.length} followed · festival and event reminders, per temple', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowsScreen()))),
+              _ToolTile(icon: Icons.rate_review_outlined, title: s('my_reviews'), subtitle: 'What you wrote about your visits, and whether it is published', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyReviewsScreen()))),
               _ToolTile(icon: Icons.add_location_alt_rounded, title: 'Temples I added', subtitle: 'Add a temple that is not listed, and follow the ones you sent', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyAddedTemplesScreen()))),
               _ToolTile(icon: Icons.volunteer_activism_rounded, title: 'Seva drives', subtitle: 'Clean-ups of old temples and heritage places you raised or joined', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SevaScreen()))),
               _ToolTile(icon: Icons.group_rounded, title: s('family_passport'), subtitle: 'Stamps for everyone who travels with you', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen()))),
