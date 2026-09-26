@@ -303,7 +303,7 @@ class ProfileScreen extends StatelessWidget {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Temple sounds'),
-                subtitle: const Text('The bell as the app opens, Om as a temple\'s doors open, and page turns in the passport. Silent when the app is muted.'),
+                subtitle: const Text('The bell as the app opens, and page turns in the passport. Silent when the app is muted.'),
                 value: settings.templeSounds,
                 onChanged: settings.setTempleSounds,
               ),
