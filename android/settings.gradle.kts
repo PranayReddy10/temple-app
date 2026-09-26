@@ -19,8 +19,12 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.9.1" apply false
-    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    // Flutter 3.47 requires AGP 8.11.1+, Kotlin 2.2.20+ and Gradle 8.14+, and
+    // stops with a misleading "AGP 9 / new DSL" message when they are older.
+    // AGP stays on 8.x: AGP 9 needs the new DSL, which the payment and ad
+    // plugins do not support yet.
+    id("com.android.application") version "8.13.1" apply false
+    id("org.jetbrains.kotlin.android") version "2.3.20" apply false
 }
 
 include(":app")
