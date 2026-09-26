@@ -1574,6 +1574,7 @@ class AppConfig {
     this.googleServerClientId,
     this.googleIosClientId,
     this.appleSignIn = false,
+    this.passwordReset = false,
     this.pushEnabled = false,
     this.firebase,
     this.ads = AdsConfig.off,
@@ -1601,6 +1602,9 @@ class AppConfig {
   final String? googleServerClientId;
   final String? googleIosClientId;
   final bool appleSignIn;
+
+  /// "Forgot password?" is offered: switched on and email set up server-side.
+  final bool passwordReset;
   final bool pushEnabled;
 
   /// Public Firebase ids for this platform, so no google-services file has
@@ -1638,6 +1642,7 @@ class AppConfig {
       googleServerClientId: _s(_m(a['google'])['server_client_id']),
       googleIosClientId: _s(_m(a['google'])['ios_client_id']),
       appleSignIn: _b(_m(a['apple'])['enabled']),
+      passwordReset: _b(a['password_reset']),
       pushEnabled: _b(p['enabled']),
       firebase: fb.isEmpty ? null : {for (final e in fb.entries) if (e.value != null) e.key: '${e.value}'},
       ads: j['ads'] is Map ? AdsConfig.fromJson(_m(j['ads'])) : AdsConfig.off,
