@@ -2,6 +2,9 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // PhonePe publishes its Android SDK (IntentSDK) only here, not on
+        // Maven Central; phonepe_payment_sdk needs it to build.
+        maven { url = uri("https://phonepe.mycloudrepo.io/public/repositories/phonepe-intentsdk-android") }
     }
 }
 
