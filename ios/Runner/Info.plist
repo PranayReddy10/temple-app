@@ -68,6 +68,16 @@
 				<string>com.googleusercontent.apps.REPLACE-WITH-IOS-CLIENT-ID</string>
 			</array>
 		</dict>
+		<dict>
+			<!-- The app's own scheme: PhonePe returns here after payment
+			     (NativeCheckout passes it as the SDK's appSchema). -->
+			<key>CFBundleURLName</key>
+			<string>app.templepassport</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>templepassport</string>
+			</array>
+		</dict>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
