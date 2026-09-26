@@ -55,6 +55,8 @@ void main() {
   final runs = <(Size, double, String)>[
     for (final size in const [Size(320, 640), Size(360, 740)])
       for (final scale in const [1.0, 1.3]) (size, scale, 'en'),
+    // The accessibility ceiling most phones offer, on the smallest screen.
+    (const Size(320, 640), 1.5, 'en'),
     for (final lang in const ['te', 'hi', 'ta', 'kn']) (const Size(360, 740), 1.15, lang),
   ];
   for (final (size, scale, lang) in runs) {

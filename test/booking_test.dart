@@ -92,7 +92,9 @@ Map<String, dynamic> templeJson() => {
           'app_booking': {'enabled': true, 'requires_payment': false, 'fee_per_person': true, 'amount_paise': 0, 'max_people': 4, 'advance_days': 7, 'instructions': 'Report at the seva counter.'},
         },
         {
-          'id': 6, 'kind': 'seva', 'name': 'Abhishekam',
+          'id': 6, 'kind': 'seva', 'name': 'Sahasranama Archana with Kalyanotsavam',
+          'eligibility': 'Married couples only; bring gotram, nakshatram and a coconut. Register the day before.',
+          'schedule_note': 'Fridays and on Pournami, after the morning aarti',
           'fee': {'is_free': false, 'amount': 1500, 'label': '₹1,500.00'},
           'booking': {'url': 'https://temple.example/seva', 'is_official': true, 'label': 'Official booking'},
           'app_booking': {'enabled': false},
@@ -386,7 +388,7 @@ void main() {
       await tester.pump();
     }
     expect(find.text('Archana'), findsOneWidget);
-    expect(find.text('Abhishekam'), findsOneWidget);
+    expect(find.text('Sahasranama Archana with Kalyanotsavam'), findsOneWidget);
     // One button, on the one seva the temple opened; the other keeps its official link.
     expect(find.textContaining('Book in the app'), findsWidgets);
     expect(find.text('Book'), findsOneWidget, reason: 'the official link on the seva that is information only');

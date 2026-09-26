@@ -1311,7 +1311,7 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(999)),
-        child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+        child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
       );
 }
 
@@ -1426,23 +1426,16 @@ class _PujaCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // The name and the fee share a line when they fit, and the
+                // fee drops under the name when they do not: a Wrap, not a
+                // Row, so no length of either can run off the card.
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  runSpacing: 6,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(puja.name, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
-                          if (inApp && puja.imageUrl == null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Row(children: [const Icon(Icons.phone_iphone_rounded, size: 13, color: Palette.tulsi), const SizedBox(width: 4), Flexible(child: Text(s('bookable_in_app'), style: theme.textTheme.labelSmall?.copyWith(color: Palette.tulsi, fontWeight: FontWeight.w800)))]),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
+                    Text(puja.name, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(color: (puja.fee.isFree ? Palette.tulsi : accent).withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
@@ -1453,6 +1446,11 @@ class _PujaCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (inApp && puja.imageUrl == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(children: [const Icon(Icons.phone_iphone_rounded, size: 13, color: Palette.tulsi), const SizedBox(width: 4), Flexible(child: Text(s('bookable_in_app'), style: theme.textTheme.labelSmall?.copyWith(color: Palette.tulsi, fontWeight: FontWeight.w800)))]),
+                  ),
                 if (puja.description != null) ...[const SizedBox(height: 6), Text(puja.description!, style: theme.textTheme.bodySmall?.copyWith(height: 1.4))],
                 const SizedBox(height: 8),
                 Wrap(
@@ -1627,6 +1625,12 @@ class _Meta extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
-        children: [Icon(icon, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)), const SizedBox(width: 4), Text(text, style: Theme.of(context).textTheme.bodySmall)],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: const EdgeInsets.only(top: 2), child: Icon(icon, size: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+          const SizedBox(width: 4),
+          // Flexible: an eligibility note is a sentence, not a word.
+          Flexible(child: Text(text, style: Theme.of(context).textTheme.bodySmall)),
+        ],
       );
 }

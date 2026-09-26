@@ -251,13 +251,14 @@ class TempleCard extends StatelessWidget {
                     style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                   ),
                   const SizedBox(height: 6),
-                  Row(
+                  // Wraps: a long trust label in Telugu beside the distance
+                  // does not fit one line of a 280-wide card at large text.
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
                     children: [
                       TrustBadge(trust: temple.trust, compact: true),
-                      if (temple.distanceKm != null) ...[
-                        const SizedBox(width: 6),
-                        _Pill(text: '${temple.distanceKm!.toStringAsFixed(temple.distanceKm! < 10 ? 1 : 0)} km', color: day.accent),
-                      ],
+                      if (temple.distanceKm != null) _Pill(text: '${temple.distanceKm!.toStringAsFixed(temple.distanceKm! < 10 ? 1 : 0)} km', color: day.accent),
                     ],
                   ),
                 ],
