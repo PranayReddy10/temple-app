@@ -10,6 +10,8 @@ void main() {
   final settings = File('android/settings.gradle.kts').readAsStringSync();
   final wrapper = File('android/gradle/wrapper/gradle-wrapper.properties').readAsStringSync();
   final app = File('android/app/build.gradle.kts').readAsStringSync();
+  final root = File('android/build.gradle.kts').readAsStringSync();
+  final pubspec = File('pubspec.yaml').readAsStringSync();
 
   List<int> version(String v) => v.split('.').map(int.parse).toList();
   bool atLeast(String v, String min) {
@@ -42,5 +44,11 @@ void main() {
   test('the app uses Java 17 and compilerOptions, not kotlinOptions', () {
     expect(app.contains('VERSION_17'), isTrue);
     expect(RegExp(r'^\s*kotlinOptions\s*\{', multiLine: true).hasMatch(app), isFalse, reason: 'an error from Kotlin 2.2');
+  });
+
+  test('plugins that compile against an old Android API are raised to 36', () {
+    // applovin_max and phonepe_payment_sdk hardcode compileSdkVersion 31.
+    if (!pubspec.contains('applovin_max:') && !pubspec.contains('phonepe_payment_sdk:')) return;
+    expect(root.contains('"compileSdkVersion"(36)'), isTrue);
   });
 }
