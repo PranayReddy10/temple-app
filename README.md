@@ -35,6 +35,7 @@ working version:
 | Festival calendar with reminders and calendar export | `features/calendar/` |
 | Offline trip packs, route optimisation and automatic day splitting | `core/state/offline_pack_controller.dart`, `core/state/yatra_controller.dart` |
 | Community submissions, seva booking notes, stay & travel links | `features/submissions/`, `features/bookings/` |
+| Seva drives: raise a clean-up of an old temple or heritage place with before photos and video, join one, add after photos, donate by UPI once verified | `features/seva/` |
 | Temple guide grounded in the app's records | `features/guide/` |
 | Account sync: visits, photos, memories, trips and reports through an outbox that survives being offline | `core/state/sync_service.dart` |
 

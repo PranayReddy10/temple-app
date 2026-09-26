@@ -1,0 +1,82 @@
+import '../models/models.dart';
+import '../models/seva.dart';
+import 'api_client.dart';
+
+/// Photographs and a video picked on the device, ready to upload.
+class SevaUpload {
+  const SevaUpload({this.photos = const [], this.videoPath, this.videoUrl, this.caption});
+
+  final List<String> photos;
+  final String? videoPath;
+  final String? videoUrl;
+  final String? caption;
+
+  bool get isEmpty => photos.isEmpty && videoPath == null && (videoUrl == null || videoUrl!.isEmpty);
+
+  Map<String, String> get files => {
+        for (var i = 0; i < photos.length; i++) 'photos[$i]': photos[i],
+        if (videoPath != null) 'video': videoPath!,
+      };
+
+  Map<String, String> get fields => {
+        if (videoUrl != null && videoUrl!.isNotEmpty) 'video_url': videoUrl!,
+        if (caption != null && caption!.isNotEmpty) 'caption': caption!,
+      };
+}
+
+/// Seva drives over `/api/v1/seva-drives` and `/api/v1/me/seva-drives`.
+///
+/// Online only, unlike the passport: joining a drive or asking for money is
+/// something the organiser and the other volunteers need to see now, and a
+/// queued sign-up that arrives after the day helps nobody.
+class SevaRepository {
+  SevaRepository(this._api);
+
+  final ApiClient _api;
+
+  List<SevaDrive> _list(Map<String, dynamic> body) => (body['data'] as List? ?? const []).map((e) => SevaDrive.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+
+  SevaDrive _one(Map<String, dynamic> body) => SevaDrive.fromJson(Map<String, dynamic>.from(body['data'] as Map));
+
+  /// [when] is 'upcoming' (can still be joined) or 'done' (finished work).
+  Future<Paged<SevaDrive>> list({String when = 'upcoming', String? cause, String? q, String? temple, int page = 1}) async {
+    final body = await _api.get('seva-drives', {'when': when, 'cause': cause, 'q': q, 'temple': temple, 'page': '$page'});
+    final meta = Map<String, dynamic>.from(body['meta'] as Map? ?? const {});
+    return Paged(
+      items: _list(body),
+      currentPage: (meta['current_page'] as num?)?.toInt() ?? page,
+      lastPage: (meta['last_page'] as num?)?.toInt() ?? page,
+      total: (meta['total'] as num?)?.toInt(),
+    );
+  }
+
+  /// Drives I organised, or ([joined]) the ones I am going to.
+  Future<List<SevaDrive>> mine({bool joined = false}) async => _list(await _api.get('me/seva-drives', {'scope': joined ? 'joined' : null}));
+
+  Future<SevaDrive> show(int id) async => _one(await _api.get('seva-drives/$id'));
+
+  Future<SevaDrive> create(Map<String, String> fields, SevaUpload media) async => _one(await _api.upload('me/seva-drives', files: media.files, fields: {...fields, ...media.fields}));
+
+  Future<SevaDrive> update(int id, Map<String, dynamic> fields) async => _one(await _api.patch('me/seva-drives/$id', fields));
+
+  Future<void> addMedia(int id, String stage, SevaUpload media) => _api.upload('me/seva-drives/$id/media', files: media.files, fields: {'stage': stage, ...media.fields});
+
+  Future<void> removeMedia(int id, int mediaId) => _api.delete('me/seva-drives/$id/media/$mediaId');
+
+  Future<SevaDrive> complete(int id, String note) async => _one(await _api.post('me/seva-drives/$id/complete', {'completion_note': note}));
+
+  Future<SevaDrive> cancel(int id) async => _one(await _api.post('me/seva-drives/$id/cancel', const {}));
+
+  Future<SevaDrive> join(int id, {int partySize = 1, String? note}) async => _one(await _api.post('seva-drives/$id/join', {'party_size': partySize, if (note != null && note.isNotEmpty) 'note': note}));
+
+  Future<SevaDrive> leave(int id) async => _one(await _api.delete('seva-drives/$id/join'));
+
+  Future<List<SevaVolunteer>> volunteers(int id) async => ((await _api.get('me/seva-drives/$id/volunteers'))['data'] as List? ?? const []).map((e) => SevaVolunteer.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+
+  Future<List<SevaDonation>> donations(int id) async => ((await _api.get('me/seva-drives/$id/donations'))['data'] as List? ?? const []).map((e) => SevaDonation.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+
+  Future<void> reportDonation(int id, {required int amount, String? upiRef, String? message, bool anonymous = false}) =>
+      _api.post('seva-drives/$id/donations', {'amount': amount, if (upiRef != null && upiRef.isNotEmpty) 'upi_ref': upiRef, if (message != null && message.isNotEmpty) 'message': message, 'is_anonymous': anonymous});
+
+  Future<void> confirmDonation(int id, int donationId, {bool received = true}) => _api.post('me/seva-drives/$id/donations/$donationId/confirm', {'received': received});
+}
