@@ -74,7 +74,14 @@
 		<string>upi</string>
 		<string>phonepe</string>
 		<string>tez</string>
+		<string>gpay</string>
 		<string>paytmmp</string>
+		<string>bhim</string>
+		<string>credpay</string>
+		<!-- PhonePe's SDK checks for its app with these. -->
+		<string>ppemerchantsdkv1</string>
+		<string>ppemerchantsdkv2</string>
+		<string>ppemerchantsdkv3</string>
 	</array>
 </dict>
 </plist>

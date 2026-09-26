@@ -38,7 +38,7 @@ class SubscriptionController extends ChangeNotifier {
 
   /// Starts a purchase. [sdk] is what the gateway's native SDK needs, when
   /// the gateway has one; otherwise the web checkout at [checkoutUrl].
-  Future<({String checkoutUrl, String doneUrl, String paymentId, Map<String, dynamic>? sdk})> begin(SubscriptionPlan plan, {String? gateway}) async {
+  Future<({String checkoutUrl, String doneUrl, String paymentId, Map<String, dynamic>? sdk, String? sdkError, String? gateway})> begin(SubscriptionPlan plan, {String? gateway}) async {
     final json = await _api.post('me/checkout', {'plan': plan.code, 'platform': AppPlatform.name, 'mode': 'sdk', if (gateway != null) 'gateway': gateway});
     final d = json['data'] as Map<String, dynamic>;
     return (
@@ -46,6 +46,11 @@ class SubscriptionController extends ChangeNotifier {
       doneUrl: '${d['done_url']}',
       paymentId: '${(d['payment'] as Map)['id']}',
       sdk: d['sdk'] is Map ? Map<String, dynamic>.from(d['sdk'] as Map) : null,
+      // Why the server could not start the SDK (wrong keys, no merchant
+      // id). Absent from a server older than native checkout.
+      sdkError: d.containsKey('sdk') ? d['sdk_error']?.toString() : 'The server has not been updated for in-app payments yet.',
+      // The gateway the server actually used (its default when none chosen).
+      gateway: (d['payment'] as Map)['gateway']?.toString(),
     );
   }
 

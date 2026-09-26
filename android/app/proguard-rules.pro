@@ -14,3 +14,7 @@
 # Cashfree
 -dontwarn com.cashfree.**
 -keep class com.cashfree.** { *; }
+
+# PhonePe
+-dontwarn com.phonepe.**
+-keep class com.phonepe.** { *; }
