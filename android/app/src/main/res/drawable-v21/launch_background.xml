@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launch window: plain temple-door teak and nothing else, so the
-     first thing anyone sees is the doors (drawn by Flutter) in the same
-     colour. No icon: showing one here meant a logo, then the doors. -->
+<!-- The launch window: the closed temple doors, drawn by the same code as
+     the splash's first frame (tool/launch_doors/render_test.dart). The app
+     opens straight onto the doors, and the splash takes over from them
+     with the bell and the opening, so there is no blank screen first. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/launch_background" />
+    <item>
+        <bitmap android:gravity="fill" android:src="@drawable/launch_doors" />
+    </item>
 </layer-list>

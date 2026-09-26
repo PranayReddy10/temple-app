@@ -35,6 +35,8 @@ dependencies:
   applovin_max: ^4.6.4
   crypto: ^3.0.7
   package_info_plus: ^9.0.1
+  razorpay_flutter: ^1.4.7
+  flutter_cashfree_pg_sdk: ^2.4.0+52
 
 dev_dependencies:
   flutter_test:
