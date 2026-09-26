@@ -50,6 +50,15 @@ class BookingsController extends ChangeNotifier {
   final SharedPreferences _prefs;
   final List<SevaBooking> _items = [];
 
+  /// Forgets everything kept on this device, for signing out: the next
+  /// person to use the phone must not see, or sync into their own account,
+  /// what the last one recorded.
+  Future<void> clearAll() async {
+    _items.clear();
+    await _prefs.remove('bookings');
+    notifyListeners();
+  }
+
   List<SevaBooking> get all => List.unmodifiable(_items..sort((a, b) => a.date.compareTo(b.date)));
   List<SevaBooking> get upcoming => all.where((b) => !b.isPast).toList();
 

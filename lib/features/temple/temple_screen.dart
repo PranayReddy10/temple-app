@@ -12,6 +12,7 @@ import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
+import '../../core/state/location_controller.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/state/sync_service.dart';
@@ -1026,7 +1027,12 @@ class _QuickFacts extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = detail.summary;
+    final loc = context.watch<LocationController?>();
+    final away = t.location.hasCoordinates ? loc?.labelTo(t.location.latitude, t.location.longitude) : null;
     final facts = <(IconData, String, String)>[
+      // First, because "how far" is the question before any other.
+      if (away != null) (Icons.near_me_rounded, 'From you', away.replaceAll(' away', ''))
+      else if (loc != null && t.location.hasCoordinates) (Icons.near_me_outlined, 'From you', loc.locating ? 'Finding you…' : 'Tap to see'),
       if (t.deity != null) (Icons.auto_awesome_rounded, 'Deity', t.deity!.name),
       if (t.location.state != null) (Icons.map_rounded, 'State', t.location.state!),
       if (detail.builtPeriod != null) (Icons.history_rounded, 'Built', detail.builtPeriod!),
@@ -1042,7 +1048,15 @@ class _QuickFacts extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: facts.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, i) => Container(
+        itemBuilder: (context, i) => GestureDetector(
+          // The distance tile asks for location when it is not known yet.
+          onTap: loc != null && facts[i].$2 == 'From you' && !loc.known && !loc.locating
+              ? () async {
+                  final ok = await loc.request();
+                  if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Allow location to see how far each temple is.')));
+                }
+              : null,
+          child: Container(
           width: 150,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -1058,6 +1072,7 @@ class _QuickFacts extends StatelessWidget {
               Text(facts[i].$3, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif')),
             ],
           ),
+        ),
         ),
       ),
     );

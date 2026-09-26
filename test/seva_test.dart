@@ -9,6 +9,7 @@ import 'package:temple_app/core/api/api_client.dart';
 import 'package:temple_app/core/api/seva_repository.dart';
 import 'package:temple_app/core/models/seva.dart';
 import 'package:temple_app/core/state/auth_controller.dart';
+import 'package:temple_app/core/state/location_controller.dart';
 import 'package:temple_app/features/seva/raise_drive_screen.dart';
 import 'package:temple_app/features/seva/seva_drive_screen.dart';
 import 'package:temple_app/features/seva/seva_screen.dart';
@@ -293,5 +294,45 @@ void main() {
     expect(find.text('+2 with them'), findsOneWidget);
     expect(find.text('More'), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a PIN code fills in the district, state and town', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final api = ApiClient(
+      baseUrl: 'http://localhost',
+      client: MockClient((req) async => req.url.path.endsWith('/pincode/508101')
+          ? http.Response(jsonEncode({'data': {'pincode': '508101', 'state': 'Telangana', 'state_id': 36, 'district': 'Yadadri Bhuvanagiri', 'places': [{'name': 'Kolanupaka'}, {'name': 'Alair'}]}}), 200)
+          : http.Response('{}', 404)),
+    );
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MultiProvider(
+      providers: [Provider<ApiClient>.value(value: api), ChangeNotifierProvider(create: (_) => AuthController(prefs, api))],
+      child: const MaterialApp(home: RaiseDriveScreen()),
+    ));
+    await tester.enterText(find.widgetWithText(TextField, 'PIN code'), '508101');
+    await tester.pumpAndSettle();
+    expect(find.text('Telangana'), findsOneWidget);
+    expect(find.text('Yadadri Bhuvanagiri'), findsWidgets);
+    expect(find.text('Which village or town?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Kolanupaka'));
+    await tester.pump();
+    expect(find.widgetWithText(TextField, 'Kolanupaka'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a drive card says how far away it is once location is known', (tester) async {
+    SharedPreferences.setMockInitialValues({'loc_lat': 15.35, 'loc_lng': 76.46});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        Provider<ApiClient>.value(value: ApiClient(baseUrl: 'http://localhost')),
+        ChangeNotifierProvider(create: (_) => LocationController(prefs)),
+      ],
+      child: MaterialApp(home: Scaffold(body: SingleChildScrollView(child: SevaDriveCard(drive: SevaDrive.fromJson(verifiedDrive()), onTap: () {})))),
+    ));
+    expect(find.text('2.2 km away'), findsOneWidget);
   });
 }

@@ -66,6 +66,15 @@ class MemoriesController extends ChangeNotifier {
   final SharedPreferences _prefs;
   final List<MemoryEntry> _items = [];
 
+  /// Forgets everything kept on this device, for signing out: the next
+  /// person to use the phone must not see, or sync into their own account,
+  /// what the last one recorded.
+  Future<void> clearAll() async {
+    _items.clear();
+    await _prefs.remove('memories');
+    notifyListeners();
+  }
+
   Future<void> Function(MemoryEntry m)? onCreated;
   Future<void> Function(MemoryEntry m)? onUpdated;
   Future<void> Function(int remoteId)? onDeleted;

@@ -358,6 +358,7 @@ class SyncService extends ChangeNotifier {
     } catch (_) {}
     if (!auth.isSignedIn) return;
     try {
+      final session = _session;
       final results = await Future.wait<Map<String, dynamic>>([
         api.get('me/passport'),
         api.get('me/visits'),
@@ -366,6 +367,9 @@ class SyncService extends ChangeNotifier {
         api.get('me/photos'),
         api.get('me/support'),
       ]);
+      // Signed out while this was on its way: it belongs to the account
+      // that just left, and must not land on the device after the wipe.
+      if (session != _session || !auth.isSignedIn) return;
       passport.summary = PassportSummary.fromJson(results[0]['data'] as Map<String, dynamic>);
       await passport.mergeRemote((results[1]['data'] as List).map((e) => RemoteVisit.fromJson(e as Map<String, dynamic>)).toList(), deityOf: (slug) => SampleData.bySlug(slug)?.deity?.slug);
       await yatras.mergeRemote((results[2]['data'] as List).map((e) => RemoteYatra.fromJson(e as Map<String, dynamic>)).toList());
@@ -381,6 +385,21 @@ class SyncService extends ChangeNotifier {
     } catch (e) {
       lastError = 'Offline';
     }
+    notifyListeners();
+  }
+
+  /// Bumped on every sign-out, so a pull that started before it is dropped.
+  int _session = 0;
+
+  /// Signing out: nothing queued for the old account may be sent under the
+  /// next one, and nothing pulled from it may stay.
+  Future<void> clearAll() async {
+    _session++;
+    _outbox.clear();
+    remotePhotos = const [];
+    lastPulledAt = null;
+    lastError = null;
+    await _prefs.remove('outbox');
     notifyListeners();
   }
 

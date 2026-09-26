@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api_client.dart';
@@ -90,6 +91,17 @@ class AuthController extends ChangeNotifier {
   /// bought, for one), so entitlements are fresh without signing in again.
   Future<void> reload() => refresh();
 
+  /// What else must be forgotten when somebody signs out: the passport,
+  /// photos, memories, trips and the rest, registered from main.dart.
+  final List<Future<void> Function()> _signOutHooks = [];
+
+  void onSignOut(Future<void> Function() hook) => _signOutHooks.add(hook);
+
+  /// Signs out and leaves nothing of the account behind on the device.
+  ///
+  /// Dropping the token alone left the last person's visits, photos and
+  /// memories on screen, and the next account to sign in would have synced
+  /// them in as its own.
   Future<void> logout() async {
     try {
       await api.post('auth/logout', const {});
@@ -100,6 +112,20 @@ class AuthController extends ChangeNotifier {
     api.token = null;
     await _prefs.remove('devotee_token');
     await _prefs.remove('devotee');
+    for (final hook in _signOutHooks) {
+      try {
+        await hook();
+      } catch (_) {}
+    }
+    // Decoded images outlive the records that showed them: the old profile
+    // photo would otherwise still be drawn from memory.
+    try {
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+    } catch (_) {
+      // No binding (a unit test): no image cache to clear.
+    }
     notifyListeners();
   }
 

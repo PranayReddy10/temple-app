@@ -39,8 +39,8 @@ class SevaRepository {
   SevaDrive _one(Map<String, dynamic> body) => SevaDrive.fromJson(Map<String, dynamic>.from(body['data'] as Map));
 
   /// [when] is 'upcoming' (can still be joined) or 'done' (finished work).
-  Future<Paged<SevaDrive>> list({String when = 'upcoming', String? cause, String? q, String? temple, int page = 1}) async {
-    final body = await _api.get('seva-drives', {'when': when, 'cause': cause, 'q': q, 'temple': temple, 'page': '$page'});
+  Future<Paged<SevaDrive>> list({String when = 'upcoming', String? cause, String? q, String? temple, bool verifiedOnly = false, int page = 1}) async {
+    final body = await _api.get('seva-drives', {'when': when, 'cause': cause, 'q': q, 'temple': temple, 'verified': verifiedOnly ? '1' : null, 'page': '$page'});
     final meta = Map<String, dynamic>.from(body['meta'] as Map? ?? const {});
     return Paged(
       items: _list(body),
@@ -48,6 +48,17 @@ class SevaRepository {
       lastPage: (meta['last_page'] as num?)?.toInt() ?? page,
       total: (meta['total'] as num?)?.toInt(),
     );
+  }
+
+  /// The state, district and towns for a PIN code; null when it has none.
+  Future<PincodeInfo?> pincode(String code) async {
+    try {
+      final body = await _api.get('pincode/$code');
+      return PincodeInfo.fromJson(Map<String, dynamic>.from(body['data'] as Map));
+    } on ApiException catch (e) {
+      if (e.isNotFound) return null;
+      rethrow;
+    }
   }
 
   /// Drives I organised, or ([joined]) the ones I am going to.
