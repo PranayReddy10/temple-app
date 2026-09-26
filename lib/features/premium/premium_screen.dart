@@ -81,6 +81,19 @@ class _PremiumScreenState extends State<PremiumScreen> {
         }
         status = await subs.confirm(start.paymentId, result.fields);
         if (status == 'pending') status = await subs.settle(start.paymentId);
+      } else if (NativeCheckout.isNative(start.gateway ?? gateway)) {
+        // A gateway paid in-app whose SDK could not start: say why, rather
+        // than dropping the devotee onto a web page.
+        if (!mounted) return;
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(s('payment_could_not_start')),
+            content: Text(start.sdkError ?? s('payment_offline')),
+            actions: [FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
+          ),
+        );
+        return;
       } else {
         // No SDK for this gateway (or the web build): its page in the
         // system browser tab, then ask the server once the devotee is back.

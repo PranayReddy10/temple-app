@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfwebcheckoutpayment.dart'
 import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayservice.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
 import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
+import 'package:phonepe_payment_sdk/phonepe_payment_sdk.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -25,20 +27,52 @@ class CheckoutResult {
   final String? message;
 }
 
-/// Pays through the gateway's own native SDK: its payment sheet, its UPI
-/// app picker, its card and bank pages, all inside the app. The web
-/// checkout in a browser tab is only the fallback for gateways without an
-/// SDK here, and for the web build.
+/// Pays through the gateway's own native SDK (Razorpay, Cashfree, PhonePe):
+/// its payment sheet, its UPI app picker, its card and bank pages, all
+/// inside the app. A web page in a browser tab is used only for gateways
+/// with no SDK here (PayU) and on the web build.
 class NativeCheckout {
   NativeCheckout._();
 
-  static bool supports(Map<String, dynamic>? sdk) => !kIsWeb && sdk != null && const {'razorpay', 'cashfree'}.contains(sdk['gateway']);
+  /// Gateways paid through their own SDK in the app. For these the app
+  /// never falls back to a web page: if the SDK cannot start, it says why.
+  static const nativeGateways = {'razorpay', 'cashfree', 'phonepe'};
+
+  /// Whether this gateway is paid natively on this platform.
+  static bool isNative(String? gateway) => !kIsWeb && nativeGateways.contains(gateway);
+
+  static bool supports(Map<String, dynamic>? sdk) => !kIsWeb && sdk != null && nativeGateways.contains(sdk['gateway']);
 
   static Future<CheckoutResult> pay(Map<String, dynamic> sdk) => switch (sdk['gateway']) {
         'razorpay' => _razorpay(sdk),
         'cashfree' => _cashfree(sdk),
+        'phonepe' => _phonepe(sdk),
         _ => Future.value(const CheckoutResult(completed: false)),
       };
+
+  /// PhonePe's app SDK (Standard Checkout v2): initialise with the merchant,
+  /// then open the order the server created with its token. PhonePe hands
+  /// UPI to its own app or any other installed UPI app.
+  static Future<CheckoutResult> _phonepe(Map<String, dynamic> sdk) async {
+    try {
+      final ready = await PhonePePaymentSdk.init('${sdk['environment']}', '${sdk['merchant_id']}', '${sdk['flow_id'] ?? 'templepassport'}', false);
+      if (!ready) return const CheckoutResult(completed: false, message: 'PhonePe could not start on this phone.');
+      final request = jsonEncode({
+        'orderId': sdk['order_id'],
+        'merchantId': sdk['merchant_id'],
+        'token': sdk['token'],
+        'paymentMode': {'type': 'PAY_PAGE'},
+      });
+      final result = await PhonePePaymentSdk.startTransaction(request, '');
+      final status = '${result?['status'] ?? ''}'.toUpperCase();
+      // INTERRUPTED: the devotee backed out. SUCCESS or FAILURE: the server
+      // asks PhonePe how the order ended; the app's word is not enough.
+      if (status == 'INTERRUPTED' || status.isEmpty) return CheckoutResult(completed: false, message: result?['error']?.toString());
+      return CheckoutResult(completed: true, message: result?['error']?.toString());
+    } catch (e) {
+      return CheckoutResult(completed: false, message: '$e');
+    }
+  }
 
   static Future<CheckoutResult> _razorpay(Map<String, dynamic> sdk) {
     final done = Completer<CheckoutResult>();

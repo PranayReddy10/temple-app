@@ -68,9 +68,15 @@
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService"/>
         </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="upi"/>
-        </intent>
+        <!-- The payment SDKs (Razorpay, Cashfree, PhonePe) open these apps
+             directly for UPI; on Android 11+ they are invisible otherwise,
+             and the payment sheet shows no UPI apps. -->
+        <package android:name="com.phonepe.app"/>
+        <package android:name="com.phonepe.app.preprod"/>
+        <package android:name="com.phonepe.simulator"/>
+        <package android:name="com.google.android.apps.nbu.paisa.user"/>
+        <package android:name="net.one97.paytm"/>
+        <package android:name="in.org.npci.upiapp"/>
+        <package android:name="in.amazon.mShop.android.shopping"/>
     </queries>
 </manifest>

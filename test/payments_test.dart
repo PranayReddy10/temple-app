@@ -46,10 +46,36 @@ void main() {
     expect(jsonDecode(confirm.body)['razorpay_signature'], 'sig');
   });
 
-  test('only Razorpay and Cashfree open natively; others use the browser tab', () {
+  test('Razorpay, Cashfree and PhonePe open natively; only PayU uses a browser tab', () {
     expect(NativeCheckout.supports({'gateway': 'razorpay'}), isTrue);
     expect(NativeCheckout.supports({'gateway': 'cashfree'}), isTrue);
-    expect(NativeCheckout.supports({'gateway': 'phonepe'}), isFalse);
+    expect(NativeCheckout.supports({'gateway': 'phonepe'}), isTrue);
+    expect(NativeCheckout.supports({'gateway': 'payu'}), isFalse);
     expect(NativeCheckout.supports(null), isFalse);
+    expect(NativeCheckout.isNative('phonepe'), isTrue);
+    expect(NativeCheckout.isNative('payu'), isFalse);
+  });
+
+  test('the reason is passed on when the SDK could not start, and an old server is named', () async {
+    SharedPreferences.setMockInitialValues({'devotee_token': 't', 'devotee': jsonEncode({'id': 1, 'name': 'Anu'})});
+    final prefs = await SharedPreferences.getInstance();
+    var withSdkKey = true;
+    final api = ApiClient(baseUrl: 'http://api.test', client: MockClient((r) async => http.Response.bytes(utf8.encode(jsonEncode({'data': {
+          'payment': {'id': 'u', 'status': 'pending', 'gateway': 'phonepe'},
+          'checkout_url': 'https://site/pay/u', 'done_url': 'https://site/pay/u/done',
+          if (withSdkKey) 'sdk': null,
+          if (withSdkKey) 'sdk_error': 'PhonePe merchant id is not set in the admin (Settings → Payments).',
+        }})), 201, headers: {'content-type': 'application/json; charset=utf-8'})));
+    final subs = SubscriptionController(api, AuthController(prefs, api));
+    const plan = SubscriptionPlan(code: 'p', name: 'P', price: '₹49');
+
+    var start = await subs.begin(plan);
+    expect(start.sdk, isNull);
+    expect(start.gateway, 'phonepe');
+    expect(start.sdkError, contains('merchant id'));
+
+    withSdkKey = false;
+    start = await subs.begin(plan);
+    expect(start.sdkError, contains('server has not been updated'));
   });
 }
