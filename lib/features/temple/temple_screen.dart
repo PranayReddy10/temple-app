@@ -98,9 +98,9 @@ class _TempleScreenState extends State<TempleScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool fresh = false}) async {
     try {
-      final r = await context.read<TempleRepository>().temple(widget.slug);
+      final r = await context.read<TempleRepository>().temple(widget.slug, fresh: fresh);
       if (!mounted) return;
       setState(() => _detail = r);
       if (!r.isOffline) context.read<EngagementController>().adopt(widget.slug, r.data.engagement);
@@ -538,7 +538,11 @@ class _TempleScreenState extends State<TempleScreen> {
                   final latest = engagement.reviews.latest.where((r) => mine == null || r.id != mine.id).toList();
                   Future<void> write() async {
                     final r = await writeReview(context, t, existing: mine);
-                    if (r != null) _load();
+                    if (r == null || !context.mounted) return;
+                    // Shown at once from the server's answer, then the page is
+                    // fetched again (not reused) for the new summary and list.
+                    context.read<EngagementController>().setMyReview(t.slug, r);
+                    await _load(fresh: true);
                   }
 
                   return Column(
