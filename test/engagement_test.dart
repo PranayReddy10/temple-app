@@ -343,6 +343,47 @@ void main() {
     expect(find.text('Thank you. It is on the temple page now.'), findsOneWidget);
   });
 
+  testWidgets('the temple page shows only the latest three reviews, side by side, then All reviews', (tester) async {
+    final engagement = engagementJson(withMine: true);
+    (engagement['reviews'] as Map<String, dynamic>)
+      ..['latest'] = [for (var i = 1; i <= 5; i++) reviewJson(id: 100 + i, name: 'Devotee $i', body: 'Account $i')]
+      ..['count'] = 6;
+    final client = MockClient((r) async {
+      if (r.url.path == '/api/v1/temples/booking-temple') return _json({'data': {...templeJson(), 'engagement': engagement}});
+      return _json({'data': []});
+    });
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(await templeHarness(client));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    for (var i = 0; i < 16 && find.text('All reviews').evaluate().length < 2; i++) {
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      await tester.pump();
+    }
+    expect(find.text('My own account.'), findsOneWidget);
+    expect(find.text('Devotee 1'), findsOneWidget);
+    expect(find.text('Devotee 3'), findsOneWidget);
+    expect(find.text('Devotee 4'), findsNothing, reason: 'the rest wait behind All reviews');
+    expect(find.text('All accounts'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'All reviews'), findsOneWidget);
+
+    // Side by side: the second card is to the right of the first, on the same line.
+    final a = tester.getTopLeft(find.text('Devotee 1'));
+    final b = tester.getTopLeft(find.text('Devotee 2'));
+    expect(b.dx, greaterThan(a.dx));
+    expect(b.dy, a.dy);
+    expect(tester.takeException(), isNull);
+
+    await Scrollable.ensureVisible(tester.element(find.text('Devotee 1')), alignment: 0.5);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Devotee 1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ReviewsScreen), findsOneWidget);
+  });
+
   testWidgets('a review in My visit reviews opens its temple', (tester) async {
     final client = MockClient((r) async {
       if (r.url.path == '/api/v1/me/reviews') return _json({'data': [reviewJson(mine: true, status: 'approved')]});
