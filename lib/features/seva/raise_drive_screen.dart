@@ -53,6 +53,7 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
   late String _cause = _e?.cause.value ?? 'cleaning';
   late DateTime? _starts = _e?.startsAt;
   late DateTime? _ends = _e?.endsAt;
+  late bool _multiDay = _e?.isMultiDay ?? false;
   late double? _lat = _e?.latitude;
   late double? _lng = _e?.longitude;
   final List<String> _photos = [];
@@ -90,6 +91,8 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
         if (_starts == null) return 'Choose the day and time.';
         if (!_locked && _starts!.isBefore(DateTime.now())) return 'The day has to be in the future.';
         if (_ends != null && !_ends!.isAfter(_starts!)) return 'The end has to be after the start.';
+        if (_multiDay && _ends == null) return 'Choose the last day of the drive, or switch to One day.';
+        if (_multiDay && DateTime(_ends!.year, _ends!.month, _ends!.day) == DateTime(_starts!.year, _starts!.month, _starts!.day)) return 'Several days needs a last day after the first — or switch to One day.';
       case 3:
         final upi = _upi.text.trim();
         if (upi.isNotEmpty && !RegExp(r'^[A-Za-z0-9.\-_]{2,256}@[A-Za-z]{2,64}$').hasMatch(upi)) return 'That does not look like a UPI ID. It is written like name@bank.';
@@ -336,29 +339,76 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
       children: [
         TextField(controller: _plan, enabled: !_locked, maxLines: 4, maxLength: 3000, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'What will you do on the day?', hintText: 'Clear the weeds, sweep the mandapam, bag and carry away the litter, wash the steps.', alignLabelWithHint: true)),
         const SizedBox(height: 4),
+        Text('How long is it?', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, icon: Icon(Icons.event_rounded), label: Text('One day')),
+            ButtonSegment(value: true, icon: Icon(Icons.date_range_rounded), label: Text('Several days')),
+          ],
+          selected: {_multiDay},
+          onSelectionChanged: (v) => setState(() {
+            _multiDay = v.first;
+            // Switching back to one day keeps only the end time, on that day.
+            if (!_multiDay && _ends != null && _starts != null) _ends = DateTime(_starts!.year, _starts!.month, _starts!.day, _ends!.hour, _ends!.minute);
+            if (_multiDay && _ends != null && _starts != null && !_ends!.isAfter(DateTime(_starts!.year, _starts!.month, _starts!.day, 23, 59))) _ends = null;
+          }),
+        ),
+        const SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
           enabled: !_locked,
-          leading: const Icon(Icons.event_rounded, color: Palette.saffron),
-          title: Text(_starts == null ? 'Choose the day and start time' : fmt.format(_starts!)),
-          subtitle: const Text('Starts'),
+          leading: const Icon(Icons.play_circle_outline_rounded, color: Palette.saffron),
+          title: Text(_starts == null ? (_multiDay ? 'Choose the first day and start time' : 'Choose the day and start time') : fmt.format(_starts!)),
+          subtitle: Text(_multiDay ? 'From' : 'Day and start time'),
           trailing: const Icon(Icons.edit_calendar_rounded),
           onTap: () async {
             final d = await _pickDateTime(_starts);
-            if (d != null) setState(() => _starts = d);
+            if (d == null) return;
+            setState(() {
+              _starts = d;
+              // A one-day end time follows the day it belongs to.
+              if (!_multiDay && _ends != null) _ends = DateTime(d.year, d.month, d.day, _ends!.hour, _ends!.minute);
+            });
           },
         ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.event_available_rounded, color: Palette.ash),
-          title: Text(_ends == null ? 'Add an end time (optional)' : fmt.format(_ends!)),
-          subtitle: const Text('Ends'),
-          trailing: _ends == null ? const Icon(Icons.add_rounded) : IconButton(icon: const Icon(Icons.clear_rounded), onPressed: () => setState(() => _ends = null)),
-          onTap: () async {
-            final d = await _pickDateTime(_ends, after: _starts);
-            if (d != null) setState(() => _ends = d);
-          },
-        ),
+        if (_multiDay)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.stop_circle_outlined, color: Palette.ash),
+            title: Text(_ends == null ? 'Choose the last day and end time' : fmt.format(_ends!)),
+            subtitle: const Text('To'),
+            trailing: const Icon(Icons.edit_calendar_rounded),
+            onTap: () async {
+              final d = await _pickDateTime(_ends, after: _starts?.add(const Duration(days: 1)));
+              if (d != null) setState(() => _ends = d);
+            },
+          )
+        else
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.stop_circle_outlined, color: Palette.ash),
+            title: Text(_ends == null ? 'Add the time it ends (optional)' : 'Ends at ${DateFormat('h:mm a').format(_ends!)}'),
+            subtitle: const Text('Same day'),
+            trailing: _ends == null ? const Icon(Icons.add_rounded) : IconButton(icon: const Icon(Icons.clear_rounded), onPressed: () => setState(() => _ends = null)),
+            onTap: _starts == null
+                ? null
+                : () async {
+                    final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_ends ?? _starts!.add(const Duration(hours: 4))));
+                    if (t != null) setState(() => _ends = DateTime(_starts!.year, _starts!.month, _starts!.day, t.hour, t.minute));
+                  },
+          ),
+        if (_starts != null && (_ends != null))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: SevaPill(
+              text: _multiDay
+                  ? '${DateFormat('d MMM').format(_starts!)} → ${DateFormat('d MMM').format(_ends!)} · ${DateTime(_ends!.year, _ends!.month, _ends!.day).difference(DateTime(_starts!.year, _starts!.month, _starts!.day)).inDays + 1} days'
+                  : '${DateFormat('EEE d MMM').format(_starts!)} · ${DateFormat('h:mm a').format(_starts!)} – ${DateFormat('h:mm a').format(_ends!)}',
+              color: Palette.saffron,
+              icon: Icons.schedule_rounded,
+            ),
+          ),
         const SizedBox(height: 8),
         TextField(controller: _meeting, decoration: const InputDecoration(labelText: 'Meeting point (optional)', hintText: 'Under the banyan tree by the east gate', prefixIcon: Icon(Icons.flag_circle_rounded))),
         const SizedBox(height: 12),

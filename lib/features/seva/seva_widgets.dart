@@ -27,6 +27,7 @@ Color sevaStatusColor(String status) => switch (status) {
       'approved' => Palette.saffron,
       'rejected' => Palette.kumkum,
       'cancelled' => Palette.stone,
+      'blocked' => Palette.kumkum,
       _ => Palette.gold,
     };
 
@@ -36,6 +37,40 @@ Widget localImage(String path) => kIsWeb
     : Image.file(File(path), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const ColoredBox(color: Palette.stone));
 
 String sevaDate(DateTime d) => DateFormat('EEE, d MMM · h:mm a').format(d);
+
+/// The drive's dates as people say them: one day with its hours, or a span.
+///
+/// "Sat, 12 Oct · 7:00 AM – 11:00 AM", "Sat, 12 Oct · 7:00 AM", or
+/// "Sat 12 Oct → Mon 14 Oct · 3 days".
+String sevaDateRange(SevaDrive d) {
+  final end = d.endsAt;
+  if (end == null) return sevaDate(d.startsAt);
+  if (d.dayCount <= 1) return '${sevaDate(d.startsAt)} – ${DateFormat('h:mm a').format(end)}';
+  return '${DateFormat('EEE d MMM').format(d.startsAt)} → ${DateFormat('EEE d MMM').format(end)} · ${d.dayCount} days';
+}
+
+/// A small circle with the organiser's photo or initial.
+class OrganiserAvatar extends StatelessWidget {
+  const OrganiserAvatar({super.key, required this.drive, this.radius = 13});
+
+  final SevaDrive drive;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = drive.organiserAvatar;
+    final initial = (drive.organiserName ?? '').characters.firstOrNull?.toUpperCase() ?? '?';
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: (drive.isTeam ? Palette.tulsi : Palette.saffron).withValues(alpha: 0.2),
+      child: url != null
+          ? ClipOval(child: SizedBox.expand(child: AppImage(url)))
+          : drive.isTeam
+              ? Icon(Icons.groups_rounded, size: radius, color: Palette.tulsi)
+              : Text(initial, style: TextStyle(fontSize: radius * 0.9, fontWeight: FontWeight.w800)),
+    );
+  }
+}
 
 String rupees(int amount) => NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0).format(amount);
 
@@ -81,7 +116,7 @@ class SevaProgressSteps extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final stopped = drive.isRejected || drive.isCancelled;
+    final stopped = drive.isRejected || drive.isCancelled || drive.isBlocked;
     final reached = drive.stage;
     final active = stopped ? Palette.stone : Palette.tulsi;
     return Row(
@@ -171,7 +206,11 @@ class SevaDriveCard extends StatelessWidget {
                           Flexible(child: SevaPill(text: drive.cause.label, color: Palette.deep, icon: sevaCauseIcon(drive.cause.value), solid: true)),
                           const SizedBox(width: 8),
                           const Spacer(),
-                          Flexible(child: SevaPill(text: drive.statusLabel, color: sevaStatusColor(drive.status), icon: drive.isVerified ? Icons.verified_rounded : null, solid: true)),
+                          Flexible(
+                            child: drive.isMisleading
+                                ? const SevaPill(text: 'Flagged misleading', color: Palette.kumkum, icon: Icons.warning_amber_rounded, solid: true)
+                                : SevaPill(text: drive.statusLabel, color: sevaStatusColor(drive.status), icon: drive.isVerified ? Icons.verified_rounded : null, solid: true),
+                          ),
                         ],
                       ),
                     ),
@@ -189,9 +228,19 @@ class SevaDriveCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (drive.organiserName != null) ...[
+                      Row(
+                        children: [
+                          OrganiserAvatar(drive: drive, radius: 11),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text('by ${drive.organiserName}', maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700))),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     _Line(icon: Icons.place_rounded, text: drive.where),
                     const SizedBox(height: 4),
-                    _Line(icon: Icons.event_rounded, text: sevaDate(drive.startsAt)),
+                    _Line(icon: drive.isMultiDay ? Icons.date_range_rounded : Icons.event_rounded, text: sevaDateRange(drive)),
                     const SizedBox(height: 10),
                     if (drive.isDone && drive.donations.open)
                       _DonationStrip(donations: drive.donations)
@@ -281,7 +330,12 @@ class _VolunteerStrip extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                need == null ? '${drive.volunteersJoined} joining' : '${drive.volunteersJoined} of $need volunteers',
+                [
+                  need == null ? '${drive.volunteersJoined} coming' : '${drive.volunteersJoined} of $need coming',
+                  if ((drive.donations.raised ?? 0) > 0) '${rupees(drive.donations.raised!)} raised',
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),

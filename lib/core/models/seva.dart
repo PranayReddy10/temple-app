@@ -54,7 +54,7 @@ class SevaMedia {
 }
 
 class SevaDonations {
-  const SevaDonations({this.open = false, this.upiId, this.upiName, this.upiLink, this.goal, this.purpose, this.raised});
+  const SevaDonations({this.open = false, this.upiId, this.upiName, this.upiLink, this.goal, this.purpose, this.raised, this.donors = 0});
 
   /// Staff verified the work and the UPI ID may be shown.
   final bool open;
@@ -66,6 +66,9 @@ class SevaDonations {
 
   /// Only what the organiser confirmed receiving.
   final int? raised;
+
+  /// People whose donation the organiser confirmed.
+  final int donors;
 
   double? get progress => goal == null || goal == 0 || raised == null ? null : (raised! / goal!).clamp(0, 1).toDouble();
 
@@ -79,6 +82,7 @@ class SevaDonations {
           goal: (j['goal'] as num?)?.toInt(),
           purpose: j['purpose']?.toString(),
           raised: (j['raised'] as num?)?.toInt(),
+          donors: (j['donors'] as num?)?.toInt() ?? 0,
         );
 }
 
@@ -108,6 +112,11 @@ class SevaDrive {
     this.signups = 0,
     this.organiserName,
     this.organiserAvatar,
+    this.isTeam = false,
+    this.isMultiDay = false,
+    this.isMisleading = false,
+    this.misleadingNote,
+    this.blockReason,
     this.contactPhone,
     this.coverUrl,
     this.before = const [],
@@ -157,6 +166,19 @@ class SevaDrive {
   final String? organiserName;
   final String? organiserAvatar;
 
+  /// Run by the team rather than a devotee.
+  final bool isTeam;
+
+  /// Spans more than one calendar day.
+  final bool isMultiDay;
+
+  /// Staff flagged it: shown with this warning, closed to joining and giving.
+  final bool isMisleading;
+  final String? misleadingNote;
+
+  /// Why staff blocked it, for the organiser.
+  final String? blockReason;
+
   /// Only for the organiser and for volunteers who have joined.
   final String? contactPhone;
 
@@ -185,6 +207,10 @@ class SevaDrive {
   bool get isOpen => status == 'approved';
   bool get isDone => status == 'completed' || status == 'verified';
   bool get isCancelled => status == 'cancelled';
+  bool get isBlocked => status == 'blocked';
+
+  /// Calendar days it spans, counting both ends.
+  int get dayCount => endsAt == null ? 1 : DateTime(endsAt!.year, endsAt!.month, endsAt!.day).difference(DateTime(startsAt.year, startsAt.month, startsAt.day)).inDays + 1;
   bool get hasCoordinates => latitude != null && longitude != null;
   bool get isUpcoming => isOpen && startsAt.isAfter(DateTime.now());
 
@@ -234,6 +260,11 @@ class SevaDrive {
       signups: (j['signups'] as num?)?.toInt() ?? 0,
       organiserName: organiser?['name']?.toString(),
       organiserAvatar: organiser?['avatar_url']?.toString(),
+      isTeam: organiser?['is_team'] == true,
+      isMultiDay: j['is_multi_day'] == true,
+      isMisleading: j['is_misleading'] == true,
+      misleadingNote: j['misleading_note']?.toString(),
+      blockReason: mine?['block_reason']?.toString(),
       contactPhone: j['contact_phone']?.toString(),
       coverUrl: j['cover_url']?.toString(),
       before: list('before'),

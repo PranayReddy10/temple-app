@@ -33,7 +33,10 @@ Map<String, dynamic> verifiedDrive() => {
       'volunteers_needed': 10,
       'volunteers_joined': 3,
       'signups': 1,
-      'organiser': {'name': 'Ravi Kumar', 'avatar_url': null},
+      'organiser': {'name': 'Ravi Kumar', 'avatar_url': null, 'is_team': false},
+      'is_misleading': false,
+      'misleading_note': null,
+      'is_multi_day': false,
       'contact_phone': null,
       'cover_url': 'http://localhost/storage/seva-drives/1/after/b.jpg',
       'media': {
@@ -56,6 +59,7 @@ Map<String, dynamic> verifiedDrive() => {
         'goal': 5000,
         'purpose': null,
         'raised': 700,
+        'donors': 2,
       },
       'viewer': {'is_organiser': false, 'has_joined': false, 'can_join': false, 'can_edit': false, 'can_complete': false},
       'created_at': '2026-09-26T09:25:40+00:00',
@@ -200,7 +204,94 @@ void main() {
     expect(find.text('Seva Drives'), findsOneWidget);
     expect(find.text('How a seva drive works'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Clean the stepwell at Hampi'), 300, scrollable: find.byType(Scrollable).last);
-    expect(find.textContaining('3 of 10 volunteers'), findsOneWidget);
+    expect(find.textContaining('3 of 10 coming'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  group('Dates', () {
+    test('one day with an end time reads as one day with hours', () {
+      final d = SevaDrive.fromJson(verifiedDrive()
+        ..['starts_at'] = '2026-10-10T07:00:00'
+        ..['ends_at'] = '2026-10-10T11:00:00');
+      expect(d.dayCount, 1);
+      expect(sevaDateRange(d), 'Sat, 10 Oct · 7:00 AM – 11:00 AM');
+    });
+
+    test('several days reads as a span with the count', () {
+      final d = SevaDrive.fromJson(verifiedDrive()
+        ..['starts_at'] = '2026-10-10T07:00:00'
+        ..['ends_at'] = '2026-10-12T17:00:00'
+        ..['is_multi_day'] = true);
+      expect(d.dayCount, 3);
+      expect(sevaDateRange(d), 'Sat 10 Oct → Mon 12 Oct · 3 days');
+    });
+  });
+
+  testWidgets('everyone sees the organiser, dates and how many are coming and raised', (tester) async {
+    await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), verifiedDrive());
+    expect(find.text('ORGANISER'), findsOneWidget);
+    expect(find.text('Ravi Kumar'), findsWidgets);
+    expect(find.text('ONE DAY'), findsOneWidget);
+    expect(find.text('of 10 coming'), findsOneWidget);
+    expect(find.text('₹700'), findsOneWidget);
+    expect(find.text('from 2 donors'), findsOneWidget);
+  });
+
+  testWidgets('a misleading drive carries the warning and no Join or Donate', (tester) async {
+    final json = verifiedDrive()
+      ..['status'] = {'value': 'approved', 'label': 'Open for volunteers'}
+      ..['is_misleading'] = true
+      ..['misleading_note'] = 'The after photographs are of another temple.'
+      ..['donations'] = {'open': false, 'raised': 0}
+      ..['viewer'] = {'can_join': false};
+    await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), json);
+    expect(find.text('Flagged as misleading by the team'), findsOneWidget);
+    expect(find.text('The after photographs are of another temple.'), findsOneWidget);
+    expect(find.text('Donate by UPI'), findsNothing);
+  });
+
+  testWidgets('anyone can open the report sheet from the menu', (tester) async {
+    await pumpAtPhoneWidth(tester, const SevaDriveScreen(driveId: 1), verifiedDrive());
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Report this drive'));
+    await tester.pumpAndSettle();
+    expect(find.text('Misleading — not what it claims'), findsOneWidget);
+    expect(find.text('Send report'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the organiser sees who is coming on the page', (tester) async {
+    final json = verifiedDrive()
+      ..['status'] = {'value': 'approved', 'label': 'Open for volunteers'}
+      ..['donations'] = {'open': false}
+      ..['viewer'] = {'is_organiser': true, 'can_edit': true}
+      ..['mine'] = {'upi_id': null};
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final api = ApiClient(
+      baseUrl: 'http://localhost',
+      client: MockClient((req) async => http.Response(
+            jsonEncode(req.url.path.endsWith('/volunteers')
+                ? {'data': [{'id': 1, 'name': 'Lakshmi', 'party_size': 3, 'note': 'Bringing sacks'}]}
+                : {'data': json}),
+            200,
+          )),
+    );
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MultiProvider(
+      providers: [Provider<ApiClient>.value(value: api), ChangeNotifierProvider(create: (_) => AuthController(prefs, api))],
+      child: const MaterialApp(home: SevaDriveScreen(driveId: 1)),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.scrollUntilVisible(find.text('Lakshmi'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text("Who's coming"), findsOneWidget);
+    expect(find.text('Bringing sacks'), findsOneWidget);
+    expect(find.text('+2 with them'), findsOneWidget);
+    expect(find.text('More'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
