@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -51,8 +52,15 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
   @override
   void initState() {
     super.initState();
+    _lifecycle;
     if (widget.initial?.isDone == true && widget.initial!.after.isNotEmpty) _stage = 'after';
     _reload();
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   Future<void> _reload() async {
@@ -128,7 +136,9 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
           slivers: [
             SliverAppBar(
               pinned: true,
-              expandedHeight: 320,
+              // Shorter than it was, so the title, the organiser and the
+              // donation box are on screen without scrolling.
+              expandedHeight: 240,
               backgroundColor: Palette.deep,
               foregroundColor: Colors.white,
               actions: [
@@ -180,7 +190,8 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
                       runSpacing: 6,
                       children: [
                         SevaPill(text: d.cause.label, color: Palette.deep, icon: sevaCauseIcon(d.cause.value)),
-                        SevaPill(text: d.statusLabel, color: sevaStatusColor(d.status), icon: d.isVerified ? Icons.verified_rounded : null),
+                        SevaPill(text: d.statusLabel, color: sevaStatusColor(d.status)),
+                        SevaVerifiedPill(drive: d),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -197,14 +208,16 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
                 ),
               ),
             ),
-            SliverToBoxAdapter(child: _facts(d)),
+            // The organiser's own tools come first on their own drive, and
+            // the donation box before the details for everyone else.
+            if (d.isOrganiser) SliverToBoxAdapter(child: _organiserTools(d)),
             if (d.donations.open) SliverToBoxAdapter(child: _DonateCard(drive: d, onReport: () => _reportDonation(d))),
+            SliverToBoxAdapter(child: _facts(d)),
             if (d.completionNote != null) SliverToBoxAdapter(child: _Prose(title: 'What was done', icon: Icons.task_alt_rounded, text: d.completionNote!, color: Palette.tulsi)),
             SliverToBoxAdapter(child: _Prose(title: 'The place now', icon: Icons.report_rounded, text: d.problem, color: Palette.kumkum)),
             SliverToBoxAdapter(child: _Prose(title: 'The plan', icon: Icons.checklist_rounded, text: d.plan, color: Palette.saffron)),
             if (d.whatToBring != null && d.whatToBring!.trim().isNotEmpty) SliverToBoxAdapter(child: _Bring(text: d.whatToBring!)),
             if (d.isOrganiser && (_volunteers?.isNotEmpty ?? false)) SliverToBoxAdapter(child: _WhoIsComing(drive: d, volunteers: _volunteers!)),
-            if (d.isOrganiser) SliverToBoxAdapter(child: _organiserTools(d)),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
@@ -291,29 +304,47 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
 
   // --- Bottom bar: join, leave ---
 
+  /// Joining (or backing out) and donating are separate things, and both
+  /// can apply at once: a verified drive that is still open takes both.
   Widget? _bottomBar(SevaDrive d) {
     if (d.isOrganiser) return null;
-    final Widget button;
-    if (d.hasJoined && d.isOpen) {
-      button = OutlinedButton.icon(onPressed: _busy ? null : () => _leave(d), icon: const Icon(Icons.check_circle_rounded, color: Palette.tulsi), label: const Text("You're going · Can't make it?"));
-    } else if (d.isOpen) {
-      button = FilledButton.icon(
+    Widget? volunteer;
+    if (d.hasJoined && d.canLeave) {
+      volunteer = OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+        onPressed: _busy ? null : () => _leave(d),
+        icon: const Icon(Icons.check_circle_rounded, color: Palette.tulsi),
+        label: const Text("You're going · Can't make it?", maxLines: 1, overflow: TextOverflow.ellipsis),
+      );
+    } else if (d.canJoin || (d.isOpen && !d.hasJoined && !d.isMisleading && !context.read<AuthController>().isSignedIn)) {
+      volunteer = FilledButton.icon(
         style: FilledButton.styleFrom(backgroundColor: Palette.saffron, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
         onPressed: _busy ? null : () => _join(d),
         icon: const Icon(Icons.volunteer_activism_rounded),
         label: const Text('Join hands'),
       );
-    } else if (d.donations.open) {
-      button = FilledButton.icon(
-        style: FilledButton.styleFrom(backgroundColor: Palette.tulsi, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
-        onPressed: d.donations.upiLink == null ? null : () => _payUpi(d),
-        icon: const Icon(Icons.currency_rupee_rounded),
-        label: const Text('Donate by UPI'),
-      );
-    } else {
-      return null;
     }
-    return SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 12), child: SizedBox(width: double.infinity, child: button)));
+    final Widget? donate = d.donations.open
+        ? FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: Palette.tulsi, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 14)),
+            onPressed: d.donations.upiLink == null ? null : () => _payUpi(d),
+            icon: const Icon(Icons.currency_rupee_rounded),
+            label: const Text('Donate'),
+          )
+        : null;
+    if (volunteer == null && donate == null) return null;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+        child: Row(
+          children: [
+            if (volunteer != null) Expanded(flex: 3, child: volunteer),
+            if (volunteer != null && donate != null) const SizedBox(width: 10),
+            if (donate != null) Expanded(flex: 2, child: donate),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _join(SevaDrive d) async {
@@ -377,45 +408,116 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
     final ok = await launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication).catchError((_) => false);
     if (!ok) {
       await Clipboard.setData(ClipboardData(text: d.donations.upiId ?? ''));
-      _toast('No UPI app answered. The UPI ID is copied — paste it in your payment app.');
+      _toast('No UPI app answered. The UPI ID is copied — paste it in your payment app, then come back to record it.');
     }
+    // Coming back from the UPI app is the moment to record the payment,
+    // while the reference number is still on the screen they just left.
+    _awaitingPayment = true;
   }
 
-  Future<void> _reportDonation(SevaDrive d) async {
+  /// Set while the devotee is away in a UPI app.
+  bool _awaitingPayment = false;
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(onResume: () {
+    final d = _drive;
+    if (!_awaitingPayment || d == null || !mounted) return;
+    _awaitingPayment = false;
+    _reportDonation(d, justPaid: true);
+  });
+
+  static const _quickAmounts = [101, 251, 501, 1001, 2100];
+
+  /// What the donor paid, with which app, the reference and the day — so the
+  /// organiser can find it in their statement and confirm it.
+  Future<void> _reportDonation(SevaDrive d, {bool justPaid = false}) async {
     if (!await _ensureSignedIn()) return;
     final amount = TextEditingController();
     final ref = TextEditingController();
     final message = TextEditingController();
     var anonymous = false;
+    String? app;
+    var paidOn = DateTime.now();
     if (!mounted) return;
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setSheet) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('I sent a donation', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 4),
-                Text('The money went straight to the organiser. Tell them so they can confirm it — confirmed amounts count towards the goal.', style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 16),
-                TextField(controller: amount, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ ')),
-                const SizedBox(height: 10),
-                TextField(controller: ref, decoration: const InputDecoration(labelText: 'UPI reference number (optional)', helperText: 'The 12-digit number your UPI app shows')),
-                const SizedBox(height: 10),
-                TextField(controller: message, maxLength: 255, decoration: const InputDecoration(labelText: 'A message (optional)')),
-                SwitchListTile(contentPadding: EdgeInsets.zero, value: anonymous, onChanged: (v) => setSheet(() => anonymous = v), title: const Text('Keep my name private')),
-                const SizedBox(height: 8),
-                SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Send to the organiser'))),
-              ],
+        builder: (context, setSheet) {
+          final theme = Theme.of(context);
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.receipt_long_rounded, color: Palette.tulsi),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(justPaid ? 'Did your payment go through?' : 'Payment details', style: theme.textTheme.titleLarge)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Money goes straight to ${d.donations.upiName ?? d.organiserName ?? 'the organiser'}. Record it here so they can match it with their statement and confirm it — confirmed amounts count towards the goal.', style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 16),
+                  Text('1. Amount', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final a in _quickAmounts)
+                        ChoiceChip(label: Text(rupees(a)), selected: amount.text == '$a', onSelected: (_) => setSheet(() => amount.text = '$a')),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(controller: amount, onChanged: (_) => setSheet(() {}), keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], decoration: const InputDecoration(labelText: 'Amount you sent', prefixText: '₹ ')),
+                  const SizedBox(height: 16),
+                  Text('2. Paid with', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      for (final p in sevaPaymentApps)
+                        ChoiceChip(avatar: Icon(_appIcon(p.$1), size: 16), label: Text(p.$2), selected: app == p.$1, onSelected: (_) => setSheet(() => app = p.$1)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text('3. Reference and date', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  if (app != 'cash')
+                    TextField(
+                      controller: ref,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: app == 'bank' ? 'Transaction reference (UTR)' : 'UPI reference / UTR number',
+                        helperText: 'The 12-digit number on the payment receipt in your ${app == null ? 'UPI' : sevaPaymentApps.firstWhere((p) => p.$1 == app).$2} app',
+                        prefixIcon: const Icon(Icons.tag_rounded),
+                      ),
+                    ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.event_rounded, color: Palette.saffron),
+                    title: Text(DateFormat('EEE, d MMM yyyy').format(paidOn)),
+                    subtitle: const Text('Date of payment'),
+                    trailing: const Icon(Icons.edit_calendar_rounded),
+                    onTap: () async {
+                      final picked = await showDatePicker(context: context, initialDate: paidOn, firstDate: DateTime.now().subtract(const Duration(days: 365)), lastDate: DateTime.now());
+                      if (picked != null) setSheet(() => paidOn = picked);
+                    },
+                  ),
+                  TextField(controller: message, maxLength: 255, decoration: const InputDecoration(labelText: 'A message for the organiser (optional)')),
+                  SwitchListTile(contentPadding: EdgeInsets.zero, value: anonymous, onChanged: (v) => setSheet(() => anonymous = v), title: const Text('Keep my name private')),
+                  const SizedBox(height: 8),
+                  SizedBox(width: double.infinity, child: FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Palette.tulsi, padding: const EdgeInsets.symmetric(vertical: 14)), onPressed: () => Navigator.of(context).pop(true), icon: const Icon(Icons.send_rounded), label: const Text('Send to the organiser'))),
+                  if (justPaid) Center(child: TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text("I didn't pay"))),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
     final value = int.tryParse(amount.text.trim());
@@ -424,8 +526,18 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
       _toast('Enter the amount you sent.');
       return;
     }
-    await _run(() => _repo.reportDonation(d.id, amount: value, upiRef: ref.text.trim(), message: message.text.trim(), anonymous: anonymous), done: 'Thank you. The organiser will confirm it.');
+    if (app == null) {
+      _toast('Choose how you paid — PhonePe, Google Pay and so on.');
+      return;
+    }
+    await _run(() => _repo.reportDonation(d.id, amount: value, upiRef: ref.text.trim(), paymentApp: app, paidOn: paidOn, message: message.text.trim(), anonymous: anonymous), done: 'Thank you. The organiser will confirm it.');
   }
+
+  static IconData _appIcon(String app) => switch (app) {
+        'bank' => Icons.account_balance_rounded,
+        'cash' => Icons.payments_rounded,
+        _ => Icons.qr_code_2_rounded,
+      };
 
   // --- Reporting ---
 
@@ -502,7 +614,8 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
     final tools = <Widget>[
       if (d.canEdit) _Tool(icon: Icons.add_photo_alternate_rounded, label: 'Add before photos', onTap: () => _addMedia(d, 'before')),
       if (canAddAfter) _Tool(icon: Icons.photo_library_rounded, label: 'Add after photos', color: Palette.tulsi, onTap: () => _addMedia(d, 'after')),
-      if (d.canComplete) _Tool(icon: Icons.task_alt_rounded, label: 'Mark as done', color: Palette.tulsi, onTap: () => _complete(d)),
+      if (d.canComplete) _Tool(icon: Icons.task_alt_rounded, label: 'Mark as completed', color: Palette.tulsi, onTap: () => _complete(d)),
+      if (d.canRequestVerification) _Tool(icon: Icons.verified_rounded, label: 'Request verification', color: Palette.tulsi, onTap: () => _requestVerification(d)),
       if (d.canEdit) _Tool(icon: Icons.edit_rounded, label: d.isOpen ? 'Change arrangements' : 'Edit drive', onTap: () => _edit(d)),
       if (d.signups > 0) _Tool(icon: Icons.groups_rounded, label: 'Volunteers (${d.signups})', onTap: () => _showVolunteers(d)),
       if (d.myUpiId != null) _Tool(icon: Icons.receipt_long_rounded, label: 'Donations', onTap: () => _showDonations(d)),
@@ -534,11 +647,7 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
     if (mounted && stage == 'after') setState(() => _stage = 'after');
   }
 
-  Future<void> _complete(SevaDrive d) async {
-    if (d.after.isEmpty) {
-      _toast('Add at least one after photograph first, so the work can be verified.');
-      return;
-    }
+  Future<void> _requestVerification(SevaDrive d) async {
     final note = TextEditingController();
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -550,23 +659,50 @@ class _SevaDriveScreenState extends State<SevaDriveScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Mark the drive as done', style: Theme.of(context).textTheme.titleLarge),
+            Text('Request verification', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
-            Text('The team compares your before and after photographs and verifies the drive. Once verified, it gets a badge and your UPI ID is shown for donations.', style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 14),
-            TextField(controller: note, maxLines: 5, maxLength: 3000, decoration: const InputDecoration(labelText: 'What was done', hintText: '22 of us cleared the steps, removed 14 bags of plastic and washed the mandapam floor.')),
-            const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Send for verification'))),
+            Text('The team checks the place, the photographs and you. A verified drive gets a badge everyone sees${d.myUpiId == null ? '' : ', and your UPI ID is shown for donations'}. It does not end the drive.', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            TextField(controller: note, maxLines: 3, maxLength: 2000, decoration: const InputDecoration(labelText: 'Anything that helps (optional)', hintText: 'The temple trust secretary knows about this drive: 98480 12345', alignLabelWithHint: true)),
+            if (d.after.isEmpty && d.isDone) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text('Tip: add after photographs first — they are what the team checks.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Palette.saffron))),
+            SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => Navigator.of(context).pop(true), icon: const Icon(Icons.verified_rounded), label: const Text('Send request'))),
           ],
         ),
       ),
     );
     if (ok != true) return;
-    if (note.text.trim().length < 20) {
-      _toast('Write a sentence or two about what was done.');
+    await _run(() => _repo.requestVerification(d.id, note: note.text.trim()), done: 'Request sent. The team will verify it or tell you what is missing.');
+  }
+
+  Future<void> _complete(SevaDrive d) async {
+    final note = TextEditingController();
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.viewInsetsOf(context).bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Mark the drive as completed', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text('It stops taking volunteers and shows as Completed. Drives also complete by themselves after their last day. Add after photographs so everyone can see the difference.', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 14),
+            TextField(controller: note, maxLines: 5, maxLength: 3000, decoration: const InputDecoration(labelText: 'What was done', hintText: '22 of us cleared the steps, removed 14 bags of plastic and washed the mandapam floor.')),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Mark completed'))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    if (note.text.trim().length < 10) {
+      _toast('Write a line about what was done.');
       return;
     }
-    await _run(() => _repo.complete(d.id, note.text.trim()), done: 'Sent for verification.');
+    await _run(() => _repo.complete(d.id, note.text.trim()), done: 'Marked completed.');
   }
 
   Future<void> _edit(SevaDrive d) async {
@@ -833,13 +969,14 @@ class _OrganiserNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (IconData icon, Color color, String text) = switch (drive.status) {
-      'pending' => (Icons.hourglass_top_rounded, Palette.gold, 'Waiting for review. The team checks every drive before it is listed — usually within a day.'),
+      'pending' => (Icons.hourglass_top_rounded, Palette.gold, 'Waiting for the team to approve it before it is listed — usually within a day.'),
       'rejected' => (Icons.error_outline_rounded, Palette.kumkum, 'Not approved yet: ${drive.moderationNote ?? 'see the note from the team'}. Edit the drive and it goes back for review.'),
-      'approved' => drive.moderationNote != null
-          ? (Icons.info_outline_rounded, Palette.saffron, 'The team asked for more before verifying: ${drive.moderationNote}')
-          : (Icons.campaign_rounded, Palette.tulsi, 'Live — volunteers can join. Share it to gather more hands.'),
-      'completed' => (Icons.fact_check_rounded, Palette.ash, 'Sent for verification. Donations open once the team verifies your after photographs.'),
-      'verified' => (Icons.verified_rounded, Palette.tulsi, drive.myUpiId == null ? 'Verified. Add a UPI ID from the web team if you need donations.' : 'Verified. Your UPI ID is shown for donations; confirm each one you receive.'),
+      'approved' || 'completed' => switch ((drive.isVerified, drive.verificationRequested)) {
+          (true, _) => (Icons.verified_rounded, Palette.tulsi, drive.myUpiId == null ? 'Verified by the team. Add a UPI ID (Edit drive) to take donations.' : 'Verified by the team. Your UPI ID is shown for donations — confirm each one you receive under Donations.'),
+          (false, true) => (Icons.hourglass_top_rounded, Palette.gold, 'Verification requested. The team will check the drive and its photographs.'),
+          _ when drive.moderationNote != null => (Icons.info_outline_rounded, Palette.saffron, 'The team could not verify it yet: ${drive.moderationNote} Add what is asked for and request verification again.'),
+          _ => (Icons.campaign_rounded, Palette.saffron, drive.isOpen ? 'Live — everyone can see it and join, marked "Not verified". Request verification to get a badge and open donations.' : 'Completed, not verified. Request verification to get a badge and open donations.'),
+        },
       'blocked' => (Icons.shield_rounded, Palette.kumkum, 'Blocked by the team: ${drive.blockReason ?? 'no reason given'}. Nobody else can see it. Write to Help & support if you think this is a mistake.'),
       _ => (Icons.block_rounded, Palette.stone, 'This drive was cancelled.'),
     };
@@ -1068,7 +1205,12 @@ class _DonationsSheetState extends State<_DonationsSheet> {
                   _load();
                 },
                 title: Text('${rupees(d.amount)} · ${d.donor ?? 'A devotee'}'),
-                subtitle: Text([if (d.upiRef != null) 'Ref ${d.upiRef}', if (d.message != null) d.message!].join(' · ').ifEmpty('No reference given')),
+                subtitle: Text([
+                  [if (d.paymentApp != null) d.paymentApp!, if (d.paidOn != null) DateFormat('d MMM yyyy').format(d.paidOn!)].join(' · '),
+                  if (d.upiRef != null) 'Ref ${d.upiRef}',
+                  if (d.message != null) '"${d.message!}"',
+                ].where((l) => l.isNotEmpty).join('\n').ifEmpty('No reference given')),
+                isThreeLine: d.upiRef != null && (d.paymentApp != null || d.paidOn != null),
                 secondary: Icon(d.confirmed ? Icons.verified_rounded : Icons.hourglass_empty_rounded, color: d.confirmed ? Palette.tulsi : Palette.gold),
               ),
           ],

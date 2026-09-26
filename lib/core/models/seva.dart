@@ -132,6 +132,10 @@ class SevaDrive {
     this.canJoin = false,
     this.canEdit = false,
     this.canComplete = false,
+    this.canLeave = false,
+    this.canRequestVerification = false,
+    this.isVerified = false,
+    this.verificationRequested = false,
     this.moderationNote,
     this.myUpiId,
     this.myUpiName,
@@ -200,16 +204,26 @@ class SevaDrive {
   final bool canEdit;
   final bool canComplete;
 
+  /// A volunteer can back out while the drive is open — verified or not.
+  final bool canLeave;
+  final bool canRequestVerification;
+
+  /// The team's badge. Separate from the status: a verified drive may still
+  /// be upcoming, and an unverified one is still listed.
+  final bool isVerified;
+
+  /// The organiser asked and the team has not answered yet.
+  final bool verificationRequested;
+
   /// What staff said, for the organiser.
   final String? moderationNote;
   final String? myUpiId;
   final String? myUpiName;
 
-  bool get isVerified => status == 'verified';
   bool get isPending => status == 'pending';
   bool get isRejected => status == 'rejected';
   bool get isOpen => status == 'approved';
-  bool get isDone => status == 'completed' || status == 'verified';
+  bool get isDone => status == 'completed';
   bool get isCancelled => status == 'cancelled';
   bool get isBlocked => status == 'blocked';
 
@@ -222,11 +236,10 @@ class SevaDrive {
 
   double? get volunteerProgress => volunteersNeeded == null || volunteersNeeded == 0 ? null : (volunteersJoined / volunteersNeeded!).clamp(0, 1).toDouble();
 
-  /// Where the drive is along raised → approved → done → verified, 0 to 3.
+  /// Where the drive is along raised → open → completed, 0 to 2.
   int get stage => switch (status) {
         'approved' => 1,
         'completed' => 2,
-        'verified' => 3,
         _ => 0,
       };
 
@@ -284,6 +297,10 @@ class SevaDrive {
       canJoin: viewer['can_join'] == true,
       canEdit: viewer['can_edit'] == true,
       canComplete: viewer['can_complete'] == true,
+      canLeave: viewer['can_leave'] == true || (viewer['has_joined'] == true && '${(j['status'] as Map?)?['value']}' == 'approved'),
+      canRequestVerification: viewer['can_request_verification'] == true,
+      isVerified: j['is_verified'] == true,
+      verificationRequested: (j['verification'] as Map?)?['requested'] == true,
       moderationNote: mine?['moderation_note']?.toString(),
       myUpiId: mine?['upi_id']?.toString(),
       myUpiName: mine?['upi_name']?.toString(),
@@ -310,12 +327,16 @@ class SevaVolunteer {
 }
 
 class SevaDonation {
-  const SevaDonation({required this.id, required this.amount, this.donor, this.upiRef, this.message, this.confirmed = false, this.createdAt});
+  const SevaDonation({required this.id, required this.amount, this.donor, this.upiRef, this.paymentApp, this.paidOn, this.message, this.confirmed = false, this.createdAt});
 
   final int id;
   final int amount;
   final String? donor;
   final String? upiRef;
+
+  /// "PhonePe", "Google Pay"… as the donor picked it.
+  final String? paymentApp;
+  final DateTime? paidOn;
   final String? message;
   final bool confirmed;
   final DateTime? createdAt;
@@ -325,6 +346,8 @@ class SevaDonation {
         amount: (j['amount'] as num?)?.toInt() ?? 0,
         donor: j['donor']?.toString(),
         upiRef: j['upi_ref']?.toString(),
+        paymentApp: j['payment_app_label']?.toString(),
+        paidOn: DateTime.tryParse('${j['paid_on'] ?? ''}'),
         message: j['message']?.toString(),
         confirmed: j['confirmed'] == true,
         createdAt: DateTime.tryParse('${j['created_at'] ?? ''}')?.toLocal(),
@@ -351,3 +374,15 @@ class PincodeInfo {
         places: (j['places'] as List? ?? const []).map((e) => '${(e as Map)['name']}').toList(),
       );
 }
+
+/// How a donor paid, as the server lists them in `/seva-drives/options`.
+const sevaPaymentApps = <(String, String)>[
+  ('phonepe', 'PhonePe'),
+  ('gpay', 'Google Pay'),
+  ('paytm', 'Paytm'),
+  ('bhim', 'BHIM'),
+  ('amazonpay', 'Amazon Pay'),
+  ('other_upi', 'Another UPI app'),
+  ('bank', 'Bank transfer'),
+  ('cash', 'Cash'),
+];
