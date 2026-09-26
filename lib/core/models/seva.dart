@@ -365,10 +365,16 @@ class SevaDonation {
 }
 
 /// What a PIN code covers, from `GET /api/v1/pincode/{code}`.
+/// Where a place is, from a PIN code or from a pin dropped on the map.
+///
+/// The PIN code lookup fills state, district and the towns under the code;
+/// the map (`GET /geocode/reverse`) also knows the street and which one of
+/// those towns you are actually standing in, and the code itself.
 class PincodeInfo {
-  const PincodeInfo({required this.pincode, this.state, this.stateId, this.district, this.places = const []});
+  const PincodeInfo({this.pincode, this.state, this.stateId, this.district, this.places = const [], this.city, this.address});
 
-  final String pincode;
+  /// Null when the map had no PIN code for the spot.
+  final String? pincode;
   final String? state;
   final int? stateId;
   final String? district;
@@ -376,12 +382,20 @@ class PincodeInfo {
   /// Post office names: the villages and towns under this code.
   final List<String> places;
 
+  /// The village or town at the pin, when it came from the map.
+  final String? city;
+
+  /// Street and landmark at the pin, when it came from the map.
+  final String? address;
+
   factory PincodeInfo.fromJson(Map<String, dynamic> j) => PincodeInfo(
-        pincode: '${j['pincode']}',
+        pincode: j['pincode']?.toString(),
         state: j['state']?.toString(),
         stateId: (j['state_id'] as num?)?.toInt(),
         district: j['district']?.toString(),
         places: (j['places'] as List? ?? const []).map((e) => '${(e as Map)['name']}').toList(),
+        city: j['city']?.toString(),
+        address: j['address']?.toString(),
       );
 }
 

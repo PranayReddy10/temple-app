@@ -407,9 +407,55 @@ class Booking {
       );
 }
 
+/// Booking through the app, where the temple has switched it on for this
+/// seva. `enabled` false means the listing is information only and the card
+/// shows it exactly as before; nothing here is compulsory for a temple.
+class AppBooking {
+  const AppBooking({
+    this.enabled = false,
+    this.requiresPayment = false,
+    this.feePerPerson = true,
+    this.amountPaise = 0,
+    this.maxPeople = 10,
+    this.advanceDays = 30,
+    this.capacityPerDay,
+    this.instructions,
+  });
+
+  static const off = AppBooking();
+
+  final bool enabled;
+  final bool requiresPayment;
+  final bool feePerPerson;
+
+  /// What one person (or one booking, when the fee is not per person) costs.
+  final int amountPaise;
+  final int maxPeople;
+  final int advanceDays;
+  final int? capacityPerDay;
+
+  /// Where to report, what to bring, how early to come.
+  final String? instructions;
+
+  factory AppBooking.fromJson(Map<String, dynamic> j) => AppBooking(
+        enabled: _b(j['enabled']),
+        requiresPayment: _b(j['requires_payment']),
+        feePerPerson: j.containsKey('fee_per_person') ? _b(j['fee_per_person']) : true,
+        amountPaise: _i(j['amount_paise']) ?? 0,
+        maxPeople: _i(j['max_people']) ?? 10,
+        advanceDays: _i(j['advance_days']) ?? 30,
+        capacityPerDay: _i(j['capacity_per_day']),
+        instructions: _s(j['instructions']),
+      );
+
+  /// The total for this many people, in paise.
+  int totalFor(int people) => feePerPerson ? amountPaise * people : amountPaise;
+}
+
 class Puja {
   const Puja({
     this.id,
+    this.kind = 'puja',
     required this.name,
     this.description,
     this.imageUrl,
@@ -420,9 +466,14 @@ class Puja {
     this.scheduleNote,
     required this.fee,
     required this.booking,
+    this.appBooking = AppBooking.off,
   });
 
   final int? id;
+
+  /// puja, seva or prasadam: how the temple files it, and how the app
+  /// groups the list.
+  final String kind;
   final String name;
   final String? description;
   final String? imageUrl;
@@ -433,9 +484,13 @@ class Puja {
   final String? scheduleNote;
   final Fee fee;
   final Booking booking;
+  final AppBooking appBooking;
+
+  bool get isBookableInApp => appBooking.enabled && id != null;
 
   factory Puja.fromJson(Map<String, dynamic> j) => Puja(
         id: _i(j['id']),
+        kind: _s(j['kind']) ?? 'puja',
         name: _s(j['name']) ?? '',
         description: _s(j['description']),
         imageUrl: _s(j['image_url']),
@@ -446,7 +501,168 @@ class Puja {
         scheduleNote: _s(j['schedule_note']),
         fee: Fee.fromJson(_m(j['fee'])),
         booking: Booking.fromJson(_m(j['booking'])),
+        appBooking: j['app_booking'] is Map ? AppBooking.fromJson(_m(j['app_booking'])) : AppBooking.off,
       );
+
+  /// The heading the list shows over this kind.
+  static String kindLabel(String kind) => switch (kind) {
+        'seva' => 'Sevas',
+        'prasadam' => 'Prasadam',
+        _ => 'Pujas',
+      };
+}
+
+/// A puja, seva or prasadam the devotee booked through the app, as
+/// `GET /me/bookings` returns it: the reference the counter reads out, the
+/// code its scanner checks, and where it stands.
+class PujaBooking {
+  const PujaBooking({
+    required this.reference,
+    required this.code,
+    this.qrUrl,
+    required this.status,
+    required this.statusLabel,
+    this.isLive = false,
+    this.templeSlug,
+    this.templeName,
+    this.templeCity,
+    this.pujaId,
+    required this.pujaName,
+    this.pujaKind = 'puja',
+    this.pujaStartsAt,
+    this.pujaImageUrl,
+    this.instructions,
+    required this.bookedFor,
+    this.people = 1,
+    required this.devoteeName,
+    this.devoteePhone,
+    this.gotram,
+    this.nakshatram,
+    this.note,
+    this.amountPaise = 0,
+    this.amountLabel = 'Free',
+    this.paymentId,
+    this.paymentStatus,
+    this.verifiedAt,
+    this.cancelledAt,
+    this.cancelReason,
+    this.canCancel = false,
+    this.createdAt,
+  });
+
+  final String reference;
+  final String code;
+  final String? qrUrl;
+
+  /// pending_payment, confirmed, verified, cancelled, refunded.
+  final String status;
+  final String statusLabel;
+  final bool isLive;
+  final String? templeSlug;
+  final String? templeName;
+  final String? templeCity;
+  final int? pujaId;
+  final String pujaName;
+  final String pujaKind;
+  final String? pujaStartsAt;
+  final String? pujaImageUrl;
+  final String? instructions;
+  final DateTime bookedFor;
+  final int people;
+  final String devoteeName;
+  final String? devoteePhone;
+  final String? gotram;
+  final String? nakshatram;
+  final String? note;
+  final int amountPaise;
+  final String amountLabel;
+  final String? paymentId;
+  final String? paymentStatus;
+  final String? verifiedAt;
+  final String? cancelledAt;
+  final String? cancelReason;
+  final bool canCancel;
+  final String? createdAt;
+
+  bool get isFree => amountPaise == 0;
+  bool get isPendingPayment => status == 'pending_payment';
+  bool get isConfirmed => status == 'confirmed';
+  bool get isVerified => status == 'verified';
+
+  /// Over: the day has passed, or it was cancelled, refunded or received.
+  bool get isPast {
+    final today = DateTime.now();
+    final day = DateTime(today.year, today.month, today.day);
+    return isVerified || status == 'cancelled' || status == 'refunded' || bookedFor.isBefore(day);
+  }
+
+  /// What the QR carries: the server's link, or the bare code if it gave none.
+  String get qrData => qrUrl ?? code;
+
+  factory PujaBooking.fromJson(Map<String, dynamic> j) {
+    final status = _m(j['status']);
+    final temple = _m(j['temple']);
+    final puja = _m(j['puja']);
+    final payment = _m(j['payment']);
+    return PujaBooking(
+      reference: _s(j['reference']) ?? '',
+      code: _s(j['code']) ?? '',
+      qrUrl: _s(j['qr_url']),
+      status: _s(status['value']) ?? 'confirmed',
+      statusLabel: _s(status['label']) ?? 'Confirmed',
+      isLive: _b(j['is_live']),
+      templeSlug: _s(temple['slug']),
+      templeName: _s(temple['name']),
+      templeCity: _s(temple['city']),
+      pujaId: _i(puja['id']),
+      pujaName: _s(puja['name']) ?? 'Seva',
+      pujaKind: _s(puja['kind']) ?? 'puja',
+      pujaStartsAt: _s(puja['starts_at']),
+      pujaImageUrl: _s(puja['image_url']),
+      instructions: _s(puja['instructions']),
+      bookedFor: DateTime.tryParse(_s(j['booked_for']) ?? '') ?? DateTime.now(),
+      people: _i(j['people']) ?? 1,
+      devoteeName: _s(j['devotee_name']) ?? '',
+      devoteePhone: _s(j['devotee_phone']),
+      gotram: _s(j['gotram']),
+      nakshatram: _s(j['nakshatram']),
+      note: _s(j['note']),
+      amountPaise: _i(j['amount_paise']) ?? 0,
+      amountLabel: _s(j['amount']) ?? 'Free',
+      paymentId: _s(payment['id']),
+      paymentStatus: _s(payment['status']),
+      verifiedAt: _s(j['verified_at']),
+      cancelledAt: _s(j['cancelled_at']),
+      cancelReason: _s(j['cancel_reason']),
+      canCancel: _b(j['can_cancel']),
+      createdAt: _s(j['created_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'reference': reference,
+        'code': code,
+        'qr_url': qrUrl,
+        'status': {'value': status, 'label': statusLabel},
+        'is_live': isLive,
+        'temple': {'slug': templeSlug, 'name': templeName, 'city': templeCity},
+        'puja': {'id': pujaId, 'name': pujaName, 'kind': pujaKind, 'starts_at': pujaStartsAt, 'image_url': pujaImageUrl, 'instructions': instructions},
+        'booked_for': '${bookedFor.year}-${bookedFor.month.toString().padLeft(2, '0')}-${bookedFor.day.toString().padLeft(2, '0')}',
+        'people': people,
+        'devotee_name': devoteeName,
+        'devotee_phone': devoteePhone,
+        'gotram': gotram,
+        'nakshatram': nakshatram,
+        'note': note,
+        'amount_paise': amountPaise,
+        'amount': amountLabel,
+        'payment': paymentId == null ? null : {'id': paymentId, 'status': paymentStatus},
+        'verified_at': verifiedAt,
+        'cancelled_at': cancelledAt,
+        'cancel_reason': cancelReason,
+        'can_cancel': canCancel,
+        'created_at': createdAt,
+      };
 }
 
 class Closure {

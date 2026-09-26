@@ -26,6 +26,7 @@ import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../bookings/book_puja_sheet.dart';
 import '../bookings/bookings_screen.dart';
 import '../family/family_screen.dart';
 import '../media/in_app_browser.dart';
@@ -148,6 +149,9 @@ class _TempleScreenState extends State<TempleScreen> {
     final saved = favs.contains(t.slug);
     final inYatra = context.watch<YatraController>().yatras.any((y) => y.allStops.any((st) => st.slug == t.slug));
     final photos = d?.photos.isNotEmpty == true ? d!.photos : [if (t.primaryPhoto != null) t.primaryPhoto!];
+    // Sevas the temple has opened for booking in the app. None is the norm:
+    // a listing is information first, and booking is the temple's choice.
+    final bookable = d?.pujas.where((p) => p.isBookableInApp).toList() ?? const <Puja>[];
     // The API's own list (temple first, then deity) beats the bundled one.
     final media = d != null && d.devotionalMedia.isNotEmpty ? d.devotionalMedia : (_media?.data ?? const <DevotionalMedia>[]);
 
@@ -192,14 +196,34 @@ class _TempleScreenState extends State<TempleScreen> {
                       TrustBadge(trust: t.trust),
                       if (t.deity != null) Chip(avatar: DeityIcon(slug: t.deity!.slug, imageUrl: t.deity!.imageUrl, size: 24, accent: day.accent, secondary: day.secondary, onAccent: day.onAccent()), label: Text(t.deity!.name), visualDensity: VisualDensity.compact),
                       if (d != null) for (final c in d.categories) Chip(label: Text(c.name), visualDensity: VisualDensity.compact),
+                      if (bookable.isNotEmpty)
+                        ActionChip(
+                          avatar: const Icon(Icons.phone_iphone_rounded, size: 16, color: Palette.tulsi),
+                          label: Text(s('bookable_in_app')),
+                          side: const BorderSide(color: Palette.tulsi),
+                          labelStyle: const TextStyle(color: Palette.tulsi, fontWeight: FontWeight.w700),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () => _jump(_Section.seva),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.place_rounded, size: 16, color: day.accent),
+                      Padding(padding: const EdgeInsets.only(top: 2), child: Icon(Icons.place_rounded, size: 16, color: day.accent)),
                       const SizedBox(width: 6),
-                      Expanded(child: Text([d?.summary.location.address, t.location.city, t.location.district, t.location.state].where((e) => e != null && e.isNotEmpty).toSet().join(', '), style: theme.textTheme.bodyMedium)),
+                      Expanded(
+                        child: Text(
+                          [d?.summary.location.address, t.location.city, t.location.district, t.location.state, if (d?.summary.location.pincode != null) 'PIN ${d!.summary.location.pincode}'].where((e) => e != null && e.isNotEmpty).toSet().join(', '),
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      if (t.location.hasCoordinates)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Text(context.watch<LocationController?>()?.labelTo(t.location.latitude, t.location.longitude) ?? '', style: theme.textTheme.labelSmall?.copyWith(color: day.accent, fontWeight: FontWeight.w700)),
+                        ),
                     ],
                   ),
                   if (d?.isClosedToday == true) ...[const SizedBox(height: 12), _Banner(icon: Icons.door_front_door_rounded, text: s('closed_today'), color: Palette.kumkum)],
@@ -211,11 +235,15 @@ class _TempleScreenState extends State<TempleScreen> {
                       _Action(Icons.route_rounded, inYatra ? s('in_yatra') : s('add_to_yatra'), () => _addToYatra(t), highlighted: inYatra),
                       if (t.location.hasCoordinates) _Action(Icons.directions_rounded, s('directions'), () => launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${t.location.latitude},${t.location.longitude}'), mode: LaunchMode.externalApplication)),
                       _Action(Icons.schedule_rounded, s('timings_short'), () => _jump(_Section.darshan)),
-                      _Action(Icons.local_fire_department_rounded, s('pujas'), () => _jump(_Section.seva)),
+                      _Action(Icons.local_fire_department_rounded, bookable.isNotEmpty ? s('book_in_app') : s('pujas'), () => _jump(_Section.seva), highlighted: bookable.isNotEmpty),
                       _Action(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, saved ? s('saved') : s('save'), () => _toggleSave(favs, t), highlighted: saved),
                       _Action(Icons.share_rounded, s('share'), () => Share.share('${t.name}${t.location.city == null ? '' : ', ${t.location.city}'} · ${Brand.name}')),
                     ],
                   ),
+                  if (d != null) ...[
+                    const SizedBox(height: 16),
+                    _VisitToday(detail: d, day: day, bookable: bookable.length, onTimings: () => _jump(_Section.darshan), onSeva: () => _jump(_Section.seva)),
+                  ],
                   const SizedBox(height: 16),
                   _DarshanCard(day: day, visited: visited, visits: visitCount, templeName: t.name, onMark: () => _checkIn(t), firstVisit: visited ? passport.firstVisit(t.slug) : null),
                 ],
@@ -384,12 +412,59 @@ class _TempleScreenState extends State<TempleScreen> {
               ),
             ],
             // ---- Seva ---------------------------------------------------
-            SliverToBoxAdapter(key: _keys[_Section.seva], child: SectionHeader(title: s('pujas'), motif: Motif.kalasha)),
+            SliverToBoxAdapter(
+              key: _keys[_Section.seva],
+              child: SectionHeader(
+                title: s('pujas'),
+                motif: Motif.kalasha,
+                subtitle: d.pujas.isEmpty
+                    ? null
+                    : bookable.isEmpty
+                        ? '${d.pujas.length} listed · book at the temple'
+                        : '${bookable.length} of ${d.pujas.length} bookable in the app',
+              ),
+            ),
+            if (bookable.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                sliver: SliverToBoxAdapter(child: _BookingIntro(day: day, count: bookable.length)),
+              ),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: d.pujas.isEmpty
                   ? const SliverToBoxAdapter(child: _EmptyLine(icon: Icons.local_fire_department_outlined, text: 'No pujas or sevas published yet.'))
-                  : SliverList.separated(itemCount: d.pujas.length, separatorBuilder: (_, __) => const SizedBox(height: 10), itemBuilder: (context, i) => _PujaCard(puja: d.pujas[i], accent: day.accent, onBooked: () => BookingsScreen.record(context, t, d.pujas[i]))),
+                  : SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final kind in ['puja', 'seva', 'prasadam'])
+                            if (d.pujas.any((p) => p.kind == kind)) ...[
+                              // Headings only once there is more than one kind to tell apart.
+                              if (d.pujas.map((p) => p.kind).toSet().length > 1)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(2, 8, 0, 8),
+                                  child: Row(
+                                    children: [
+                                      Icon(_kindIcon(kind), size: 16, color: day.accent),
+                                      const SizedBox(width: 6),
+                                      Text(Puja.kindLabel(kind).toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: day.accent, fontWeight: FontWeight.w800)),
+                                    ],
+                                  ),
+                                ),
+                              for (final p in d.pujas.where((p) => p.kind == kind))
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _PujaCard(
+                                    puja: p,
+                                    day: day,
+                                    onBook: p.isBookableInApp ? () => BookPujaFlow.start(context, t, p) : null,
+                                    onNoted: () => BookingsScreen.record(context, t, p),
+                                  ),
+                                ),
+                            ],
+                        ],
+                      ),
+                    ),
             ),
             if (d.facilities.isNotEmpty) ...[
               SliverToBoxAdapter(child: SectionHeader(title: s('facilities'), motif: Motif.lotus)),
@@ -491,6 +566,12 @@ class _TempleScreenState extends State<TempleScreen> {
     if (photos.isEmpty) return;
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => PhotoViewer(photos: photos, initial: i, deitySlug: _summary.deity?.slug), fullscreenDialog: true));
   }
+
+  static IconData _kindIcon(String kind) => switch (kind) {
+        'seva' => Icons.auto_awesome_rounded,
+        'prasadam' => Icons.rice_bowl_rounded,
+        _ => Icons.local_fire_department_rounded,
+      };
 
   static IconData _ruleIcon(String key) => switch (key) {
         'dress_code' => Icons.checkroom_rounded,
@@ -1163,7 +1244,9 @@ class _TimingsTable extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Text(timings[i].window ?? '${timings[i].opensAt ?? ''} – ${timings[i].closesAt ?? ''}', style: theme.textTheme.titleSmall?.copyWith(color: accent)),
+                  // Flexible: "06:00 – 12:00" beside a long label at large
+                  // text would otherwise run off a narrow phone.
+                  Flexible(child: Text(timings[i].window ?? '${timings[i].opensAt ?? ''} – ${timings[i].closesAt ?? ''}', textAlign: TextAlign.end, style: theme.textTheme.titleSmall?.copyWith(color: accent))),
                 ],
               ),
             ),
@@ -1177,35 +1260,72 @@ class _TimingsTable extends StatelessWidget {
 /// Renders the fee and booking exactly as the API contract requires: the fee
 /// label verbatim (an unpriced puja is not free), and a link called official
 /// only when `is_official` says so.
+///
+/// Booking in the app appears only where the temple switched it on for this
+/// seva ([onBook] non-null). Everything else shows as it always did: the
+/// temple's own link if there is one, otherwise "book at the temple".
 class _PujaCard extends StatelessWidget {
-  const _PujaCard({required this.puja, required this.accent, required this.onBooked});
+  const _PujaCard({required this.puja, required this.day, this.onBook, required this.onNoted});
 
   final Puja puja;
-  final Color accent;
-  final VoidCallback onBooked;
+  final DayTheme day;
+  final VoidCallback? onBook;
+  final VoidCallback onNoted;
 
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
     final theme = Theme.of(context);
     final b = puja.booking;
-    return Card(
+    final ab = puja.appBooking;
+    final accent = day.accent;
+    final inApp = onBook != null;
+    return Container(
       clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: inApp ? Palette.tulsi.withValues(alpha: 0.6) : theme.colorScheme.outlineVariant, width: inApp ? 1.5 : 1),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (puja.imageUrl != null) AspectRatio(aspectRatio: 16 / 7, child: TempleImage(url: puja.imageUrl)),
+          if (puja.imageUrl != null)
+            Stack(
+              children: [
+                AspectRatio(aspectRatio: 16 / 7, child: TempleImage(url: puja.imageUrl)),
+                if (inApp) Positioned(left: 10, top: 10, child: _Pill(text: s('bookable_in_app').toUpperCase(), color: Palette.tulsi)),
+              ],
+            ),
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Text(puja.name, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif'))),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(puja.name, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
+                          if (inApp && puja.imageUrl == null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Row(children: [const Icon(Icons.phone_iphone_rounded, size: 13, color: Palette.tulsi), const SizedBox(width: 4), Flexible(child: Text(s('bookable_in_app'), style: theme.textTheme.labelSmall?.copyWith(color: Palette.tulsi, fontWeight: FontWeight.w800)))]),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(color: (puja.fee.isFree ? Palette.tulsi : accent).withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
-                      child: Text(puja.fee.display, style: theme.textTheme.labelMedium?.copyWith(color: puja.fee.isFree ? Palette.tulsi : accent, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        puja.fee.display + (inApp && ab.requiresPayment ? (ab.feePerPerson ? ' / person' : '') : ''),
+                        style: theme.textTheme.labelMedium?.copyWith(color: puja.fee.isFree ? Palette.tulsi : accent, fontWeight: FontWeight.w800),
+                      ),
                     ),
                   ],
                 ),
@@ -1219,23 +1339,155 @@ class _PujaCard extends StatelessWidget {
                     if (puja.durationLabel != null) _Meta(icon: Icons.hourglass_bottom_rounded, text: puja.durationLabel!),
                     if (puja.eligibility != null) _Meta(icon: Icons.person_rounded, text: puja.eligibility!),
                     if (puja.scheduleNote != null) _Meta(icon: Icons.info_outline_rounded, text: puja.scheduleNote!),
+                    if (inApp && ab.maxPeople > 1) _Meta(icon: Icons.groups_rounded, text: 'Up to ${ab.maxPeople}'),
                   ],
                 ),
                 if (puja.includes != null) ...[const SizedBox(height: 6), Text('Includes: ${puja.includes}', style: theme.textTheme.bodySmall)],
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Icon(b.isOfficial ? Icons.verified_rounded : Icons.info_outline_rounded, size: 16, color: b.isOfficial ? Palette.tulsi : theme.colorScheme.outline),
-                    const SizedBox(width: 6),
-                    Expanded(child: Text(b.label ?? (b.isOfficial ? 'Official booking' : 'Book at the temple'), style: theme.textTheme.bodySmall?.copyWith(color: b.isOfficial ? Palette.tulsi : null))),
-                    if (b.url != null) TextButton(onPressed: () => InAppBrowserScreen.openSecure(context, b.url!), child: Text(b.isOfficial ? 'Book' : 'Open link')),
+                const SizedBox(height: 12),
+                if (inApp) ...[
+                  // The temple takes this booking through the app.
+                  FilledButton.icon(
+                    onPressed: onBook,
+                    style: FilledButton.styleFrom(backgroundColor: Palette.tulsi, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(46)),
+                    icon: Icon(ab.requiresPayment ? Icons.lock_rounded : Icons.event_available_rounded),
+                    label: Text(ab.requiresPayment ? '${s('book_in_app')} · ${BookPujaFlow.rupees(ab.amountPaise)}${ab.feePerPerson ? ' / person' : ''}' : '${s('book_in_app')} · ${s('booking_free')}'),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    ab.requiresPayment ? 'Pay in the app; the temple scans your code at the counter. Up to ${ab.advanceDays} days ahead.' : 'Free; the temple scans your code at the counter. Up to ${ab.advanceDays} days ahead.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                  ),
+                  if (b.url != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(b.isOfficial ? Icons.verified_rounded : Icons.info_outline_rounded, size: 14, color: b.isOfficial ? Palette.tulsi : theme.colorScheme.outline),
+                        const SizedBox(width: 6),
+                        Expanded(child: Text(b.isOfficial ? 'Also on the temple\'s own site' : (b.label ?? 'Third-party link'), style: theme.textTheme.bodySmall)),
+                        TextButton(onPressed: () => InAppBrowserScreen.openSecure(context, b.url!), child: const Text('Open')),
+                      ],
+                    ),
                   ],
-                ),
-                if (b.note != null) Text(b.note!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
-                Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: onBooked, icon: const Icon(Icons.bookmark_add_outlined, size: 16), label: const Text('I booked this'))),
+                ] else ...[
+                  Row(
+                    children: [
+                      Icon(b.isOfficial ? Icons.verified_rounded : Icons.storefront_rounded, size: 16, color: b.isOfficial ? Palette.tulsi : theme.colorScheme.outline),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(b.label ?? (b.isOfficial ? 'Official booking' : 'Book at the temple'), style: theme.textTheme.bodySmall?.copyWith(color: b.isOfficial ? Palette.tulsi : null))),
+                      if (b.url != null) TextButton(onPressed: () => InAppBrowserScreen.openSecure(context, b.url!), child: Text(b.isOfficial ? 'Book' : 'Open link')),
+                    ],
+                  ),
+                  if (b.note != null) Text(b.note!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
+                  Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: onNoted, icon: const Icon(Icons.bookmark_add_outlined, size: 16), label: const Text('I booked this'))),
+                ],
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Over the seva list when the temple takes bookings in the app: what that
+/// means in one breath, so nobody wonders whether they still have to queue.
+class _BookingIntro extends StatelessWidget {
+  const _BookingIntro({required this.day, required this.count});
+
+  final DayTheme day;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Palette.tulsi.withValues(alpha: 0.14), day.accent.withValues(alpha: 0.08)], begin: Alignment.centerLeft, end: Alignment.centerRight),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Palette.tulsi.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.qr_code_2_rounded, color: Palette.tulsi, size: 30),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('This temple takes bookings in the app', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text('Choose a day, pay here if there is a fee, and show the code in your booking at the counter. $count ${count == 1 ? 'seva is' : 'sevas are'} open for booking.', style: theme.textTheme.bodySmall?.copyWith(height: 1.35)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// What a devotee planning today needs in one card: whether it is open,
+/// today's hours, the next festival, and whether anything can be booked.
+class _VisitToday extends StatelessWidget {
+  const _VisitToday({required this.detail, required this.day, required this.bookable, required this.onTimings, required this.onSeva});
+
+  final TempleDetail detail;
+  final DayTheme day;
+  final int bookable;
+  final VoidCallback onTimings;
+  final VoidCallback onSeva;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final weekday = DateTime.now().weekday % 7;
+    final today = detail.timings.where((t) => t.kind != 'aarti' && (t.dayOfWeek == null || t.dayOfWeek == weekday)).toList();
+    final hours = today.map((t) => t.window ?? [t.opensAt, t.closesAt].whereType<String>().join(' – ')).where((w) => w.isNotEmpty).toList();
+    final aarti = detail.timings.where((t) => t.kind == 'aarti' && (t.dayOfWeek == null || t.dayOfWeek == weekday)).firstOrNull;
+    final festival = detail.events.firstOrNull;
+    final closed = detail.isClosedToday;
+    final rows = <(IconData, String, String, VoidCallback?)>[
+      (
+        closed ? Icons.door_front_door_rounded : Icons.schedule_rounded,
+        closed ? 'Closed today' : 'Darshan today',
+        closed ? (detail.closures.where((c) => c.isActiveToday).firstOrNull?.reason ?? 'A closure is in force') : (hours.isEmpty ? 'Timings not published yet' : hours.take(2).join(' · ')),
+        onTimings,
+      ),
+      if (aarti != null) (Icons.local_fire_department_rounded, aarti.label ?? 'Aarti', aarti.window ?? [aarti.opensAt, aarti.closesAt].whereType<String>().join(' – '), onTimings),
+      if (festival != null) (Icons.celebration_rounded, festival.isHappeningToday ? 'Today' : 'Next festival', '${festival.title}${festival.dateLabel != null ? ' · ${festival.dateLabel}' : ''}', null),
+      if (bookable > 0) (Icons.qr_code_2_rounded, 'Book in the app', '$bookable ${bookable == 1 ? 'seva' : 'sevas'} · pay here, show the code at the counter', onSeva),
+    ];
+    return Container(
+      decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18), border: Border.all(color: (closed ? Palette.kumkum : day.accent).withValues(alpha: 0.35))),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) const Divider(height: 1, indent: 48),
+            InkWell(
+              onTap: rows[i].$4,
+              borderRadius: BorderRadius.vertical(top: i == 0 ? const Radius.circular(18) : Radius.zero, bottom: i == rows.length - 1 ? const Radius.circular(18) : Radius.zero),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(rows[i].$1, size: 20, color: i == 0 && closed ? Palette.kumkum : (rows[i].$1 == Icons.qr_code_2_rounded ? Palette.tulsi : day.accent)),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(rows[i].$2.toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: theme.colorScheme.onSurface.withValues(alpha: 0.6))),
+                          Text(rows[i].$3, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                    if (rows[i].$4 != null) Icon(Icons.chevron_right_rounded, color: theme.colorScheme.outline),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

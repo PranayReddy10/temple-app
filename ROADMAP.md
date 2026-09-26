@@ -266,9 +266,10 @@ out to be — says something useful without ranking the sacred.
 
 | Slice | Scope | Status |
 | --- | --- | --- |
-| **Add a temple** | "Not listed? Add this temple" from search, Profile → Temples I added, and Help & support: a five-step form (name with a check against listed temples, PIN-code address and map pin, deity and history, timings and contact, photos and who you are). Temple members leave a number; the team reviews every one | ✅ |
+| **Add a temple** | "Not listed? Add this temple" from search, Profile → Temples I added, and Help & support: a five-step form (name with a check against listed temples, PIN-code address and map pin, deity and history, timings and contact, photos and who you are). "I'm here" reads the PIN code, village, district and state off the map, and a PIN code India Post does not know is checked against the map before the form says so. Temple members leave a number; the team reviews every one | ✅ |
 | **Temple member app** | A separate app for trustees, priests and temple offices to claim and manage their temple: timings, closures, pujas, events, photos | ⬜ |
-| **Puja & seva booking** | Book and pay for pujas and sevas in the app, confirmed by the temple | ⬜ |
+| **Puja & seva booking** | Where a temple has switched booking on for a seva, the temple page offers **Book in the app**: pick a day and party, add the sankalpam names, pay the published fee through the same gateways as plans (a free seva books at once), and get a reference and a QR code kept on the device. **Profile → My seva bookings** shows the code for the counter and its status; the temple scans it once and it reads as received. Sevas the temple has not opened show exactly as before. Pujas, sevas and prasadam are grouped by kind; the overview gains a "visit today" card | ✅ |
+| **Prasadam by post** | Prasadam books for collection at the counter today. Next: quantities, home delivery with an address, dispatch status | ⬜ |
 | **Stay & travel** | Hotels, dharmashalas and transport near each temple | ⬜ |
 
 ### Later phases

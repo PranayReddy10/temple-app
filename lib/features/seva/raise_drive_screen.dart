@@ -199,18 +199,17 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
       if (!mounted || _pincode.text != code) return;
       setState(() {
         if (info == null) {
-          _pinNote = 'No post office has that PIN code. Check it, or fill in the rest yourself.';
+          _pinNote = _lat == null
+              ? 'No post office has that PIN code. At the place? Tap "I\'m here" and the address is read off the map.'
+              : 'No post office has that PIN code. Check it, or fill in the rest yourself.';
           _places = const [];
           return;
         }
-        _stateName = info.state;
-        _stateId = info.stateId;
-        if (info.district != null) _district.text = info.district!;
-        _places = info.places;
-        // One town under this code: that is the town.
-        if (info.places.length == 1) _city.text = info.places.first;
-        _pinNote = [info.district, info.state].whereType<String>().join(', ');
+        _fillFrom(info, fromMap: false);
       });
+    } on ApiException catch (e) {
+      // 503: the directory could not be reached, which is not a wrong code.
+      if (mounted) setState(() => _pinNote = e.message);
     } catch (_) {
       if (mounted) setState(() => _pinNote = 'Could not look it up offline. Fill in the rest yourself.');
     } finally {
@@ -218,6 +217,30 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
     }
   }
 
+  /// Fills the place fields from a PIN code lookup or the map, never over
+  /// something typed by hand.
+  void _fillFrom(PincodeInfo info, {required bool fromMap}) {
+    if (info.state != null) {
+      _stateName = info.state;
+      _stateId = info.stateId;
+    }
+    if (info.district != null && (_district.text.trim().isEmpty || !fromMap)) _district.text = info.district!;
+    _places = info.places;
+    if (info.city != null && _city.text.trim().isEmpty) {
+      _city.text = info.city!;
+    } else if (info.places.length == 1 && _city.text.trim().isEmpty) {
+      // One town under this code: that is the town.
+      _city.text = info.places.first;
+    }
+    if (fromMap) {
+      if (info.pincode != null && _pincode.text.trim().isEmpty) _pincode.text = info.pincode!;
+      if (info.address != null && _address.text.trim().isEmpty) _address.text = info.address!;
+    }
+    final place = [if (fromMap) info.city, info.district, info.state].whereType<String>().join(', ');
+    _pinNote = fromMap ? 'From your location: $place' : place;
+  }
+
+  /// "I'm here": the pin, and the address read off the map for it.
   Future<void> _locate() async {
     setState(() => _locating = true);
     try {
@@ -231,6 +254,23 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
       });
     } catch (_) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not get your location. Type the address instead.')));
+      if (mounted) setState(() => _locating = false);
+      return;
+    }
+    try {
+      final info = await _repo.reverseGeocode(_lat!, _lng!);
+      if (!mounted) return;
+      setState(() {
+        if (info == null) {
+          _pinNote = 'Pinned. The map has no address for this spot; fill in the rest yourself.';
+        } else {
+          _fillFrom(info, fromMap: true);
+        }
+      });
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _pinNote = 'Pinned. ${e.message}');
+    } catch (_) {
+      if (mounted) setState(() => _pinNote = 'Pinned. Could not read the address off the map offline; fill in the rest yourself.');
     } finally {
       if (mounted) setState(() => _locating = false);
     }
@@ -331,6 +371,7 @@ class _RaiseDriveScreenState extends State<RaiseDriveScreen> {
             decoration: InputDecoration(
               labelText: 'PIN code',
               helperText: _pinNote ?? 'Fills in the state, district and town',
+              helperMaxLines: 3,
               prefixIcon: const Icon(Icons.markunread_mailbox_rounded),
               suffixIcon: _lookingUp ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))) : (_stateName != null && _pincode.text.length == 6 ? const Icon(Icons.check_circle_rounded, color: Palette.tulsi) : null),
             ),

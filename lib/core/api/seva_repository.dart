@@ -51,9 +51,25 @@ class SevaRepository {
   }
 
   /// The state, district and towns for a PIN code; null when it has none.
+  /// Null when no post office has the code. Throws an [ApiException] (503)
+  /// when the directory could not be reached, which is a different thing
+  /// and is said differently.
   Future<PincodeInfo?> pincode(String code) async {
     try {
       final body = await _api.get('pincode/$code');
+      return PincodeInfo.fromJson(Map<String, dynamic>.from(body['data'] as Map));
+    } on ApiException catch (e) {
+      if (e.isNotFound) return null;
+      rethrow;
+    }
+  }
+
+  /// The address under a dropped pin: PIN code, village, district, state and
+  /// street, so "I'm here" fills the form. Null when the map has nothing
+  /// there; throws when the map could not be reached.
+  Future<PincodeInfo?> reverseGeocode(double latitude, double longitude) async {
+    try {
+      final body = await _api.get('geocode/reverse', {'lat': latitude.toStringAsFixed(6), 'lng': longitude.toStringAsFixed(6)});
       return PincodeInfo.fromJson(Map<String, dynamic>.from(body['data'] as Map));
     } on ApiException catch (e) {
       if (e.isNotFound) return null;

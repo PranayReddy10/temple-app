@@ -8,6 +8,7 @@ import '../../core/api/seva_repository.dart';
 import '../../core/api/temple_repository.dart';
 import '../../core/api/temple_suggestion_repository.dart';
 import '../../core/models/models.dart';
+import '../../core/models/seva.dart';
 import '../../core/motifs/motif.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/location_controller.dart';
@@ -128,17 +129,18 @@ class _AddTempleScreenState extends State<AddTempleScreen> {
       if (!mounted || _pincode.text != code) return;
       setState(() {
         if (info == null) {
-          _pinNote = 'No post office has that PIN code. Fill in the rest yourself.';
+          _pinNote = _lat == null
+              ? 'No post office has that PIN code. Standing at the temple? Tap "I\'m here" and the address is read off the map.'
+              : 'No post office has that PIN code. Check it, or fill in the rest yourself.';
           _places = const [];
           return;
         }
-        _stateName = info.state;
-        _stateId = info.stateId;
-        if (info.district != null) _district.text = info.district!;
-        _places = info.places;
-        if (info.places.length == 1) _city.text = info.places.first;
-        _pinNote = [info.district, info.state].whereType<String>().join(', ');
+        _fillFrom(info, fromMap: false);
       });
+    } on ApiException catch (e) {
+      // 503: the directory could not be reached. That is not a verdict on
+      // the code, and is said differently.
+      if (mounted) setState(() => _pinNote = e.message);
     } catch (_) {
       if (mounted) setState(() => _pinNote = 'Could not look it up offline. Fill in the rest yourself.');
     } finally {
@@ -146,6 +148,31 @@ class _AddTempleScreenState extends State<AddTempleScreen> {
     }
   }
 
+  /// Fills the place fields from a PIN code lookup or the map. Never
+  /// overwrites something the devotee typed themselves, except the state,
+  /// which is only ever set this way.
+  void _fillFrom(PincodeInfo info, {required bool fromMap}) {
+    if (info.state != null) {
+      _stateName = info.state;
+      _stateId = info.stateId;
+    }
+    if (info.district != null && (_district.text.trim().isEmpty || !fromMap)) _district.text = info.district!;
+    _places = info.places;
+    if (info.city != null && _city.text.trim().isEmpty) {
+      _city.text = info.city!;
+    } else if (info.places.length == 1 && _city.text.trim().isEmpty) {
+      _city.text = info.places.first;
+    }
+    if (fromMap) {
+      if (info.pincode != null && _pincode.text.trim().isEmpty) _pincode.text = info.pincode!;
+      if (info.address != null && _address.text.trim().isEmpty) _address.text = info.address!;
+    }
+    final place = [if (fromMap) info.city, info.district, info.state].whereType<String>().join(', ');
+    _pinNote = fromMap ? 'From your location: $place' : place;
+  }
+
+  /// "I'm here": the pin, and the address read off the map for it, so the
+  /// PIN code, village, district and state are filled without typing.
   Future<void> _pin() async {
     final loc = context.read<LocationController>();
     final ok = await loc.request();
@@ -157,7 +184,25 @@ class _AddTempleScreenState extends State<AddTempleScreen> {
     setState(() {
       _lat = loc.latitude;
       _lng = loc.longitude;
+      _lookingUp = true;
     });
+    try {
+      final info = await _seva.reverseGeocode(_lat!, _lng!);
+      if (!mounted) return;
+      setState(() {
+        if (info == null) {
+          _pinNote = 'Pinned. The map has no address for this spot; fill in the rest yourself.';
+        } else {
+          _fillFrom(info, fromMap: true);
+        }
+      });
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _pinNote = 'Pinned. ${e.message}');
+    } catch (_) {
+      if (mounted) setState(() => _pinNote = 'Pinned. Could not read the address off the map offline; fill in the rest yourself.');
+    } finally {
+      if (mounted) setState(() => _lookingUp = false);
+    }
   }
 
   Future<void> _addPhotos({bool camera = false}) async {
@@ -279,7 +324,7 @@ class _AddTempleScreenState extends State<AddTempleScreen> {
           ),
           steps: [
             Step(title: const Text('The temple'), subtitle: const Text('Check it is not listed already'), isActive: _step >= 0, state: _step > 0 ? StepState.complete : StepState.indexed, content: _nameStep()),
-            Step(title: const Text('Where it is'), subtitle: const Text('PIN code fills the rest'), isActive: _step >= 1, state: _step > 1 ? StepState.complete : StepState.indexed, content: _placeStep()),
+            Step(title: const Text('Where it is'), subtitle: const Text('PIN code or your location fills the rest'), isActive: _step >= 1, state: _step > 1 ? StepState.complete : StepState.indexed, content: _placeStep()),
             Step(title: const Text('About it'), subtitle: const Text('Deity, history, festivals'), isActive: _step >= 2, state: _step > 2 ? StepState.complete : StepState.indexed, content: _aboutStep()),
             Step(title: const Text('Timings & contact'), subtitle: const Text('Optional'), isActive: _step >= 3, state: _step > 3 ? StepState.complete : StepState.indexed, content: _timingsStep()),
             Step(title: const Text('Photos & you'), subtitle: const Text('At least one photograph'), isActive: _step >= 4, content: _photosStep()),
@@ -347,6 +392,7 @@ class _AddTempleScreenState extends State<AddTempleScreen> {
             decoration: InputDecoration(
               labelText: 'PIN code',
               helperText: _pinNote ?? 'Fills in the state, district and town',
+              helperMaxLines: 3,
               prefixIcon: const Icon(Icons.markunread_mailbox_rounded),
               suffixIcon: _lookingUp ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))) : null,
             ),
@@ -379,8 +425,8 @@ class _AddTempleScreenState extends State<AddTempleScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: Text(_lat == null ? 'Standing at the temple? Drop a pin so others can find it.' : 'Pinned at ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}', style: Theme.of(context).textTheme.bodySmall)),
-              OutlinedButton.icon(onPressed: _pin, icon: Icon(_lat == null ? Icons.my_location_rounded : Icons.check_circle_rounded, color: _lat == null ? null : Palette.tulsi), label: Text(_lat == null ? "I'm here" : 'Pinned')),
+              Expanded(child: Text(_lat == null ? 'Standing at the temple? Tap "I\'m here": the pin helps others find it, and the address is filled in from the map.' : 'Pinned at ${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}', style: Theme.of(context).textTheme.bodySmall)),
+              OutlinedButton.icon(onPressed: _lookingUp ? null : _pin, icon: Icon(_lat == null ? Icons.my_location_rounded : Icons.check_circle_rounded, color: _lat == null ? null : Palette.tulsi), label: Text(_lat == null ? "I'm here" : 'Pinned')),
             ],
           ),
         ],
