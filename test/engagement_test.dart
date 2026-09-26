@@ -287,6 +287,10 @@ void main() {
   testWidgets('the temple page shows published accounts, and the devotee\'s own with Edit, not a second Write', (tester) async {
     final client = MockClient((r) async {
       if (r.url.path == '/api/v1/temples/booking-temple') return _json({'data': {...templeJson(), 'engagement': engagementJson(withMine: true)}});
+      if (r.method == 'POST' && r.url.path == '/api/v1/temples/booking-temple/reviews') {
+        // Approval switched off on the server: the edit is published at once.
+        return _json({'data': reviewJson(id: 12, name: 'Anu', body: 'My own account.', mine: true, status: 'approved')});
+      }
       if (r.url.path.endsWith('/me/likes/booking-temple')) {
         // An older server answers a tap without the reviews block.
         return _json({'data': {'likes_count': 4, 'follows_count': 2, 'viewer': {'liked': true}}}, 201);
@@ -331,6 +335,12 @@ void main() {
     expect(find.text('Save changes'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'My own account.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(find.text('Save changes'));
+    await tester.tap(find.text('Save changes'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Thank you. It is on the temple page now.'), findsOneWidget);
   });
 
   testWidgets('a review in My visit reviews opens its temple', (tester) async {

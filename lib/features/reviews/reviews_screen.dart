@@ -368,7 +368,8 @@ class _WriteReviewSheetState extends State<_WriteReviewSheet> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(r);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s('review_sent'))));
+      // Published at once when the team has switched approval off.
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s(r.isPending ? 'review_sent' : 'review_published'))));
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.errors.values.expand((v) => v).firstOrNull ?? e.message)));
     } catch (_) {
