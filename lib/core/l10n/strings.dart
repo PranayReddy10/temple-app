@@ -351,5 +351,10 @@ class S {
     'now_playing': {'en': 'Now playing', 'te': 'ఇప్పుడు ప్లే అవుతోంది', 'hi': 'अभी बज रहा है'},
     'up_next': {'en': 'Up next', 'te': 'తర్వాత', 'hi': 'अगला'},
     'play_all': {'en': 'Play all', 'te': 'అన్నీ ప్లే చేయండి', 'hi': 'सब चलाएँ'},
+    'review_edit': {'en': 'Edit your review', 'te': 'మీ సమీక్షను మార్చండి', 'hi': 'अपनी समीक्षा बदलें'},
+    'review_edit_intro': {'en': 'You have one review of this temple. Change it here; it is read again by the team before the new version is published.', 'te': 'ఈ ఆలయంపై మీకు ఒక సమీక్ష ఉంది. ఇక్కడ మార్చండి; కొత్త రూపం ప్రచురణకు ముందు బృందం మళ్ళీ చదువుతుంది.', 'hi': 'इस मंदिर पर आपकी एक समीक्षा है। यहाँ बदलें; नया रूप प्रकाशित होने से पहले टीम फिर पढ़ती है।'},
+    'review_save_changes': {'en': 'Save changes', 'te': 'మార్పులు సేవ్ చేయండి', 'hi': 'बदलाव सहेजें'},
+    'review_yours': {'en': 'Your review', 'te': 'మీ సమీక్ష', 'hi': 'आपकी समीक्षा'},
+    'review_remove_title': {'en': 'Remove your review?', 'te': 'మీ సమీక్షను తొలగించాలా?', 'hi': 'अपनी समीक्षा हटाएँ?'},
   };
 }

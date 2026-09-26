@@ -226,7 +226,7 @@ class RatingDimension {
 }
 
 class ReviewSummary {
-  const ReviewSummary({this.count = 0, this.dimensions = const [], this.averageWaitMinutes});
+  const ReviewSummary({this.count = 0, this.dimensions = const [], this.averageWaitMinutes, this.latest = const []});
 
   static const empty = ReviewSummary();
 
@@ -234,16 +234,22 @@ class ReviewSummary {
   final List<RatingDimension> dimensions;
   final int? averageWaitMinutes;
 
+  /// The newest published accounts, shown on the temple page itself.
+  final List<Review> latest;
+
+  bool get hasData => count > 0 || latest.isNotEmpty || dimensions.isNotEmpty;
+
   factory ReviewSummary.fromJson(Map<String, dynamic> j) => ReviewSummary(
         count: _i(j['count']) ?? 0,
         dimensions: [for (final e in _m(j['dimensions']).entries) RatingDimension.fromJson(e.key, _m(e.value))],
         averageWaitMinutes: _i(j['average_wait_minutes']),
+        latest: _l(j['latest']).map((e) => Review.fromJson(_m(e))).toList(),
       );
 }
 
 /// Where the signed-in devotee stands with a temple: what they tapped.
 class ViewerEngagement {
-  const ViewerEngagement({this.liked = false, this.following = false, this.notifyFestivals = false, this.notifyEvents = false, this.saved = false});
+  const ViewerEngagement({this.liked = false, this.following = false, this.notifyFestivals = false, this.notifyEvents = false, this.saved = false, this.myReview});
 
   final bool liked;
   final bool following;
@@ -251,12 +257,17 @@ class ViewerEngagement {
   final bool notifyEvents;
   final bool saved;
 
+  /// Their own account of this temple, whatever its status: there is one
+  /// per temple, and writing again edits it.
+  final Review? myReview;
+
   factory ViewerEngagement.fromJson(Map<String, dynamic> j) => ViewerEngagement(
         liked: _b(j['liked']),
         following: _b(j['following']),
         notifyFestivals: _b(j['notify_festivals']),
         notifyEvents: _b(j['notify_events']),
         saved: _b(j['saved']),
+        myReview: j['my_review'] is Map ? Review.fromJson(_m(j['my_review'])) : null,
       );
 }
 
@@ -300,6 +311,7 @@ class Review {
     this.id,
     this.templeSlug,
     this.templeName,
+    this.templeDeitySlug,
     required this.devoteeName,
     this.devoteeAvatarUrl,
     this.homeState,
@@ -319,6 +331,7 @@ class Review {
   final int? id;
   final String? templeSlug;
   final String? templeName;
+  final String? templeDeitySlug;
   final String devoteeName;
   final String? devoteeAvatarUrl;
   final String? homeState;
@@ -339,6 +352,9 @@ class Review {
   bool get isPending => status == 'pending';
   bool get isRejected => status == 'rejected';
 
+  /// What was rated, by key, for filling the edit form.
+  Map<String, int> get ratingValues => {for (final r in ratings) if (r.value != null) r.key: r.value!};
+
   factory Review.fromJson(Map<String, dynamic> j) {
     final devotee = _m(j['devotee']);
     final temple = _m(j['temple']);
@@ -347,6 +363,7 @@ class Review {
       id: _i(j['id']),
       templeSlug: _s(temple['slug']),
       templeName: _s(temple['name']),
+      templeDeitySlug: _s(temple['deity_slug']),
       devoteeName: _s(devotee['name']) ?? 'A devotee',
       devoteeAvatarUrl: _s(devotee['avatar_url']),
       homeState: _s(devotee['home_state']),
