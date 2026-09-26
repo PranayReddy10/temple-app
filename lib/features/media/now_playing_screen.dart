@@ -9,8 +9,7 @@ import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
 
 /// The full player for a song or chant: art, scrubber, previous / play /
-/// next, and what comes after. What plays here keeps playing when the
-/// screen is locked; the lock screen carries the same controls.
+/// next, and what comes after.
 class NowPlayingScreen extends StatelessWidget {
   const NowPlayingScreen({super.key, required this.day});
 
@@ -78,7 +77,6 @@ class NowPlayingScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Center(child: Text('Keeps playing with the screen locked; controls are on the lock screen too.', textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline))),
           if (m.description != null) ...[const SizedBox(height: 16), Text(m.description!, style: theme.textTheme.bodyMedium?.copyWith(height: 1.45))],
           const SizedBox(height: 8),
           Text(

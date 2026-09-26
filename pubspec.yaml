@@ -39,8 +39,6 @@ dependencies:
   flutter_cashfree_pg_sdk: ^2.4.0+52
   phonepe_payment_sdk: ^3.0.2
   just_audio: ^0.10.6
-  audio_service: ^0.18.19
-  audio_session: ^0.2.4
 
 dev_dependencies:
   flutter_test:

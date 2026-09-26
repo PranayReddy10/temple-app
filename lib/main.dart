@@ -101,8 +101,7 @@ Future<void> main() async {
         ChangeNotifierProvider<SyncService>.value(value: sync),
         ChangeNotifierProvider<FamilyController>.value(value: family),
         ChangeNotifierProvider(create: (_) => MantraPlayer(prefs)),
-        // Songs and chants: one queue for the whole app, alive while the
-        // screen is locked, with the lock screen's controls.
+        // Songs and chants: one queue for the whole app.
         ChangeNotifierProvider(create: (context) => AudioQueueController(mantra: context.read<MantraPlayer>())),
         ChangeNotifierProvider<RemindersController>.value(value: reminders),
         ChangeNotifierProvider<LocationController>.value(value: location),
