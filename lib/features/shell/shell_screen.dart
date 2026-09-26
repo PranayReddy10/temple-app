@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/audio/audio_queue.dart';
+import '../media/now_playing_screen.dart';
+
 import '../../core/platform.dart';
 
 import '../../core/l10n/strings.dart';
@@ -59,7 +62,12 @@ class _ShellScreenState extends State<ShellScreen> {
     ];
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
+      // Whatever is playing rides above the tabs on every one of them.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (context.watch<AudioQueueController?>() != null) const MiniPlayer(),
+          NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: [
@@ -76,6 +84,8 @@ class _ShellScreenState extends State<ShellScreen> {
           ),
           NavigationDestination(icon: const Icon(Icons.route_outlined), selectedIcon: const Icon(Icons.route_rounded), label: s('yatra')),
           NavigationDestination(icon: const Icon(Icons.person_outline_rounded), selectedIcon: const Icon(Icons.person_rounded), label: s('profile')),
+        ],
+      ),
         ],
       ),
     );

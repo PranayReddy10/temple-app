@@ -173,7 +173,7 @@ class Location {
 }
 
 class Photo {
-  const Photo({this.id, this.category, this.caption, this.isPrimary = false, this.original, this.medium, this.thumbnail, this.credit, this.license});
+  const Photo({this.id, this.category, this.caption, this.isPrimary = false, this.original, this.medium, this.thumbnail, this.credit, this.license, this.isDevoteePhoto = false, this.devoteeName, this.devoteeAvatarUrl});
 
   final int? id;
   final String? category;
@@ -185,10 +185,16 @@ class Photo {
   final String? credit;
   final String? license;
 
+  /// Promoted from a devotee's Photo Stamp: shown with their first name.
+  final bool isDevoteePhoto;
+  final String? devoteeName;
+  final String? devoteeAvatarUrl;
+
   String? get best => medium ?? original ?? thumbnail;
 
   factory Photo.fromJson(Map<String, dynamic> j) {
     final urls = _m(j['urls']);
+    final devotee = _m(j['devotee']);
     return Photo(
       id: _i(j['id']),
       category: _s(j['category']),
@@ -199,9 +205,175 @@ class Photo {
       thumbnail: _s(urls['thumbnail']),
       credit: _s(j['credit']),
       license: _s(j['license']),
+      isDevoteePhoto: _b(j['is_devotee_photo']),
+      devoteeName: _s(devotee['name']),
+      devoteeAvatarUrl: _s(devotee['avatar_url']),
     );
   }
 }
+
+/// One dimension of how visits went: the average across published accounts
+/// and how many said so. There is no overall score, on purpose.
+class RatingDimension {
+  const RatingDimension({required this.key, required this.label, this.average, this.count = 0});
+
+  final String key;
+  final String label;
+  final double? average;
+  final int count;
+
+  factory RatingDimension.fromJson(String key, Map<String, dynamic> j) => RatingDimension(key: key, label: _s(j['label']) ?? key, average: _d(j['average']), count: _i(j['count']) ?? 0);
+}
+
+class ReviewSummary {
+  const ReviewSummary({this.count = 0, this.dimensions = const [], this.averageWaitMinutes});
+
+  static const empty = ReviewSummary();
+
+  final int count;
+  final List<RatingDimension> dimensions;
+  final int? averageWaitMinutes;
+
+  factory ReviewSummary.fromJson(Map<String, dynamic> j) => ReviewSummary(
+        count: _i(j['count']) ?? 0,
+        dimensions: [for (final e in _m(j['dimensions']).entries) RatingDimension.fromJson(e.key, _m(e.value))],
+        averageWaitMinutes: _i(j['average_wait_minutes']),
+      );
+}
+
+/// Where the signed-in devotee stands with a temple: what they tapped.
+class ViewerEngagement {
+  const ViewerEngagement({this.liked = false, this.following = false, this.notifyFestivals = false, this.notifyEvents = false, this.saved = false});
+
+  final bool liked;
+  final bool following;
+  final bool notifyFestivals;
+  final bool notifyEvents;
+  final bool saved;
+
+  factory ViewerEngagement.fromJson(Map<String, dynamic> j) => ViewerEngagement(
+        liked: _b(j['liked']),
+        following: _b(j['following']),
+        notifyFestivals: _b(j['notify_festivals']),
+        notifyEvents: _b(j['notify_events']),
+        saved: _b(j['saved']),
+      );
+}
+
+/// What devotees added to a temple: likes and follows as counts, and how
+/// visits went. `viewer` is null for a guest.
+class Engagement {
+  const Engagement({this.likesCount = 0, this.followsCount = 0, this.viewer, this.reviews = ReviewSummary.empty});
+
+  static const none = Engagement();
+
+  final int likesCount;
+  final int followsCount;
+  final ViewerEngagement? viewer;
+  final ReviewSummary reviews;
+
+  factory Engagement.fromJson(Map<String, dynamic> j) => Engagement(
+        likesCount: _i(j['likes_count']) ?? 0,
+        followsCount: _i(j['follows_count']) ?? 0,
+        viewer: j['viewer'] is Map ? ViewerEngagement.fromJson(_m(j['viewer'])) : null,
+        reviews: j['reviews'] is Map ? ReviewSummary.fromJson(_m(j['reviews'])) : ReviewSummary.empty,
+      );
+
+  Engagement copyWith({int? likesCount, int? followsCount, ViewerEngagement? viewer, ReviewSummary? reviews}) =>
+      Engagement(likesCount: likesCount ?? this.likesCount, followsCount: followsCount ?? this.followsCount, viewer: viewer ?? this.viewer, reviews: reviews ?? this.reviews);
+}
+
+/// One rating inside an account of a visit.
+class ReviewRating {
+  const ReviewRating({required this.key, required this.label, this.value});
+
+  final String key;
+  final String label;
+  final int? value;
+
+  factory ReviewRating.fromJson(Map<String, dynamic> j) => ReviewRating(key: _s(j['key']) ?? '', label: _s(j['label']) ?? '', value: _i(j['value']));
+}
+
+/// A devotee's account of a visit, as `GET /temples/{slug}/reviews` returns it.
+class Review {
+  const Review({
+    this.id,
+    this.templeSlug,
+    this.templeName,
+    required this.devoteeName,
+    this.devoteeAvatarUrl,
+    this.homeState,
+    this.visitedOn,
+    this.ratings = const [],
+    this.waitMinutes,
+    this.body,
+    this.templeReply,
+    this.templeRepliedAt,
+    this.isMine = false,
+    this.status,
+    this.statusLabel,
+    this.moderationNote,
+    this.createdAt,
+  });
+
+  final int? id;
+  final String? templeSlug;
+  final String? templeName;
+  final String devoteeName;
+  final String? devoteeAvatarUrl;
+  final String? homeState;
+  final String? visitedOn;
+  final List<ReviewRating> ratings;
+  final int? waitMinutes;
+  final String? body;
+  final String? templeReply;
+  final String? templeRepliedAt;
+  final bool isMine;
+
+  /// pending, approved or rejected: returned only to the author.
+  final String? status;
+  final String? statusLabel;
+  final String? moderationNote;
+  final String? createdAt;
+
+  bool get isPending => status == 'pending';
+  bool get isRejected => status == 'rejected';
+
+  factory Review.fromJson(Map<String, dynamic> j) {
+    final devotee = _m(j['devotee']);
+    final temple = _m(j['temple']);
+    final status = _m(j['status']);
+    return Review(
+      id: _i(j['id']),
+      templeSlug: _s(temple['slug']),
+      templeName: _s(temple['name']),
+      devoteeName: _s(devotee['name']) ?? 'A devotee',
+      devoteeAvatarUrl: _s(devotee['avatar_url']),
+      homeState: _s(devotee['home_state']),
+      visitedOn: _s(j['visited_on']),
+      ratings: _l(j['ratings']).map((e) => ReviewRating.fromJson(_m(e))).toList(),
+      waitMinutes: _i(j['wait_minutes']),
+      body: _s(j['body']),
+      templeReply: _s(j['temple_reply']),
+      templeRepliedAt: _s(j['temple_replied_at']),
+      isMine: _b(j['is_mine']),
+      status: _s(status['value']),
+      statusLabel: _s(status['label']),
+      moderationNote: _s(j['moderation_note']),
+      createdAt: _s(j['created_at']),
+    );
+  }
+}
+
+/// The five things a devotee may rate about a visit, in the order they are
+/// asked. Mirrors the server's list; the server's labels win when present.
+const reviewDimensions = <(String key, String label, String low, String high)>[
+  ('queue_rating', 'Queue and waiting', 'Very long', 'No wait'),
+  ('cleanliness_rating', 'Cleanliness', 'Poor', 'Spotless'),
+  ('facilities_rating', 'Facilities', 'Few', 'Everything needed'),
+  ('accessibility_rating', 'Accessibility', 'Hard', 'Easy for everyone'),
+  ('accuracy_rating', 'Our listing was accurate', 'Mostly wrong', 'Spot on'),
+];
 
 class TempleSummary {
   const TempleSummary({
@@ -756,9 +928,14 @@ class TempleDetail {
     this.mantra,
     this.devotionalMedia = const [],
     this.language,
+    this.engagement = Engagement.none,
   });
 
   final TempleSummary summary;
+
+  /// Likes, follows and how visits went. Empty from a server that predates
+  /// the block, and for the bundled samples.
+  final Engagement engagement;
 
   /// The temple's verse, falling back to its deity's. Null when the API
   /// predates the field (or the record is a bundled sample).
@@ -831,6 +1008,7 @@ class TempleDetail {
       mantra: j['mantra'] is Map ? Mantra.fromJson(_m(j['mantra'])) : null,
       devotionalMedia: _l(j['devotional_media']).map((e) => DevotionalMedia.fromJson(_m(e))).toList(),
       language: _s(j['language']),
+      engagement: j['engagement'] is Map ? Engagement.fromJson(_m(j['engagement'])) : Engagement.none,
     );
   }
 }

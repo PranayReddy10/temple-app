@@ -246,21 +246,22 @@ at the temple gate still has to be able to record the visit.
 | **State-wise and god-wise** | Grouping on the temple list, plus tabs with counts including "needs work" | ✅ |
 | **Support and reports** | One queue, filing without an account, references, internal notes kept apart from replies, allow-listed report subjects | ✅ |
 
-### Phase 5 — What devotees add  ⬜ **Next**
+### Phase 5 — What devotees add  ✅ **Complete**
 
 | Slice | Scope | Status |
 | --- | --- | --- |
-| **Likes and follows** | Follow a temple; a like as the lightest signal of interest, distinct from saving and from planning a trip | ⬜ |
-| **Reviews and ratings** | A devotee's account of a visit, moderated like photos are. The hard part is not the schema — it is that a place of worship is not a restaurant, and the product has to decide what it is asking people to rate | ⬜ |
-| **Devotee photos on a temple** | Approved Photo Stamps promoted into a temple's own gallery, credited to the devotee, with the temple able to object | ⬜ |
-| **Notifications** | Festival and event reminders for followed temples; the first thing here that can annoy people, so it starts opt-in and per-temple | ⬜ |
+| **Likes and follows** | A heart with its count and a bell on every temple page. A like is one tap and implies nothing else; a follow asks to be told, and **Profile → Temples I follow** holds a festival switch and an event switch per temple. Both are recorded on the device at once and mirrored to the account; saving stays a bookmark, and the push topic now follows a follow | ✅ |
+| **Reviews and ratings** | "How visits went" on the temple page, as bars per dimension (queue, cleanliness, facilities, accessibility, how accurate our listing was) with no overall score and no stars on the temple. **Write about your visit** rates any of them 1 to 5, notes the wait, and takes a few words; it is read by the team before it is published, under the first name, and the temple can reply. **Profile → My visit reviews** shows where each stands | ✅ |
+| **Devotee photos on a temple** | Adding a passport photo asks once whether to offer it to the temple's gallery; if the team approves, it appears in the gallery with "Photo by" and the first name. The temple can decline from its portal | ✅ |
+| **Notifications** | The evening before a festival or event at a followed temple, a reminder for the kinds switched on, in the inbox and as a push. Nothing until a temple is followed. The inbox has a shortcut to the switches | ✅ |
+| **Music on the lock screen** | Bhajans and chants play through one queue that keeps going with the screen locked and another app in front, with the lock-screen and notification controls; a song is followed by the next in its list, **Play all** on any list, a mini player above the tabs, and a full player with what comes next | ✅ |
 | **Seva drives** | Raise a clean-up or care drive for an old temple or heritage place (photos, video, cause, plan, date, meeting point); volunteers join; after photos go to staff; once verified the organiser's UPI ID, QR and a Donate button appear. Home card, Profile tile and "Organise a seva drive here" on every temple | ✅ |
 
-The open question for reviews, worth settling before any of it is built: a
-one-to-five star average is how restaurants are ranked, and applying it to
-temples would produce a leaderboard of places of worship. Rating the *visit*
-— queue length, accessibility, facilities, how accurate our listing turned
-out to be — says something useful without ranking the sacred.
+The question that shaped reviews: a one-to-five star average is how
+restaurants are ranked, and applying it to temples would produce a
+leaderboard of places of worship. So the *visit* is rated — queue length,
+cleanliness, accessibility, facilities, how accurate our listing turned out
+to be — each on its own, and no overall figure is shown anywhere.
 
 ### Phase 6 — The temple's own app  ⬜ **Next**
 
