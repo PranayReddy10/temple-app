@@ -114,9 +114,15 @@ class TrustBadge extends StatelessWidget {
         children: [
           Icon(icon, size: compact ? 12 : 14, color: color),
           const SizedBox(width: 4),
-          Text(
-            trust.isStale ? '$label · stale' : label,
-            style: TextStyle(color: color, fontSize: compact ? 10 : 12, fontWeight: FontWeight.w700, letterSpacing: 0.4),
+          // Flexible: the badge sits in narrow columns (guide answers, cards)
+          // where "Community · stale" at large text is wider than the room.
+          Flexible(
+            child: Text(
+              trust.isStale ? '$label · stale' : label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: color, fontSize: compact ? 10 : 12, fontWeight: FontWeight.w700, letterSpacing: 0.4),
+            ),
           ),
         ],
       ),

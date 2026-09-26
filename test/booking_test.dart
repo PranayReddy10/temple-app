@@ -108,7 +108,7 @@ Map<String, dynamic> templeJson() => {
     };
 
 /// Every provider the temple page reaches for, over one mock API.
-Future<Widget> templeHarness(http.Client client, {bool signedIn = true}) async {
+Future<Widget> templeHarness(http.Client client, {bool signedIn = true, Widget home = const TempleScreen(slug: 'booking-temple')}) async {
   SharedPreferences.setMockInitialValues({'door_animations': false, if (signedIn) 'devotee_token': 't', if (signedIn) 'devotee': jsonEncode({'id': 1, 'name': 'Anu', 'phone': '9876543210'})});
   final store = await SharedPreferences.getInstance();
   final api = ApiClient(baseUrl: 'http://api.test', client: client);
@@ -153,7 +153,7 @@ Future<Widget> templeHarness(http.Client client, {bool signedIn = true}) async {
       theme: AppTheme.light(DayTheme.today()),
       supportedLocales: AppSettings.supportedLocales,
       localizationsDelegates: const [GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
-      home: const TempleScreen(slug: 'booking-temple'),
+      home: home,
     ),
   );
 }
