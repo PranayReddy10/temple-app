@@ -6,7 +6,7 @@ class Brand {
   Brand._();
 
   static const String name =
-      String.fromEnvironment('BRAND_NAME', defaultValue: 'Temple Passport');
+      String.fromEnvironment('BRAND_NAME', defaultValue: 'Darshan Diary');
 
   static const String tagline = String.fromEnvironment(
     'BRAND_TAGLINE',

@@ -1,7 +1,6 @@
 # Temple App — Flutter Client
 
-Flutter client for the temple pilgrimage platform (working name:
-**Temple Passport** — not finalised). One codebase targets **Android, iOS and
+Flutter client for the temple pilgrimage platform (**Darshan Diary**). One codebase targets **Android, iOS and
 Flutter Web**.
 
 The backend API and admin panel live in
