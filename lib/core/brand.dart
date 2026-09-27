@@ -20,9 +20,7 @@ class Brand {
   /// the admin panel live on temple.darshansaathi.com; darshansaathi.com
   /// itself is the devotees' website.
   static const String defaultApiBase =
-<<<<<<< HEAD
-      String.fromEnvironment('API_BASE_URL', defaultValue: 'https://temple.madeforu.co.in');
-=======
+
       String.fromEnvironment('API_BASE_URL', defaultValue: 'https://temple.darshansaathi.com');
->>>>>>> 84941ce86a4a05dd6afdf9928ea6d22338a776c0
+
 }
