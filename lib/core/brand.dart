@@ -6,7 +6,7 @@ class Brand {
   Brand._();
 
   static const String name =
-      String.fromEnvironment('BRAND_NAME', defaultValue: 'Temple Passport');
+      String.fromEnvironment('BRAND_NAME', defaultValue: 'Darshan Saathi');
 
   static const String tagline = String.fromEnvironment(
     'BRAND_TAGLINE',
@@ -14,9 +14,15 @@ class Brand {
   );
 
   /// Where community submissions go until the submissions API exists.
-  static const String supportEmail = String.fromEnvironment('BRAND_SUPPORT_EMAIL', defaultValue: 'support@example.com');
+  static const String supportEmail = String.fromEnvironment('BRAND_SUPPORT_EMAIL', defaultValue: 'support@darshansaathi.com');
 
-  /// Base URL of the Laravel API, without the `/api/v1` suffix.
+  /// Base URL of the Laravel API, without the `/api/v1` suffix. The API and
+  /// the admin panel live on temple.darshansaathi.com; darshansaathi.com
+  /// itself is the devotees' website.
   static const String defaultApiBase =
+<<<<<<< HEAD
       String.fromEnvironment('API_BASE_URL', defaultValue: 'https://temple.madeforu.co.in');
+=======
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'https://temple.darshansaathi.com');
+>>>>>>> 84941ce86a4a05dd6afdf9928ea6d22338a776c0
 }
