@@ -1,7 +1,6 @@
 # Temple App — Flutter Client
 
-Flutter client for the temple pilgrimage platform (working name:
-**Temple Passport** — not finalised). One codebase targets **Android, iOS and
+Flutter client for the temple pilgrimage platform (**Darshan Saathi**, darshansaathi.com). One codebase targets **Android, iOS and
 Flutter Web**.
 
 The backend API and admin panel live in
@@ -84,7 +83,16 @@ Full request and response detail is in
 flutter pub get
 flutter run                               # a connected device or emulator
 flutter run -d chrome                     # web
-flutter run --dart-define=API_BASE_URL=https://your-server.example
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000   # a local server, from the Android emulator
+```
+
+Without `API_BASE_URL` the app talks to the live server,
+https://temple.darshansaathi.com (the API and the admin panel).
+
+The devotees' website at https://darshansaathi.com is this app's web build:
+
+```bash
+flutter build web --release   # then upload build/web/ to darshansaathi.com's public_html
 ```
 
 The API server can also be changed at runtime from **Profile → Server**.
