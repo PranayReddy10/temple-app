@@ -1,0 +1,7 @@
+# darshansaathi.com: the devotees' website (this Flutter web build).
+#
+# On Hostinger the Laravel project sits beside it, at public_html/laravel,
+# and is served only through temple.darshansaathi.com (document root
+# public_html/laravel/public). Nothing of it may be reached from here.
+Options -Indexes
+RedirectMatch 404 ^/laravel(/|$)
