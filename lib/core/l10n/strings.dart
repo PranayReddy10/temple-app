@@ -284,7 +284,7 @@ class S {
 
     // Premium and payments.
     'premium': {'en': 'Premium', 'te': 'ప్రీమియం', 'hi': 'प्रीमियम'},
-    'premium_title': {'en': 'Darshan Diary Premium', 'te': 'దర్శన్ డైరీ ప్రీమియం', 'hi': 'दर्शन डायरी प्रीमियम'},
+    'premium_title': {'en': 'Darshan Saathi Premium', 'te': 'దర్శన్ సాథీ ప్రీమియం', 'hi': 'दर्शन साथी प्रीमियम'},
     'premium_pitch': {'en': 'No ads, more memories with every visit, a gold passport.', 'te': 'ప్రకటనలు లేవు, ప్రతి దర్శనానికి మరిన్ని జ్ఞాపకాలు, బంగారు పాస్‌పోర్ట్.', 'hi': 'कोई विज्ञापन नहीं, हर दर्शन के साथ ज़्यादा यादें, सुनहरा पासपोर्ट।'},
     'premium_until': {'en': 'Active until', 'te': 'వరకు చెల్లుతుంది', 'hi': 'तक सक्रिय'},
     'premium_buy': {'en': 'Choose', 'te': 'ఎంచుకోండి', 'hi': 'चुनें'},
