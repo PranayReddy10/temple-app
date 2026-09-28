@@ -18,7 +18,16 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Darshan Saathi: darshan timings, puja and seva booking, dress code and directions for Hindu temples across India, with bhajans, a temple passport and yatra planning.">
+  <link rel="canonical" href="https://darshansaathi.com/">
+  <meta property="og:site_name" content="Darshan Saathi">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Darshan Saathi: your temple companion">
+  <meta property="og:description" content="Darshan timings, puja and seva booking, and directions for temples across India.">
+  <meta property="og:url" content="https://darshansaathi.com/">
+  <meta property="og:image" content="https://darshansaathi.com/icons/Icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Darshan Saathi","url":"https://darshansaathi.com/","description":"Darshan timings, puja and seva booking, and directions for Hindu temples across India."}</script>
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -29,7 +38,7 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>Darshan Saathi</title>
+  <title>Darshan Saathi: temple timings, puja booking and directions</title>
   <link rel="manifest" href="manifest.json">
   <!-- The page is the temple-door teak while the app loads, with a slow
        brass pulse, rather than a white page that looks broken. -->
@@ -42,10 +51,22 @@
 </head>
 <body>
   <div id="loading" aria-label="Loading"><div></div></div>
+  <!-- What search engines and link previews read: the app itself draws on a
+       canvas they cannot. Removed once the app's first frame is up. -->
+  <main id="seo" style="position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden">
+    <h1>Darshan Saathi: your temple companion</h1>
+    <p>Darshan timings, puja and seva booking, dress code and directions for Hindu temples across India, with bhajans, a temple passport and yatra planning.</p>
+    <p><a href="/temples">Browse all temples</a> · <a href="/sitemap.xml">Sitemap</a></p>
+  </main>
+  <noscript>
+    <p style="color:#fff;font-family:sans-serif;padding:16px">Darshan Saathi needs JavaScript. <a style="color:#F7E29C" href="/temples">Browse the temple directory</a> instead.</p>
+  </noscript>
   <script>
     window.addEventListener('flutter-first-frame', function () {
       var el = document.getElementById('loading');
       if (el) { el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 300); }
+      var seo = document.getElementById('seo');
+      if (seo) { seo.remove(); }
     });
   </script>
   <script src="flutter_bootstrap.js" async></script>

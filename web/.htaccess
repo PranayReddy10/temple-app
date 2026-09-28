@@ -1,7 +1,16 @@
 # darshansaathi.com: the devotees' website (this Flutter web build).
 #
 # On Hostinger the Laravel project sits beside it, at public_html/laravel,
-# and is served only through temple.darshansaathi.com (document root
-# public_html/laravel/public). Nothing of it may be reached from here.
+# served as temple.darshansaathi.com (document root laravel/public).
 Options -Indexes
-RedirectMatch 404 ^/laravel(/|$)
+RewriteEngine On
+
+# Nothing of the Laravel project is reachable by its folder name.
+RewriteCond %{THE_REQUEST} \s/+laravel(/|\s|\?) [NC]
+RewriteRule ^ - [R=404,L]
+
+# Pages search engines read: the Flutter app is a blank page to them, so the
+# temple directory, the temple and state pages and the sitemap are rendered
+# by Laravel, which answers them on this domain too. /storage is where those
+# pages' photos are served from.
+RewriteRule ^(temples(/.*)?|states/.+|sitemap[^/]*\.xml|storage/.+)$ laravel/public/index.php [L,QSA]
