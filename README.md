@@ -92,7 +92,7 @@ https://temple.darshansaathi.com (the API and the admin panel).
 The devotees' website at https://darshansaathi.com is this app's web build:
 
 ```bash
-flutter build web --release   # then upload build/web/ to darshansaathi.com's public_html
+flutter build web --release --no-web-resources-cdn   # then upload build/web/ (with .htaccess) to darshansaathi.com's public_html
 ```
 
 The API server can also be changed at runtime from **Profile → Server**.
