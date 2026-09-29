@@ -44,8 +44,19 @@ class AppImage extends StatelessWidget {
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final api = context.read<ApiClient?>();
     final resolved = api == null ? url : resolve(url, api.baseUrl);
+    return LayoutBuilder(builder: (context, box) {
+      // Fill the box the photo is given (a card, the cover), whatever the
+      // photo's own size; `fit` then decides how it is cropped into it.
+      final fill = box.hasBoundedWidth && box.hasBoundedHeight;
+      return _image(resolved, dpr, fill);
+    });
+  }
+
+  Widget _image(String resolved, double dpr, bool fill) {
     return Image.network(
       resolved,
+      width: fill ? double.infinity : null,
+      height: fill ? double.infinity : null,
       fit: fit,
       alignment: alignment,
       // Browsers ignore a custom User-Agent, and any header at all stops the
