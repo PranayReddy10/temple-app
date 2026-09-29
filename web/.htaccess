@@ -2,6 +2,11 @@
 #
 # On Hostinger the Laravel project sits beside it, at public_html/laravel,
 # served as temple.darshansaathi.com (document root laravel/public).
+# The app's page first. Hostinger drops a placeholder (default.php /
+# index.php) into a new site's public_html, and the server's own order
+# would open that instead of the app.
+DirectoryIndex index.html
+
 Options -Indexes
 RewriteEngine On
 
