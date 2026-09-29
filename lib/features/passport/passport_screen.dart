@@ -173,7 +173,6 @@ class _VisitsPage extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (context, i) {
         final v = visits[i];
-        final day = DayTheme.forDeity(v.deitySlug);
         return Dismissible(
           key: ValueKey('${v.templeSlug}-${v.visitedAt.toIso8601String()}'),
           direction: DismissDirection.endToStart,
@@ -200,8 +199,8 @@ class _VisitsPage extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: ListTile(
               leading: v.photoPath != null && !kIsWeb
-                  ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(v.photoPath!), width: 52, height: 52, fit: BoxFit.cover, errorBuilder: (_, __, ___) => MotifIcon(day.motif, size: 40, color: day.accent)))
-                  : MotifIcon(day.motif, size: 40, color: day.accent, secondary: day.secondary),
+                  ? ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.file(File(v.photoPath!), width: 52, height: 52, fit: BoxFit.cover, errorBuilder: (_, __, ___) => SizedBox(width: 52, height: 52, child: TempleCover(slug: v.templeSlug, deitySlug: v.deitySlug, motifSize: 24))))
+                  : ClipRRect(borderRadius: BorderRadius.circular(10), child: SizedBox(width: 52, height: 52, child: TempleCover(slug: v.templeSlug, deitySlug: v.deitySlug, motifSize: 24))),
               title: Text(v.templeName, style: const TextStyle(fontFamily: 'NotoSerif')),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../state/temple_covers.dart';
+
 /// Errors the UI can name: a 404 reads differently from a lost connection.
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode, this.errors = const {}});
@@ -116,7 +118,11 @@ class ApiClient {
         // Non-JSON body: a maintenance page or a proxy error.
       }
     }
-    if (res.statusCode >= 200 && res.statusCode < 300) return body;
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      // So every screen that names a temple can show its cover.
+      TempleCovers.harvest(body);
+      return body;
+    }
     final errors = <String, List<String>>{};
     final raw = body['errors'];
     if (raw is Map) {

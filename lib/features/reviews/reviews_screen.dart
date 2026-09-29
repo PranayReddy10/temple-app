@@ -184,7 +184,7 @@ class ReviewCard extends StatelessWidget {
             ],
             if (!compact && onTap != null && review.templeName != null) ...[
               const SizedBox(height: 8),
-              Row(children: [Icon(Icons.temple_hindu_rounded, size: 14, color: day.accent), const SizedBox(width: 6), Expanded(child: Text(review.templeName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(color: day.accent, fontWeight: FontWeight.w700))), Icon(Icons.chevron_right_rounded, size: 18, color: day.accent)]),
+              Row(children: [ClipRRect(borderRadius: BorderRadius.circular(8), child: SizedBox(width: 36, height: 36, child: TempleCover(slug: review.templeSlug, deitySlug: review.templeDeitySlug, motifSize: 16))), const SizedBox(width: 10), Expanded(child: Text(review.templeName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(color: day.accent, fontWeight: FontWeight.w700))), Icon(Icons.chevron_right_rounded, size: 18, color: day.accent)]),
             ],
           ],
         ),

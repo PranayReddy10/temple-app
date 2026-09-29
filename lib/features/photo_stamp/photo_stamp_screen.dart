@@ -169,9 +169,9 @@ class _MemoryCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (photoPath != null && !kIsWeb)
-            Image.file(File(photoPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => TempleImage(deitySlug: visit.deitySlug, motifSize: 120))
+            Image.file(File(photoPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => TempleCover(slug: visit.templeSlug, deitySlug: visit.deitySlug, small: false, motifSize: 120))
           else
-            TempleImage(deitySlug: visit.deitySlug, motifSize: 120),
+            TempleCover(slug: visit.templeSlug, deitySlug: visit.deitySlug, small: false, motifSize: 120),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.5, 1], colors: [Colors.black.withValues(alpha: 0.35), Colors.transparent, Colors.black.withValues(alpha: 0.7)]),

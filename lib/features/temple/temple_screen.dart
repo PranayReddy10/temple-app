@@ -39,6 +39,7 @@ import '../qr/qr_screens.dart';
 import '../reviews/reviews_screen.dart';
 import '../seva/seva_screen.dart';
 import '../submissions/submissions_screen.dart';
+import '../../core/state/temple_covers.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
 
 /// The full temple profile. Entered through the temple door, and while open
@@ -163,7 +164,7 @@ class _TempleScreenState extends State<TempleScreen> {
     final inYatra = context.watch<YatraController>().yatras.any((y) => y.allStops.any((st) => st.slug == t.slug));
     // The cover leads, at the top of the page and in the gallery; then the
     // rest in the temple's own order.
-    final cover = d?.summary.primaryPhoto ?? t.primaryPhoto;
+    final cover = d?.summary.primaryPhoto ?? t.primaryPhoto ?? TempleCovers.instance.of(t.slug);
     final photos = d?.photos.isNotEmpty == true
         ? [
             if (cover != null) cover,
@@ -1220,7 +1221,7 @@ class _Hero extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (photos.isEmpty)
-              TempleImage(deitySlug: temple.deity?.slug, motifSize: 110)
+              TempleCover(slug: temple.slug, deitySlug: temple.deity?.slug, small: false, motifSize: 110)
             else
               PageView.builder(
                 itemCount: photos.length,

@@ -217,7 +217,7 @@ class ProfileScreen extends StatelessWidget {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          if (kIsWeb) TempleImage(deitySlug: v.deitySlug) else Image.file(File(v.photoPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => TempleImage(deitySlug: v.deitySlug)),
+                          if (kIsWeb) TempleCover(slug: v.templeSlug, deitySlug: v.deitySlug, small: false) else Image.file(File(v.photoPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => TempleCover(slug: v.templeSlug, deitySlug: v.deitySlug, small: false)),
                           Positioned(left: 0, right: 0, bottom: 0, child: Container(padding: const EdgeInsets.all(8), color: Colors.black45, child: Text(v.templeName, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'NotoSerif')))),
                         ],
                       ),

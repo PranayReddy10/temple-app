@@ -30,11 +30,13 @@ import 'core/state/reminders_controller.dart';
 import 'core/state/submissions_controller.dart';
 import 'core/state/subscription_controller.dart';
 import 'core/state/sync_service.dart';
+import 'core/state/temple_covers.dart';
 import 'core/state/yatra_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+  TempleCovers.instance.attach(prefs);
   try {
     AppPlatform.version = (await PackageInfo.fromPlatform()).version;
   } catch (_) {}
