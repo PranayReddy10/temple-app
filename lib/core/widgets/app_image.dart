@@ -51,12 +51,11 @@ class AppImage extends StatelessWidget {
       // Browsers ignore a custom User-Agent, and any header at all stops the
       // web engine from falling back to an <img> element (below).
       headers: kIsWeb ? null : headers,
-      // On the web the image is fetched by script, which the browser only
-      // allows from another domain if that domain sends CORS headers; photos
-      // on DigitalOcean Spaces do not unless the Space is configured to. When
-      // that fetch is refused, draw it as a plain <img> element instead, which
-      // needs no CORS. No effect on Android and iOS.
-      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
+      // On the web, draw photos as plain <img> elements. Fetching them by
+      // script instead needs CORS headers from the host, which a DigitalOcean
+      // Space does not send unless configured to, and every refused fetch
+      // blanks the photo and logs an error. No effect on Android and iOS.
+      webHtmlElementStrategy: kIsWeb ? WebHtmlElementStrategy.prefer : WebHtmlElementStrategy.never,
       cacheWidth: decodeWidth == null ? null : (decodeWidth! * dpr).round(),
       errorBuilder: (_, __, ___) => fallbacks.isEmpty
           ? (placeholder ?? const SizedBox.shrink())
