@@ -11,13 +11,17 @@ import '../brand.dart';
 /// The request names the app, and a decode width keeps a 4000-pixel
 /// original from being decoded at full size for a 120-pixel tile.
 class AppImage extends StatelessWidget {
-  const AppImage(this.url, {super.key, this.fit = BoxFit.cover, this.placeholder, this.decodeWidth, this.alignment = Alignment.center});
+  const AppImage(this.url, {super.key, this.fit = BoxFit.cover, this.placeholder, this.decodeWidth, this.alignment = Alignment.center, this.fallbacks = const []});
 
   final String url;
   final BoxFit fit;
   final Widget? placeholder;
   final int? decodeWidth;
   final Alignment alignment;
+
+  /// Tried in turn when [url] fails, e.g. the original when a resized copy
+  /// is missing on the server.
+  final List<String> fallbacks;
 
   static const headers = {'User-Agent': '${Brand.name}/0.5 (Flutter; +https://github.com/PranayReddy10/temple-app)', 'Accept': 'image/*,*/*;q=0.8'};
 
@@ -45,7 +49,9 @@ class AppImage extends StatelessWidget {
       alignment: alignment,
       headers: headers,
       cacheWidth: decodeWidth == null ? null : (decodeWidth! * dpr).round(),
-      errorBuilder: (_, __, ___) => placeholder ?? const SizedBox.shrink(),
+      errorBuilder: (_, __, ___) => fallbacks.isEmpty
+          ? (placeholder ?? const SizedBox.shrink())
+          : AppImage(fallbacks.first, fit: fit, placeholder: placeholder, decodeWidth: decodeWidth, alignment: alignment, fallbacks: fallbacks.sublist(1)),
       loadingBuilder: (context, child, progress) => progress == null ? child : (placeholder ?? const SizedBox.shrink()),
     );
   }

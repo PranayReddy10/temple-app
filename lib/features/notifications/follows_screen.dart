@@ -71,7 +71,7 @@ class _FollowCard extends StatelessWidget {
       child: Column(
         children: [
           ListTile(
-            leading: SizedBox(width: 48, height: 48, child: ClipRRect(borderRadius: BorderRadius.circular(12), child: TempleImage(url: t.primaryPhoto?.best, deitySlug: t.deity?.slug, motifSize: 22))),
+            leading: SizedBox(width: 48, height: 48, child: ClipRRect(borderRadius: BorderRadius.circular(12), child: TempleCover(slug: t.slug, photo: t.primaryPhoto, deitySlug: t.deity?.slug, motifSize: 22))),
             title: Text(t.name, style: const TextStyle(fontFamily: 'NotoSerif'), maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text([t.location.city, t.location.state].whereType<String>().join(', ')),
             trailing: IconButton(tooltip: s('unfollow'), onPressed: () => ctl.toggleFollow(t), icon: const Icon(Icons.notifications_off_outlined)),

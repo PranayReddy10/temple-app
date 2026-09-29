@@ -200,11 +200,11 @@ class _PhotoTile extends StatelessWidget {
     final remote = visit.remotePhoto;
     Widget image;
     if (visit.photoPath != null && !kIsWeb) {
-      image = Image.file(File(visit.photoPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => remote?.originalUrl != null ? AppImage(remote!.originalUrl!, placeholder: TempleImage(deitySlug: visit.deitySlug)) : TempleImage(deitySlug: visit.deitySlug));
+      image = Image.file(File(visit.photoPath!), fit: BoxFit.cover, errorBuilder: (_, __, ___) => remote?.originalUrl != null ? AppImage(remote!.originalUrl!, placeholder: TempleCover(slug: visit.templeSlug, deitySlug: visit.deitySlug, small: false)) : TempleCover(slug: visit.templeSlug, deitySlug: visit.deitySlug, small: false));
     } else if (remote?.originalUrl != null) {
-      image = AppImage(remote!.originalUrl!, placeholder: TempleImage(deitySlug: visit.deitySlug), decodeWidth: 600);
+      image = AppImage(remote!.originalUrl!, placeholder: TempleCover(slug: visit.templeSlug, deitySlug: visit.deitySlug, small: false), decodeWidth: 600);
     } else {
-      image = TempleImage(deitySlug: visit.deitySlug);
+      image = TempleCover(slug: visit.templeSlug, deitySlug: visit.deitySlug, small: false);
     }
     return GestureDetector(
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => PhotoStampScreen(visit: visit))),

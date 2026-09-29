@@ -242,11 +242,9 @@ class _NoteCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
-        leading: Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(color: day.accent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-          child: Center(child: Icon(Icons.edit_note_rounded, color: day.accent)),
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(width: 46, height: 46, child: TempleCover(slug: b.templeSlug, motifSize: 22)),
         ),
         title: Text(b.pujaName, style: const TextStyle(fontFamily: 'NotoSerif')),
         subtitle: Text([

@@ -76,11 +76,15 @@ class YatraScreen extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(color: day.accent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
-                                  child: Center(child: MotifIcon(day.motif, size: 28, color: day.accent, secondary: day.secondary)),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: SizedBox(
+                                    width: 48,
+                                    height: 48,
+                                    child: y.allStops.isEmpty
+                                        ? ColoredBox(color: day.accent.withValues(alpha: 0.15), child: Center(child: MotifIcon(day.motif, size: 28, color: day.accent, secondary: day.secondary)))
+                                        : TempleCover(slug: y.allStops.first.slug, deitySlug: y.allStops.first.deitySlug, motifSize: 22),
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -407,7 +411,13 @@ class YatraDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Card(
                       child: ListTile(
-                        leading: Checkbox(value: stop.done, activeColor: sd.accent, onChanged: (_) => ctl.toggleDone(y, stop)),
+                        leading: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Checkbox(value: stop.done, activeColor: sd.accent, onChanged: (_) => ctl.toggleDone(y, stop)),
+                            ClipRRect(borderRadius: BorderRadius.circular(8), child: SizedBox(width: 40, height: 40, child: TempleCover(slug: stop.slug, deitySlug: stop.deitySlug, motifSize: 18))),
+                          ],
+                        ),
                         title: Text(stop.name, style: TextStyle(fontFamily: 'NotoSerif', decoration: stop.done ? TextDecoration.lineThrough : null)),
                         subtitle: Row(
                           children: [

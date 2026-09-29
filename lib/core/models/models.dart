@@ -192,6 +192,13 @@ class Photo {
 
   String? get best => medium ?? original ?? thumbnail;
 
+  /// Every stored size, best first, for falling back when one will not load
+  /// (a missing resized copy should not blank the cover).
+  List<String> get candidates => <String>{for (final u in [medium, original, thumbnail]) if (u != null && u.isNotEmpty) u}.toList();
+
+  /// For small tiles: the thumbnail first.
+  List<String> get smallCandidates => <String>{for (final u in [thumbnail, medium, original]) if (u != null && u.isNotEmpty) u}.toList();
+
   factory Photo.fromJson(Map<String, dynamic> j) {
     final urls = _m(j['urls']);
     final devotee = _m(j['devotee']);

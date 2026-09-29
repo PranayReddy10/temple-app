@@ -250,7 +250,7 @@ class _GuideTempleRow extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: SizedBox(width: 48, height: 48, child: TempleImage(url: temple.primaryPhoto?.thumbnail ?? temple.primaryPhoto?.best, deitySlug: temple.deity?.slug, motifSize: 22)),
+              child: SizedBox(width: 48, height: 48, child: TempleCover(slug: temple.slug, photo: temple.primaryPhoto, deitySlug: temple.deity?.slug, motifSize: 22)),
             ),
             const SizedBox(width: 12),
             Expanded(

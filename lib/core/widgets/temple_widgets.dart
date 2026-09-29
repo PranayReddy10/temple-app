@@ -11,6 +11,8 @@ import '../../features/media/media_player_screen.dart';
 import '../motifs/architecture.dart';
 import '../motifs/motif.dart';
 import '../theme/day_theme.dart';
+import '../state/temple_covers.dart';
+import '../data/sample_data.dart';
 import '../theme/palette.dart';
 
 /// A gopuram skyline as a header background, tinted by [color].
@@ -132,9 +134,15 @@ class TrustBadge extends StatelessWidget {
 
 /// Network photo with a deity-motif placeholder when there is none.
 class TempleImage extends StatelessWidget {
-  const TempleImage({super.key, this.url, this.deitySlug, this.fit = BoxFit.cover, this.motifSize = 56});
+  const TempleImage({super.key, this.url, this.deitySlug, this.fit = BoxFit.cover, this.motifSize = 56, this.photo, this.small = false});
 
   final String? url;
+
+  /// A photo instead of a [url]: each of its sizes is tried in turn.
+  final Photo? photo;
+
+  /// With [photo]: prefer the thumbnail (list tiles).
+  final bool small;
   final String? deitySlug;
   final BoxFit fit;
   final double motifSize;
@@ -159,8 +167,35 @@ class TempleImage extends StatelessWidget {
         ],
       ),
     );
-    if (url == null || url!.isEmpty) return placeholder;
-    return AppImage(url!, fit: fit, placeholder: placeholder, decodeWidth: 800);
+    final urls = photo != null ? (small ? photo!.smallCandidates : photo!.candidates) : [if (url != null && url!.isNotEmpty) url!];
+    if (urls.isEmpty) return placeholder;
+    return AppImage(urls.first, fit: fit, placeholder: placeholder, decodeWidth: 800, fallbacks: urls.sublist(1));
+  }
+}
+
+/// A temple's cover by slug, for screens that name a temple without holding
+/// its photo (visits, bookings, yatra stops, reviews). [photo] wins when the
+/// caller has one; otherwise whatever the app has seen for that temple, then
+/// the bundled sample data, then the deity's pattern.
+class TempleCover extends StatelessWidget {
+  const TempleCover({super.key, required this.slug, this.deitySlug, this.photo, this.small = true, this.motifSize = 28, this.fit = BoxFit.cover});
+
+  final String? slug;
+  final String? deitySlug;
+  final Photo? photo;
+  final bool small;
+  final double motifSize;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: TempleCovers.instance,
+      builder: (context, _) {
+        final p = photo ?? TempleCovers.instance.of(slug) ?? (slug == null ? null : SampleData.bySlug(slug!)?.primaryPhoto);
+        return TempleImage(photo: p, small: small, deitySlug: deitySlug ?? (slug == null ? null : SampleData.bySlug(slug!)?.deity?.slug), motifSize: motifSize, fit: fit);
+      },
+    );
   }
 }
 
@@ -197,7 +232,7 @@ class TempleCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                TempleImage(url: temple.primaryPhoto?.best, deitySlug: temple.deity?.slug),
+                TempleCover(slug: temple.slug, photo: temple.primaryPhoto, small: false, deitySlug: temple.deity?.slug, motifSize: 56),
                 Positioned(left: 10, top: 10, child: TrustBadge(trust: temple.trust, compact: true)),
                 if (temple.distanceKm != null)
                   Positioned(
@@ -241,7 +276,7 @@ class TempleCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: SizedBox(width: 72, height: 72, child: TempleImage(url: temple.primaryPhoto?.thumbnail ?? temple.primaryPhoto?.best, deitySlug: temple.deity?.slug, motifSize: 30)),
+              child: SizedBox(width: 72, height: 72, child: TempleCover(slug: temple.slug, photo: temple.primaryPhoto, deitySlug: temple.deity?.slug, motifSize: 30)),
             ),
             const SizedBox(width: 12),
             Expanded(
