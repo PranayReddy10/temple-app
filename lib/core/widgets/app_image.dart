@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -47,7 +48,15 @@ class AppImage extends StatelessWidget {
       resolved,
       fit: fit,
       alignment: alignment,
-      headers: headers,
+      // Browsers ignore a custom User-Agent, and any header at all stops the
+      // web engine from falling back to an <img> element (below).
+      headers: kIsWeb ? null : headers,
+      // On the web the image is fetched by script, which the browser only
+      // allows from another domain if that domain sends CORS headers; photos
+      // on DigitalOcean Spaces do not unless the Space is configured to. When
+      // that fetch is refused, draw it as a plain <img> element instead, which
+      // needs no CORS. No effect on Android and iOS.
+      webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
       cacheWidth: decodeWidth == null ? null : (decodeWidth! * dpr).round(),
       errorBuilder: (_, __, ___) => fallbacks.isEmpty
           ? (placeholder ?? const SizedBox.shrink())
