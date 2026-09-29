@@ -161,7 +161,15 @@ class _TempleScreenState extends State<TempleScreen> {
     final liked = engagementCtl.isLiked(t.slug);
     final following = engagementCtl.isFollowing(t.slug);
     final inYatra = context.watch<YatraController>().yatras.any((y) => y.allStops.any((st) => st.slug == t.slug));
-    final photos = d?.photos.isNotEmpty == true ? d!.photos : [if (t.primaryPhoto != null) t.primaryPhoto!];
+    // The cover leads, at the top of the page and in the gallery; then the
+    // rest in the temple's own order.
+    final cover = d?.summary.primaryPhoto ?? t.primaryPhoto;
+    final photos = d?.photos.isNotEmpty == true
+        ? [
+            if (cover != null) cover,
+            ...d!.photos.where((p) => cover == null || (p.id != null ? p.id != cover.id : p.best != cover.best)),
+          ]
+        : [if (cover != null) cover];
     // Sevas the temple has opened for booking in the app. None is the norm:
     // a listing is information first, and booking is the temple's choice.
     final bookable = d?.pujas.where((p) => p.isBookableInApp).toList() ?? const <Puja>[];
@@ -352,7 +360,7 @@ class _TempleScreenState extends State<TempleScreen> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          TempleImage(url: photos[i].thumbnail ?? photos[i].best, deitySlug: t.deity?.slug, motifSize: 28),
+                          TempleImage(photo: photos[i], small: true, deitySlug: t.deity?.slug, motifSize: 28),
                           if (photos[i].isDevoteePhoto)
                             Positioned(left: 6, bottom: 6, right: 6, child: _Pill(text: '${s('photo_by')} ${photos[i].devoteeName ?? photos[i].credit ?? ''}'.trim(), color: Palette.tulsi.withValues(alpha: 0.85)))
                           else if (photos[i].category != null)
@@ -1217,7 +1225,7 @@ class _Hero extends StatelessWidget {
               PageView.builder(
                 itemCount: photos.length,
                 onPageChanged: onPage,
-                itemBuilder: (_, i) => GestureDetector(onTap: () => onOpenPhoto(i), child: TempleImage(url: photos[i].best, deitySlug: temple.deity?.slug, motifSize: 110)),
+                itemBuilder: (_, i) => GestureDetector(onTap: () => onOpenPhoto(i), child: TempleImage(photo: photos[i], deitySlug: temple.deity?.slug, motifSize: 110)),
               ),
             Positioned.fill(
               child: IgnorePointer(
