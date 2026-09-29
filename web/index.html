@@ -62,7 +62,42 @@
     <p style="color:#fff;font-family:sans-serif;padding:16px">Darshan Saathi needs JavaScript. <a style="color:#F7E29C" href="/temples">Browse the temple directory</a> instead.</p>
   </noscript>
   <script>
+    // The engine reads the browser's languages with Intl.Locale, and one
+    // tag it cannot parse (some in-app browsers send odd ones, some send
+    // none) stops the app before its first frame. Keep only valid tags.
+    (function () {
+      try {
+        var ok = [], dropped = false;
+        var langs = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ''];
+        for (var i = 0; i < langs.length; i++) {
+          try { new Intl.Locale(langs[i]); ok.push(langs[i]); } catch (e) { dropped = true; }
+        }
+        if (!ok.length) { ok = ['en-IN']; dropped = true; }
+        if (dropped || !navigator.languages || !navigator.languages.length) {
+          Object.defineProperty(navigator, 'languages', { get: function () { return ok; } });
+          Object.defineProperty(navigator, 'language', { get: function () { return ok[0]; } });
+        }
+      } catch (e) {}
+    })();
+
+    // If the app has not drawn within 20 seconds, say so, with the error,
+    // rather than leaving a loading screen that looks like it might still come.
+    var bootErrors = [];
+    window.addEventListener('error', function (e) { bootErrors.push(String((e && (e.message || (e.target && e.target.src))) || e)); }, true);
+    window.addEventListener('unhandledrejection', function (e) { bootErrors.push(String(e && e.reason)); });
+    var started = false;
+    setTimeout(function () {
+      if (started) return;
+      var el = document.getElementById('loading');
+      if (!el) return;
+      el.innerHTML = '<div style="width:auto;height:auto;border-radius:0;background:none;animation:none;max-width:360px;padding:24px;color:#F5EBDC;font-family:system-ui,sans-serif;text-align:center">'
+        + '<p style="font-size:18px;margin:0 0 8px">Darshan Saathi could not start in this browser.</p>'
+        + '<p style="margin:0 0 12px;opacity:.8">Try reloading, or another browser. Meanwhile, <a style="color:#F7E29C" href="/temples">browse the temple directory</a>.</p>'
+        + '<pre style="white-space:pre-wrap;text-align:left;font-size:11px;opacity:.7;max-height:40vh;overflow:auto">' + (bootErrors.slice(0, 5).join('\n').replace(/</g, '&lt;') || 'No error was reported.') + '</pre></div>';
+    }, 20000);
+
     window.addEventListener('flutter-first-frame', function () {
+      started = true;
       var el = document.getElementById('loading');
       if (el) { el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 300); }
       var seo = document.getElementById('seo');
