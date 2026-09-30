@@ -124,6 +124,22 @@ class NativeCheckout {
   static Future<CheckoutResult> _cashfree(Map<String, dynamic> sdk) {
     final done = Completer<CheckoutResult>();
     final service = CFPaymentGatewayService();
+    // Cashfree does not always call back: closed with the back button, or
+    // after handing off to a UPI app, its screen can go without a word and
+    // the app waited on a spinner for ever. Once the devotee is back in the
+    // app, give it a few seconds, then ask the server how the order ended.
+    Timer? grace;
+    var left = false;
+    final lifecycle = AppLifecycleListener(
+      onHide: () => left = true,
+      onResume: () {
+        if (!left || done.isCompleted) return;
+        grace?.cancel();
+        grace = Timer(const Duration(seconds: 6), () {
+          if (!done.isCompleted) done.complete(const CheckoutResult(completed: true));
+        });
+      },
+    );
     service.setCallback(
       (String orderId) {
         // Cashfree says "verify this order": the server asks Cashfree.
@@ -143,13 +159,16 @@ class NativeCheckout {
     } catch (e) {
       if (!done.isCompleted) done.complete(CheckoutResult(completed: false, message: '$e'));
     }
-    return done.future;
+    return done.future.timeout(const Duration(minutes: 20), onTimeout: () => const CheckoutResult(completed: true)).whenComplete(() {
+      grace?.cancel();
+      lifecycle.dispose();
+    });
   }
 
   /// The fallback: the gateway's web page in the system's browser tab
   /// (Custom Tabs / Safari View), where UPI apps and bank pages work. Waits
   /// until the devotee comes back to the app.
-  static Future<void> payInBrowserTab(String url) async {
+  static Future<void> payInBrowserTab(String url, {Future<bool> Function()? settled}) async {
     final back = Completer<void>();
     late final AppLifecycleListener listener;
     var left = false;
@@ -165,12 +184,19 @@ class NativeCheckout {
       listener.dispose();
       return;
     }
-    // The web build stays in its own tab; nothing to wait for there.
-    if (kIsWeb) {
-      listener.dispose();
-      return;
+    // On the web the checkout opened in a new tab: this one is hidden while
+    // the devotee pays, and shows again when they come back to it. The
+    // server is asked meanwhile too, since a popup window hides nothing.
+    Timer? poll;
+    if (settled != null) {
+      poll = Timer.periodic(const Duration(seconds: 4), (_) async {
+        if (!back.isCompleted && await settled()) {
+          if (!back.isCompleted) back.complete();
+        }
+      });
     }
     await back.future.timeout(const Duration(minutes: 20), onTimeout: () {});
+    poll?.cancel();
     listener.dispose();
   }
 }

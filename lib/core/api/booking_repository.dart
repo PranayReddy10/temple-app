@@ -60,6 +60,20 @@ class BookingRepository {
       'platform': platform,
       'mode': 'sdk',
     });
+    return _start(body);
+  }
+
+  /// "Pay now" for a booking still awaiting payment: a fresh checkout.
+  Future<BookingStart> pay(String reference, {String? gateway, required String platform}) async {
+    final body = await _api.post('me/bookings/$reference/pay', {
+      if (gateway != null) 'gateway': gateway,
+      'platform': platform,
+      'mode': 'sdk',
+    });
+    return _start(body);
+  }
+
+  BookingStart _start(Map<String, dynamic> body) {
     final booking = PujaBooking.fromJson(Map<String, dynamic>.from(body['data'] as Map));
     final checkout = body['checkout'] is Map ? Map<String, dynamic>.from(body['checkout'] as Map) : null;
     if (checkout == null) return BookingStart(booking: booking);
