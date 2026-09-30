@@ -15,7 +15,12 @@ import 'package:url_launcher/url_launcher.dart';
 /// How a checkout ended on the device. Only a hint: the server decides
 /// whether it was paid, from the gateway's own records or signature.
 class CheckoutResult {
-  const CheckoutResult({required this.completed, this.fields = const {}, this.message});
+  const CheckoutResult({required this.completed, this.fields = const {}, this.message, this.unavailable = false});
+
+  /// The gateway's native checkout refused to open on this phone (Cashfree
+  /// in production on an app not installed from the Play Store): nothing
+  /// was paid, and its web checkout can be used instead.
+  final bool unavailable;
 
   /// The devotee finished the gateway's flow (it may still have failed).
   final bool completed;
@@ -146,7 +151,17 @@ class NativeCheckout {
         if (!done.isCompleted) done.complete(const CheckoutResult(completed: true));
       },
       (CFErrorResponse error, String orderId) {
-        if (!done.isCompleted) done.complete(CheckoutResult(completed: true, message: error.getMessage()));
+        if (done.isCompleted) return;
+        final code = error.getCode() ?? '';
+        final message = error.getMessage() ?? '';
+        // Refused before any payment page opened: in production Cashfree's
+        // SDK only runs in an app installed from the Play Store (or another
+        // store it trusts), so a sideloaded or debug APK lands here.
+        if (code == 'installer_package_not_approved' || message.contains('trusted source') || code == 'feature_not_enabled') {
+          done.complete(CheckoutResult(completed: false, unavailable: true, message: message));
+          return;
+        }
+        done.complete(CheckoutResult(completed: true, message: message));
       },
     );
     try {

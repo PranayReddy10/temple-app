@@ -145,7 +145,7 @@ Future<void> payFor(BuildContext context, BookingStart start, {String? gateway})
   if (NativeCheckout.supports(start.sdk)) {
     final result = await NativeCheckout.pay(start.sdk!);
     if (!result.completed) {
-      messenger.showSnackBar(SnackBar(content: Text(s('booking_payment_cancelled'))));
+      messenger.showSnackBar(SnackBar(content: Text(result.unavailable ? s('payment_needs_store_install') : s('booking_payment_cancelled'))));
       // Still awaiting payment on the server: My seva bookings offers
       // "Pay now" until the day passes.
       await bookings.reload(booking.reference);
