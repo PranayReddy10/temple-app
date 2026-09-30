@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api_client.dart';
 import '../models/models.dart';
+import '../services/analytics.dart';
 
 /// Devotee session against `/api/v1/auth` and `/api/v1/me`.
 class AuthController extends ChangeNotifier {
@@ -52,6 +53,7 @@ class AuthController extends ChangeNotifier {
       });
       final data = json['data'] as Map<String, dynamic>;
       await _store(Devotee.fromJson(data['devotee'] as Map<String, dynamic>), data['token'] as String);
+      Analytics.instance.signUp('password');
     } finally {
       _busy = false;
       notifyListeners();
@@ -65,6 +67,7 @@ class AuthController extends ChangeNotifier {
       final json = await api.post('auth/login', {'identifier': identifier, 'password': password});
       final data = json['data'] as Map<String, dynamic>;
       await _store(Devotee.fromJson(data['devotee'] as Map<String, dynamic>), data['token'] as String);
+      Analytics.instance.login('password');
     } finally {
       _busy = false;
       notifyListeners();
@@ -81,6 +84,7 @@ class AuthController extends ChangeNotifier {
       final json = await api.post('auth/$provider', body);
       final data = json['data'] as Map<String, dynamic>;
       await _store(Devotee.fromJson(data['devotee'] as Map<String, dynamic>), data['token'] as String);
+      data['created'] == true ? Analytics.instance.signUp(provider) : Analytics.instance.login(provider);
     } finally {
       _busy = false;
       notifyListeners();

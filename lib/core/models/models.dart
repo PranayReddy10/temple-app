@@ -1594,6 +1594,8 @@ class AppConfig {
     this.passwordReset = false,
     this.pushEnabled = false,
     this.firebase,
+    this.analyticsEnabled = false,
+    this.analyticsFirebase,
     this.ads = AdsConfig.off,
     this.paymentsEnabled = false,
     this.paymentsElsewhere = false,
@@ -1627,6 +1629,11 @@ class AppConfig {
   /// Public Firebase ids for this platform, so no google-services file has
   /// to be built into the app.
   final Map<String, String>? firebase;
+
+  /// Usage is reported to Google Analytics for Firebase, through these ids
+  /// (on the web they include the measurement id of the web stream).
+  final bool analyticsEnabled;
+  final Map<String, String>? analyticsFirebase;
   final AdsConfig ads;
   final bool paymentsEnabled;
 
@@ -1643,6 +1650,8 @@ class AppConfig {
     final p = _m(j['push']);
     final pay = _m(j['payments']);
     final fb = _m(p['firebase']);
+    final an = _m(j['analytics']);
+    final anFb = _m(an['firebase']);
     return AppConfig(
       maintenance: _b(m['enabled']),
       maintenanceTitle: _s(m['title']),
@@ -1662,6 +1671,8 @@ class AppConfig {
       passwordReset: _b(a['password_reset']),
       pushEnabled: _b(p['enabled']),
       firebase: fb.isEmpty ? null : {for (final e in fb.entries) if (e.value != null) e.key: '${e.value}'},
+      analyticsEnabled: _b(an['enabled']) && anFb.isNotEmpty,
+      analyticsFirebase: anFb.isEmpty ? null : {for (final e in anFb.entries) if (e.value != null) e.key: '${e.value}'},
       ads: j['ads'] is Map ? AdsConfig.fromJson(_m(j['ads'])) : AdsConfig.off,
       paymentsEnabled: _b(pay['enabled']),
       paymentsElsewhere: _b(pay['available_elsewhere']),

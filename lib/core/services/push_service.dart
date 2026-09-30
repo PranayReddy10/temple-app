@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +11,7 @@ import '../state/app_config_controller.dart';
 import '../state/auth_controller.dart';
 import '../state/notifications_controller.dart';
 import '../../features/notifications/notice_links.dart';
+import 'firebase_start.dart';
 
 /// Push notifications through Firebase Cloud Messaging.
 ///
@@ -40,18 +40,7 @@ class PushService {
     if (!c.pushEnabled || c.firebase == null || !AppPlatform.isMobile) return;
     try {
       if (!_started) {
-        final f = c.firebase!;
-        if (Firebase.apps.isEmpty) {
-          await Firebase.initializeApp(
-            options: FirebaseOptions(
-              apiKey: f['api_key'] ?? '',
-              appId: f['app_id'] ?? '',
-              messagingSenderId: f['messaging_sender_id'] ?? '',
-              projectId: f['project_id'] ?? '',
-              iosBundleId: f['ios_bundle_id'],
-            ),
-          );
-        }
+        if (!await startFirebase(c.firebase!)) return;
         final m = FirebaseMessaging.instance;
         await m.requestPermission();
         await m.setForegroundNotificationPresentationOptions(alert: true, badge: true, sound: true);

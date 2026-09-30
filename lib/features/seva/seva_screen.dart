@@ -9,6 +9,7 @@ import '../../core/state/auth_controller.dart';
 import '../../core/state/location_controller.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import '../auth/auth_screen.dart';
 import 'raise_drive_screen.dart';
 import 'seva_drive_screen.dart';
@@ -54,6 +55,7 @@ class _SevaScreenState extends State<SevaScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('seva');
     _load(0);
   }
 

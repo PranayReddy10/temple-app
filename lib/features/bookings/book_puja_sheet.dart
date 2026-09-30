@@ -15,6 +15,7 @@ import '../../core/state/bookings_controller.dart';
 import '../../core/state/subscription_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
+import '../../core/services/analytics.dart';
 import '../auth/auth_screen.dart';
 import 'bookings_screen.dart';
 
@@ -140,6 +141,8 @@ Future<void> payFor(BuildContext context, BookingStart start, {String? gateway})
   final bookings = context.read<BookingsController>();
   final subs = context.read<SubscriptionController>();
   var booking = start.booking;
+  final value = booking.amountPaise / 100;
+  Analytics.instance.beginCheckout('seva', item: booking.pujaName, value: value, gateway: start.gateway ?? gateway);
 
   String status;
   if (NativeCheckout.supports(start.sdk)) {
@@ -169,6 +172,7 @@ Future<void> payFor(BuildContext context, BookingStart start, {String? gateway})
     status = await subs.settle(start.paymentId!, attempts: 10);
   }
   booking = await bookings.reload(booking.reference) ?? booking;
+  if (status == 'paid' || booking.isLive) Analytics.instance.purchase('seva', item: booking.pujaName, value: value, transactionId: start.paymentId);
   if (status != 'paid' && !booking.isLive) {
     messenger.showSnackBar(SnackBar(content: Text(status == 'pending' ? s('booking_payment_pending') : s('booking_payment_failed'))));
     // The booking, awaiting payment, with "Pay now": never a ticket.

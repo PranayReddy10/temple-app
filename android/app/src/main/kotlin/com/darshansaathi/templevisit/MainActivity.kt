@@ -1,4 +1,4 @@
-package app.templepassport.temple_app
+package com.darshansaathi.templevisit
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

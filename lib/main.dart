@@ -10,6 +10,7 @@ import 'core/audio/audio_queue.dart';
 import 'core/ads/ads.dart';
 import 'core/brand.dart';
 import 'core/platform.dart';
+import 'core/services/analytics.dart';
 import 'core/services/push_service.dart';
 import 'core/state/app_config_controller.dart';
 import 'core/state/app_settings.dart';
@@ -80,7 +81,13 @@ Future<void> main() async {
   engagement.refresh();
   // Maintenance, updates, ads and push: from the admin panel, in the
   // background — the last answer is already loaded, so nothing waits.
-  appConfig.load().then((_) => push.start());
+  // Analytics starts at once from the last answer when it was on, so the
+  // first screens are counted; the fresh answer then confirms or stops it.
+  if (appConfig.config.analyticsEnabled) Analytics.instance.start(appConfig.config);
+  appConfig.load().then((_) {
+    Analytics.instance.start(appConfig.config);
+    push.start();
+  });
   inbox.load();
   // A new sign-in (or sign-out) re-registers the device under the account,
   // and a plan bought or ended changes whether ads show.

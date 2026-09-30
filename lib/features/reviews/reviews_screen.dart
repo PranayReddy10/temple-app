@@ -15,6 +15,7 @@ import '../../core/theme/palette.dart';
 import '../../core/widgets/app_image.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import '../auth/auth_screen.dart';
 import '../temple/temple_screen.dart';
 
@@ -236,6 +237,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('reviews');
     _load();
   }
 

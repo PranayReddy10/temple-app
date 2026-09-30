@@ -40,6 +40,7 @@ import '../reviews/reviews_screen.dart';
 import '../seva/seva_screen.dart';
 import '../submissions/submissions_screen.dart';
 import '../../core/state/temple_covers.dart';
+import '../../core/services/analytics.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
 
 /// The full temple profile. Entered through the temple door, and while open
@@ -78,6 +79,7 @@ class _TempleScreenState extends State<TempleScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('temple', item: widget.slug);
     _load();
     final slug = widget.preview?.deity?.slug;
     if (slug != null) _startPreview(slug);
@@ -105,7 +107,9 @@ class _TempleScreenState extends State<TempleScreen> {
     try {
       final r = await context.read<TempleRepository>().temple(widget.slug, fresh: fresh);
       if (!mounted) return;
+      final first = _detail == null;
       setState(() => _detail = r);
+      if (first) Analytics.instance.viewTemple(widget.slug, name: r.data.summary.name);
       if (!r.isOffline) context.read<EngagementController>().adopt(widget.slug, r.data.engagement);
       if (widget.initialQr != null && !_qrOffered) {
         _qrOffered = true;

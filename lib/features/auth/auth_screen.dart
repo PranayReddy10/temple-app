@@ -10,6 +10,7 @@ import '../../core/state/app_settings.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/theme/palette.dart';
+import '../../core/services/analytics.dart';
 import 'auth_widgets.dart';
 import 'forgot_password_screen.dart';
 
@@ -47,6 +48,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('sign_in');
     // The admin may have just switched Google on: ask again rather than use
     // what the app was told at launch.
     WidgetsBinding.instance.addPostFrameCallback((_) {

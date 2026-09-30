@@ -12,6 +12,7 @@ import '../../core/state/subscription_controller.dart';
 import '../../core/theme/palette.dart';
 import '../auth/auth_screen.dart';
 import '../../core/payments/native_checkout.dart';
+import '../../core/services/analytics.dart';
 
 /// Premium plans: what each includes, the one held now, and buying one
 /// through the payment gateways set in the admin panel.
@@ -28,6 +29,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('premium');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SubscriptionController>().loadPlans();
       context.read<AuthController>().reload();
@@ -71,6 +73,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
     try {
       final start = await subs.begin(plan, gateway: gateway);
       if (!mounted) return;
+      final value = num.tryParse(plan.price.replaceAll(RegExp(r'[^0-9.]'), ''));
+      Analytics.instance.beginCheckout('plan', item: plan.code, value: value, gateway: start.gateway ?? gateway);
       String status;
       if (NativeCheckout.supports(start.sdk)) {
         // The gateway's own payment sheet: UPI apps, cards, banks, in-app.
@@ -100,6 +104,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
         await NativeCheckout.payInBrowserTab(start.checkoutUrl, settled: () async => await subs.status(start.paymentId) != 'pending');
         status = await subs.settle(start.paymentId, attempts: 10);
       }
+      if (status == 'paid') Analytics.instance.purchase('plan', item: plan.code, value: num.tryParse(plan.price.replaceAll(RegExp(r'[^0-9.]'), '')), transactionId: start.paymentId);
       messenger.showSnackBar(SnackBar(content: Text(switch (status) { 'paid' => s('premium_active'), 'pending' => s('payment_pending'), _ => s('payment_failed') })));
     } on ApiException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(e.message)));

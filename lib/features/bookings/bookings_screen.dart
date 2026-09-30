@@ -15,6 +15,7 @@ import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import 'book_puja_sheet.dart';
 import '../temple/temple_screen.dart';
 
@@ -97,6 +98,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('bookings');
     WidgetsBinding.instance.addPostFrameCallback((_) => context.read<BookingsController>().refresh());
   }
 

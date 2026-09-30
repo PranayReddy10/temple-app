@@ -11,6 +11,7 @@ import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import '../temple/temple_screen.dart';
 import 'guide_engine.dart';
 
@@ -45,6 +46,7 @@ class _GuideScreenState extends State<GuideScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('guide');
     _turns.add(_Turn.guide(const GuideReply('Namaste. I answer only from the verified temple records in this app: timings, pujas, deities, circuits, and what is near you. What would you like to know?')));
     _locate();
     if (widget.initialQuestion != null) WidgetsBinding.instance.addPostFrameCallback((_) => _ask(widget.initialQuestion!));

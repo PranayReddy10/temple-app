@@ -12,6 +12,7 @@ import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import '../explore/search_screen.dart';
 import '../temple/temple_screen.dart';
 
@@ -35,6 +36,7 @@ class _DayScreenState extends State<DayScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('day');
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _dayCtl.preview(DayTheme.all[_weekday]);

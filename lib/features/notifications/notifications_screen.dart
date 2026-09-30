@@ -6,6 +6,7 @@ import '../../core/motifs/motif.dart';
 import '../../core/state/notifications_controller.dart';
 import '../../core/widgets/app_image.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import 'follows_screen.dart';
 import 'notice_links.dart';
 
@@ -21,6 +22,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('notifications');
     WidgetsBinding.instance.addPostFrameCallback((_) => context.read<NotificationsController>().load());
   }
 

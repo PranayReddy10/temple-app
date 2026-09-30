@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// the build and the Dart tests pass).
 void main() {
   final pubspec = File('pubspec.yaml').readAsStringSync();
-  final activity = File('android/app/src/main/kotlin/app/templepassport/temple_app/MainActivity.kt').readAsStringSync();
+  final activity = File('android/app/src/main/kotlin/com/darshansaathi/templevisit/MainActivity.kt').readAsStringSync();
   final base = RegExp(r'class MainActivity\s*:\s*([A-Za-z.]+)\(\)').firstMatch(activity)?.group(1);
 
   test('MainActivity extends a known Flutter activity', () {

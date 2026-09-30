@@ -11,6 +11,7 @@ import '../../core/state/reminders_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import '../temple/temple_screen.dart';
 
 /// Festival calendar: a month grid with the weekday deity on every cell and
@@ -29,6 +30,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('calendar');
     context.read<TempleRepository>().events().then((r) {
       if (mounted) setState(() => _events = r);
     });
