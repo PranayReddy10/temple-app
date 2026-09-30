@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
@@ -319,6 +320,43 @@ void main() {
       final pinDown = ApiClient(baseUrl: 'http://api.test', client: MockClient((r) async => http.Response(jsonEncode({'message': 'The PIN code directory could not be reached. Drop a pin where you are, or fill in the address yourself.'}), 503)));
       await expectLater(SevaRepository(pinDown).pincode('508101'), throwsA(isA<ApiException>().having((e) => e.statusCode, 'status', 503)));
     });
+  });
+
+  testWidgets('an unpaid booking shows Pay now and no QR, and paying again opens a fresh checkout', (tester) async {
+    final unpaid = {...bookingJson(status: 'pending_payment', label: 'Awaiting payment', amount: 20000), 'code': null, 'qr_url': null, 'can_pay': true};
+    SharedPreferences.setMockInitialValues({'puja_bookings': jsonEncode([unpaid])});
+    final prefs = await SharedPreferences.getInstance();
+    var payCalls = 0;
+    final api = ApiClient(baseUrl: 'http://api.test', client: MockClient((r) async {
+      if (r.method == 'POST' && r.url.path.endsWith('/me/bookings/SV7K3M9Q2X/pay')) {
+        payCalls++;
+        // The server finds it had been paid after all: nothing more to pay.
+        return http.Response.bytes(utf8.encode(jsonEncode({'data': bookingJson(amount: 20000), 'checkout': null})), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+      }
+      return http.Response.bytes(utf8.encode(jsonEncode({'data': payCalls > 0 ? bookingJson(amount: 20000) : unpaid})), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+    }));
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final auth = AuthController(prefs, api);
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        Provider<ApiClient>.value(value: api),
+        ChangeNotifierProvider.value(value: auth),
+        ChangeNotifierProvider(create: (_) => BookingsController(prefs, api: api, auth: auth)),
+        ChangeNotifierProvider(create: (_) => SubscriptionController(api, auth)),
+      ],
+      child: const MaterialApp(home: BookingDetailScreen(reference: 'SV7K3M9Q2X')),
+    ));
+    await tester.pump();
+    expect(find.byType(QrImageView), findsNothing, reason: 'an unpaid booking is not a ticket');
+    expect(find.textContaining('Pay now'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.textContaining('Pay now'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(payCalls, 1);
   });
 
   testWidgets('a booking shows its code, reference and status for the counter', (tester) async {

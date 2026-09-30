@@ -67,6 +67,16 @@ class SubscriptionController extends ChangeNotifier {
     }
   }
 
+  /// Where a payment stands now, asked once.
+  Future<String> status(String paymentId) async {
+    try {
+      final json = await _api.get('me/payments/$paymentId');
+      return '${(json['data'] as Map)['status']}';
+    } catch (_) {
+      return 'pending';
+    }
+  }
+
   /// How a payment ended, asking a few times while the bank confirms.
   Future<String> settle(String paymentId, {int attempts = 6, Duration gap = const Duration(seconds: 2)}) async {
     var status = 'pending';

@@ -97,7 +97,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
       } else {
         // No SDK for this gateway (or the web build): its page in the
         // system browser tab, then ask the server once the devotee is back.
-        await NativeCheckout.payInBrowserTab(start.checkoutUrl);
+        await NativeCheckout.payInBrowserTab(start.checkoutUrl, settled: () async => await subs.status(start.paymentId) != 'pending');
         status = await subs.settle(start.paymentId, attempts: 10);
       }
       messenger.showSnackBar(SnackBar(content: Text(switch (status) { 'paid' => s('premium_active'), 'pending' => s('payment_pending'), _ => s('payment_failed') })));
@@ -163,6 +163,10 @@ class _PremiumScreenState extends State<PremiumScreen> {
             for (final plan in subs.plans) ...[
               _PlanCard(
                 plan: plan,
+                // The plan held now: marked, and its button extends it
+                // (renewing early adds to the time left) rather than
+                // offering it as if it were not already bought.
+                current: ends != null && ends.isAfter(DateTime.now()) && (d?.subscriptionPlanCode != null ? d!.subscriptionPlanCode == plan.code : d?.subscriptionPlan == plan.name),
                 busy: _buying == plan.code,
                 canBuy: config.paymentsEnabled,
                 onBuy: _buying == null ? () => _buy(plan) : null,
@@ -185,9 +189,10 @@ class _PremiumScreenState extends State<PremiumScreen> {
 }
 
 class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.plan, required this.busy, required this.canBuy, this.onBuy});
+  const _PlanCard({required this.plan, required this.busy, required this.canBuy, this.onBuy, this.current = false});
 
   final SubscriptionPlan plan;
+  final bool current;
   final bool busy;
   final bool canBuy;
   final VoidCallback? onBuy;
@@ -201,7 +206,7 @@ class _PlanCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: plan.badge != null ? Palette.gold : theme.colorScheme.outlineVariant, width: plan.badge != null ? 2 : 1),
+        border: Border.all(color: current ? Palette.tulsi : (plan.badge != null ? Palette.gold : theme.colorScheme.outlineVariant), width: current || plan.badge != null ? 2 : 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,7 +214,13 @@ class _PlanCard extends StatelessWidget {
           Row(
             children: [
               Expanded(child: Text(plan.name, style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'NotoSerif'))),
-              if (plan.badge != null)
+              if (current)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Palette.tulsi, borderRadius: BorderRadius.circular(999)),
+                  child: Text(s('premium_current'), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                )
+              else if (plan.badge != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(gradient: Palette.brass, borderRadius: BorderRadius.circular(999)),
@@ -233,10 +244,15 @@ class _PlanCard extends StatelessWidget {
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
-              child: FilledButton(
-                onPressed: onBuy,
-                child: busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text('${s('premium_buy')} · ${plan.price}'),
-              ),
+              child: current
+                  ? OutlinedButton(
+                      onPressed: onBuy,
+                      child: busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text('${s('premium_extend')} · ${plan.price}'),
+                    )
+                  : FilledButton(
+                      onPressed: onBuy,
+                      child: busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text('${s('premium_buy')} · ${plan.price}'),
+                    ),
             ),
           ],
         ],

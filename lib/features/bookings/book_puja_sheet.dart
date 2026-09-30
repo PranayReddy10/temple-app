@@ -84,7 +84,6 @@ class BookPujaFlow {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final bookings = context.read<BookingsController>();
-    final subs = context.read<SubscriptionController>();
     final repo = BookingRepository(context.read<ApiClient>());
 
     // A modal spinner while the server and the gateway talk: leaving the
@@ -113,47 +112,14 @@ class BookPujaFlow {
         platform: AppPlatform.name,
       );
       await bookings.put(start.booking);
-      var booking = start.booking;
-
-      if (start.needsPayment) {
+      if (!start.needsPayment) {
         close();
-        String status;
-        if (NativeCheckout.supports(start.sdk)) {
-          final result = await NativeCheckout.pay(start.sdk!);
-          if (!result.completed) {
-            messenger.showSnackBar(SnackBar(content: Text(s('booking_payment_cancelled'))));
-            // The booking stays pending on the server until it expires; the
-            // devotee can see it and try again from My seva bookings.
-            return;
-          }
-          status = await subs.confirm(start.paymentId!, result.fields);
-          if (status == 'pending') status = await subs.settle(start.paymentId!);
-        } else if (NativeCheckout.isNative(start.gateway ?? gateway)) {
-          if (!context.mounted) return;
-          await showDialog<void>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text(s('payment_could_not_start')),
-              content: Text(start.sdkError ?? s('payment_offline')),
-              actions: [FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
-            ),
-          );
-          return;
-        } else {
-          await NativeCheckout.payInBrowserTab(start.checkoutUrl!);
-          status = await subs.settle(start.paymentId!, attempts: 10);
-        }
-        booking = await bookings.reload(booking.reference) ?? booking;
-        if (status != 'paid' && !booking.isConfirmed) {
-          messenger.showSnackBar(SnackBar(content: Text(status == 'pending' ? s('booking_payment_pending') : s('booking_payment_failed'))));
-          if (status == 'pending' && navigator.mounted) navigator.push(MaterialPageRoute(builder: (_) => BookingDetailScreen(reference: booking.reference)));
-          return;
-        }
-      } else {
-        close();
+        if (navigator.mounted) await navigator.push(MaterialPageRoute(builder: (_) => BookingDetailScreen(reference: start.booking.reference, justBooked: true)));
+        return;
       }
-      if (!navigator.mounted) return;
-      await navigator.push(MaterialPageRoute(builder: (_) => BookingDetailScreen(reference: booking.reference, justBooked: true)));
+      close();
+      if (!context.mounted) return;
+      await payFor(context, start, gateway: gateway);
     } on ApiException catch (e) {
       close();
       messenger.showSnackBar(SnackBar(content: Text(e.errors.values.expand((v) => v).firstOrNull ?? e.message)));
@@ -161,6 +127,79 @@ class BookPujaFlow {
       close();
       messenger.showSnackBar(SnackBar(content: Text(s('payment_offline'))));
     }
+  }
+}
+
+/// Takes the payment for a booking the server has just placed or re-opened
+/// ("Pay now"), then shows where it stands. Shared by a new booking and by
+/// paying again for one still awaiting payment, so both behave the same.
+Future<void> payFor(BuildContext context, BookingStart start, {String? gateway}) async {
+  final s = S.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  final bookings = context.read<BookingsController>();
+  final subs = context.read<SubscriptionController>();
+  var booking = start.booking;
+
+  String status;
+  if (NativeCheckout.supports(start.sdk)) {
+    final result = await NativeCheckout.pay(start.sdk!);
+    if (!result.completed) {
+      messenger.showSnackBar(SnackBar(content: Text(s('booking_payment_cancelled'))));
+      // Still awaiting payment on the server: My seva bookings offers
+      // "Pay now" until the day passes.
+      await bookings.reload(booking.reference);
+      return;
+    }
+    status = await subs.confirm(start.paymentId!, result.fields);
+    if (status == 'pending') status = await subs.settle(start.paymentId!);
+  } else if (NativeCheckout.isNative(start.gateway ?? gateway)) {
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(s('payment_could_not_start')),
+        content: Text(start.sdkError ?? s('payment_offline')),
+        actions: [FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
+      ),
+    );
+    return;
+  } else {
+    await NativeCheckout.payInBrowserTab(start.checkoutUrl!, settled: () async => await subs.status(start.paymentId!) != 'pending');
+    status = await subs.settle(start.paymentId!, attempts: 10);
+  }
+  booking = await bookings.reload(booking.reference) ?? booking;
+  if (status != 'paid' && !booking.isLive) {
+    messenger.showSnackBar(SnackBar(content: Text(status == 'pending' ? s('booking_payment_pending') : s('booking_payment_failed'))));
+    // The booking, awaiting payment, with "Pay now": never a ticket.
+    if (navigator.mounted) await navigator.push(MaterialPageRoute(builder: (_) => BookingDetailScreen(reference: booking.reference)));
+    return;
+  }
+  if (navigator.mounted) await navigator.push(MaterialPageRoute(builder: (_) => BookingDetailScreen(reference: booking.reference, justBooked: true)));
+}
+
+/// "Pay now" on a booking still awaiting payment.
+Future<void> payAgain(BuildContext context, PujaBooking booking) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final s = S.of(context);
+  final repo = BookingRepository(context.read<ApiClient>());
+  final bookings = context.read<BookingsController>();
+  try {
+    final start = await repo.pay(booking.reference, platform: AppPlatform.name);
+    await bookings.put(start.booking);
+    if (!context.mounted) return;
+    if (!start.needsPayment) {
+      // It had gone through after all.
+      await bookings.reload(booking.reference);
+      messenger.showSnackBar(SnackBar(content: Text(s('booking_confirmed_title'))));
+      return;
+    }
+    await payFor(context, start);
+  } on ApiException catch (e) {
+    await bookings.reload(booking.reference);
+    messenger.showSnackBar(SnackBar(content: Text(e.errors.values.expand((v) => v).firstOrNull ?? e.message)));
+  } catch (_) {
+    messenger.showSnackBar(SnackBar(content: Text(s('payment_offline'))));
   }
 }
 

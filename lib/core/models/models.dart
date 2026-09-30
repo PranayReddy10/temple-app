@@ -743,6 +743,7 @@ class PujaBooking {
     this.cancelledAt,
     this.cancelReason,
     this.canCancel = false,
+    this.canPay = false,
     this.createdAt,
   });
 
@@ -778,6 +779,9 @@ class PujaBooking {
   final String? cancelledAt;
   final String? cancelReason;
   final bool canCancel;
+
+  /// Awaiting payment for a day not yet past: "Pay now" is offered.
+  final bool canPay;
   final String? createdAt;
 
   bool get isFree => amountPaise == 0;
@@ -831,6 +835,9 @@ class PujaBooking {
       cancelledAt: _s(j['cancelled_at']),
       cancelReason: _s(j['cancel_reason']),
       canCancel: _b(j['can_cancel']),
+      // An older server does not say; then any unpaid booking for today or
+      // later can be paid for.
+      canPay: j.containsKey('can_pay') ? _b(j['can_pay']) : (_s(status['value']) == 'pending_payment' && !(DateTime.tryParse(_s(j['booked_for']) ?? '') ?? DateTime(2000)).isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day))),
       createdAt: _s(j['created_at']),
     );
   }
@@ -857,6 +864,7 @@ class PujaBooking {
         'cancelled_at': cancelledAt,
         'cancel_reason': cancelReason,
         'can_cancel': canCancel,
+        'can_pay': canPay,
         'created_at': createdAt,
       };
 }
@@ -1137,7 +1145,7 @@ class DevotionalDay {
 }
 
 class Devotee {
-  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.gender, this.isVerified = false, this.joinedAt, this.passportUrl, this.signInMethods = const [], this.entitlements = Entitlements.free, this.subscriptionPlan, this.subscriptionEndsAt, this.homeStateId});
+  const Devotee({this.id, required this.name, this.email, this.phone, this.avatarUrl, this.locale, this.homeState, this.dateOfBirth, this.gender, this.isVerified = false, this.joinedAt, this.passportUrl, this.signInMethods = const [], this.entitlements = Entitlements.free, this.subscriptionPlan, this.subscriptionPlanCode, this.subscriptionEndsAt, this.homeStateId});
 
   final int? id;
   final String name;
@@ -1163,6 +1171,7 @@ class Devotee {
   /// What the account's plan unlocks, decided by the server.
   final Entitlements entitlements;
   final String? subscriptionPlan;
+  final String? subscriptionPlanCode;
   final String? subscriptionEndsAt;
   final int? homeStateId;
 
@@ -1182,6 +1191,7 @@ class Devotee {
         signInMethods: _l(j['sign_in_methods']).map((e) => '$e').toList(),
         entitlements: j['entitlements'] is Map ? Entitlements.fromJson(_m(j['entitlements'])) : Entitlements.free,
         subscriptionPlan: _s(_m(j['subscription'])['plan']),
+        subscriptionPlanCode: _s(_m(j['subscription'])['plan_code']),
         subscriptionEndsAt: _s(_m(j['subscription'])['ends_at']),
         homeStateId: _i(j['home_state_id']),
       );
@@ -1201,7 +1211,7 @@ class Devotee {
         'passport_url': passportUrl,
         'sign_in_methods': signInMethods,
         'entitlements': entitlements.toJson(),
-        if (subscriptionPlan != null) 'subscription': {'plan': subscriptionPlan, 'ends_at': subscriptionEndsAt},
+        if (subscriptionPlan != null) 'subscription': {'plan': subscriptionPlan, 'plan_code': subscriptionPlanCode, 'ends_at': subscriptionEndsAt},
         'home_state_id': homeStateId,
       };
 }

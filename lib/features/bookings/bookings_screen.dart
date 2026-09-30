@@ -15,6 +15,7 @@ import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import 'book_puja_sheet.dart';
 import '../temple/temple_screen.dart';
 
 /// The devotee's seva bookings: the ones made in the app, each with the code
@@ -191,7 +192,7 @@ class _BookedCard extends StatelessWidget {
                 width: 54,
                 height: 54,
                 decoration: BoxDecoration(color: day.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
-                child: b.isPast ? Icon(bookingStatusIcon(b.status), color: color) : Icon(Icons.qr_code_2_rounded, color: day.accent, size: 30),
+                child: b.isLive && !b.isPast ? Icon(Icons.qr_code_2_rounded, color: day.accent, size: 30) : Icon(bookingStatusIcon(b.status), color: color),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -216,6 +217,15 @@ class _BookedCard extends StatelessWidget {
                         Text(b.reference, style: theme.textTheme.labelSmall?.copyWith(fontFamily: 'monospace', letterSpacing: 1)),
                       ],
                     ),
+                    if (b.canPay) ...[
+                      const SizedBox(height: 8),
+                      FilledButton.icon(
+                        onPressed: () => payAgain(context, b),
+                        style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+                        icon: const Icon(Icons.payments_rounded, size: 18),
+                        label: Text('${S.of(context)('booking_pay_now')} · ${b.amountLabel}'),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -334,7 +344,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     }
     final day = DayTheme.forDeity(SampleData.bySlug(b.templeSlug ?? '')?.deity?.slug);
     final color = bookingStatusColor(b.status);
-    final showCode = b.isConfirmed || b.isPendingPayment;
+    // A ticket only once it holds: an unpaid booking shows "Pay now".
+    final showCode = b.isConfirmed && b.code.isNotEmpty;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.justBooked ? s('booking_confirmed_title') : b.pujaName),
@@ -400,7 +411,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           const SizedBox(height: 10),
           Text(
             b.isPendingPayment
-                ? s('booking_payment_pending')
+                ? (b.canPay ? s('booking_awaiting_payment') : s('booking_payment_pending'))
                 : b.isConfirmed
                     ? s('booking_show_at_counter')
                     : b.isVerified
@@ -409,6 +420,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall,
           ),
+          if (b.canPay) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _busy ? null : () => payAgain(context, b),
+              icon: const Icon(Icons.payments_rounded),
+              label: Text('${s('booking_pay_now')} · ${b.amountLabel}'),
+            ),
+          ],
           const SizedBox(height: 18),
           _Fact(icon: Icons.calendar_month_rounded, label: 'Day', value: '${DateFormat('EEEE, d MMMM yyyy').format(b.bookedFor)}${b.pujaStartsAt != null ? ' · ${b.pujaStartsAt}' : ''}', accent: day.accent),
           _Fact(icon: Icons.groups_rounded, label: 'People', value: '${b.people}', accent: day.accent),

@@ -163,6 +163,20 @@ void main() {
     expect(find.textContaining('A plan already on your account works here too'), findsOneWidget);
   });
 
+  testWidgets('the plan already held is marked current and offered to extend, not to buy again', (tester) async {
+    final ends = DateTime.now().add(const Duration(days: 20)).toUtc().toIso8601String();
+    final h = await harness(const PremiumScreen(), config(payments: true), prefs: {
+      'devotee_token': 't',
+      'devotee': jsonEncode({'id': 1, 'name': 'Anu', 'subscription': {'plan': 'Yatri Plus', 'plan_code': 'yatri-plus', 'ends_at': ends}}),
+    });
+    await tester.pumpWidget(h.app);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump();
+    expect(find.text('Your current plan'), findsOneWidget);
+    expect(find.textContaining('Extend'), findsOneWidget);
+    expect(find.textContaining('Choose'), findsNothing);
+  });
+
   testWidgets('the inbox lists notices and a guest\'s read state is kept on the device', (tester) async {
     final h = await harness(const NotificationsScreen(), config());
     await tester.pumpWidget(h.app);
