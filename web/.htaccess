@@ -8,6 +8,15 @@
 DirectoryIndex index.html
 
 Options -Indexes
+
+# The web engine (canvaskit/*.wasm) must be served as application/wasm:
+# browsers compile it straight from the download only with that type, and
+# some refuse it otherwise ("Incorrect response MIME type"). Shared hosts
+# often do not know the extension.
+<IfModule mod_mime.c>
+    AddType application/wasm .wasm
+    AddType text/javascript .mjs
+</IfModule>
 RewriteEngine On
 
 # Nothing of the Laravel project is reachable by its folder name.
