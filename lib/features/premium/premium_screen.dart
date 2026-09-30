@@ -76,7 +76,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
         // The gateway's own payment sheet: UPI apps, cards, banks, in-app.
         final result = await NativeCheckout.pay(start.sdk!);
         if (!result.completed) {
-          messenger.showSnackBar(SnackBar(content: Text(s('payment_cancelled'))));
+          messenger.showSnackBar(SnackBar(content: Text(result.unavailable ? s('payment_needs_store_install') : s('payment_cancelled'))));
           return;
         }
         status = await subs.confirm(start.paymentId, result.fields);

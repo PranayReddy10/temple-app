@@ -289,6 +289,7 @@ class S {
     'premium_until': {'en': 'Active until', 'te': 'వరకు చెల్లుతుంది', 'hi': 'तक सक्रिय'},
     'premium_current': {'en': 'Your current plan', 'te': 'మీ ప్రస్తుత ప్లాన్', 'hi': 'आपका मौजूदा प्लान'},
     'premium_extend': {'en': 'Extend', 'te': 'పొడిగించండి', 'hi': 'बढ़ाएँ'},
+    'payment_needs_store_install': {'en': 'Payments open only in the app installed from the Play Store. Nothing was charged.', 'te': 'ప్లే స్టోర్ నుండి ఇన్‌స్టాల్ చేసిన యాప్‌లో మాత్రమే చెల్లింపులు తెరుచుకుంటాయి. ఏమీ వసూలు కాలేదు.', 'hi': 'भुगतान केवल Play Store से इंस्टॉल किए गए ऐप में खुलता है। कुछ नहीं कटा।'},
     'booking_pay_now': {'en': 'Pay now', 'te': 'ఇప్పుడు చెల్లించండి', 'hi': 'अभी भुगतान करें'},
     'booking_awaiting_payment': {'en': 'Not paid yet. Pay to confirm this booking; its code appears here once the payment goes through.', 'te': 'ఇంకా చెల్లించలేదు. ఈ బుకింగ్‌ను నిర్ధారించడానికి చెల్లించండి; చెల్లింపు పూర్తయిన తర్వాత కోడ్ ఇక్కడ కనిపిస్తుంది.', 'hi': 'अभी भुगतान नहीं हुआ। इस बुकिंग की पुष्टि के लिए भुगतान करें; भुगतान होते ही कोड यहाँ दिखेगा।'},
     'premium_buy': {'en': 'Choose', 'te': 'ఎంచుకోండి', 'hi': 'चुनें'},
