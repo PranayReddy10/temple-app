@@ -616,9 +616,13 @@ class AppBooking {
     this.advanceDays = 30,
     this.capacityPerDay,
     this.instructions,
+    this.hasSlots = false,
   });
 
   static const off = AppBooking();
+
+  /// The temple set time slots: the devotee picks one, like a show time.
+  final bool hasSlots;
 
   final bool enabled;
   final bool requiresPayment;
@@ -642,10 +646,44 @@ class AppBooking {
         advanceDays: _i(j['advance_days']) ?? 30,
         capacityPerDay: _i(j['capacity_per_day']),
         instructions: _s(j['instructions']),
+        hasSlots: _b(j['has_slots']),
       );
 
   /// The total for this many people, in paise.
   int totalFor(int people) => feePerPerson ? amountPaise * people : amountPaise;
+}
+
+/// One time slot of a seva on one day, as GET …/slots?date= answers.
+class PujaSlot {
+  const PujaSlot({required this.id, required this.startsAt, this.endsAt, required this.label, this.capacity, this.available, this.started = false, this.bookable = true});
+
+  final int id;
+  final String startsAt;
+  final String? endsAt;
+
+  /// "9:00 – 10:00 AM".
+  final String label;
+  final int? capacity;
+
+  /// Places left that day; null when the slot has no limit.
+  final int? available;
+  final bool started;
+  final bool bookable;
+
+  bool get isFull => available != null && available! <= 0;
+
+  bool fits(int people) => bookable && (available == null || available! >= people);
+
+  factory PujaSlot.fromJson(Map<String, dynamic> j) => PujaSlot(
+        id: _i(j['id']) ?? 0,
+        startsAt: _s(j['starts_at']) ?? '',
+        endsAt: _s(j['ends_at']),
+        label: _s(j['label']) ?? _s(j['starts_at']) ?? '',
+        capacity: _i(j['capacity']),
+        available: _i(j['available']),
+        started: _b(j['started']),
+        bookable: j.containsKey('bookable') ? _b(j['bookable']) : true,
+      );
 }
 
 class Puja {
@@ -729,6 +767,9 @@ class PujaBooking {
     this.pujaImageUrl,
     this.instructions,
     required this.bookedFor,
+    this.slotLabel,
+    this.slotStartsAt,
+    this.slotEndsAt,
     this.people = 1,
     required this.devoteeName,
     this.devoteePhone,
@@ -751,7 +792,7 @@ class PujaBooking {
   final String code;
   final String? qrUrl;
 
-  /// pending_payment, confirmed, verified, cancelled, refunded.
+  /// pending_payment, confirmed, verified, cancelled, refunded, expired.
   final String status;
   final String statusLabel;
   final bool isLive;
@@ -765,6 +806,12 @@ class PujaBooking {
   final String? pujaImageUrl;
   final String? instructions;
   final DateTime bookedFor;
+
+  /// The time slot booked, like a show time ("9:00 – 10:00 AM"); null for a
+  /// seva without slots.
+  final String? slotLabel;
+  final String? slotStartsAt;
+  final String? slotEndsAt;
   final int people;
   final String devoteeName;
   final String? devoteePhone;
@@ -789,11 +836,15 @@ class PujaBooking {
   bool get isConfirmed => status == 'confirmed';
   bool get isVerified => status == 'verified';
 
+  /// Its day passed without being received at the temple.
+  bool get isExpired => status == 'expired' || (isConfirmed && bookedFor.isBefore(_todayDate()));
+
   /// Over: the day has passed, or it was cancelled, refunded or received.
-  bool get isPast {
-    final today = DateTime.now();
-    final day = DateTime(today.year, today.month, today.day);
-    return isVerified || status == 'cancelled' || status == 'refunded' || bookedFor.isBefore(day);
+  bool get isPast => isVerified || isExpired || status == 'cancelled' || status == 'refunded' || bookedFor.isBefore(_todayDate());
+
+  static DateTime _todayDate() {
+    final n = DateTime.now();
+    return DateTime(n.year, n.month, n.day);
   }
 
   /// What the QR carries: the server's link, or the bare code if it gave none.
@@ -821,6 +872,9 @@ class PujaBooking {
       pujaImageUrl: _s(puja['image_url']),
       instructions: _s(puja['instructions']),
       bookedFor: DateTime.tryParse(_s(j['booked_for']) ?? '') ?? DateTime.now(),
+      slotLabel: _s(_m(j['slot'])['label']),
+      slotStartsAt: _s(_m(j['slot'])['starts_at']),
+      slotEndsAt: _s(_m(j['slot'])['ends_at']),
       people: _i(j['people']) ?? 1,
       devoteeName: _s(j['devotee_name']) ?? '',
       devoteePhone: _s(j['devotee_phone']),
@@ -851,6 +905,7 @@ class PujaBooking {
         'temple': {'slug': templeSlug, 'name': templeName, 'city': templeCity},
         'puja': {'id': pujaId, 'name': pujaName, 'kind': pujaKind, 'starts_at': pujaStartsAt, 'image_url': pujaImageUrl, 'instructions': instructions},
         'booked_for': '${bookedFor.year}-${bookedFor.month.toString().padLeft(2, '0')}-${bookedFor.day.toString().padLeft(2, '0')}',
+        'slot': slotLabel == null ? null : {'label': slotLabel, 'starts_at': slotStartsAt, 'ends_at': slotEndsAt},
         'people': people,
         'devotee_name': devoteeName,
         'devotee_phone': devoteePhone,

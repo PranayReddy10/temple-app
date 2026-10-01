@@ -123,9 +123,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     height: MediaQuery.sizeOf(context).height * 0.7,
                     child: EmptyShrine(
                       motif: Motif.kalasha,
-                      message: ctl.canSync
-                          ? 'Pujas and sevas you book in the app appear here with the code the temple scans at its counter. Open a temple and look for "Book in the app" under Puja & seva.'
-                          : 'Sign in to book pujas and sevas in the app. Your bookings, with the code the temple scans at its counter, appear here.',
+                      message: ctl.canSync ? 'Pujas and sevas you book in the app appear here with the code the temple scans at its counter. Open a temple and look for "Book in the app" under Puja & seva.' : 'Sign in to book pujas and sevas in the app. Your bookings, with the code the temple scans at its counter, appear here.',
                     ),
                   ),
                 ],
@@ -160,6 +158,7 @@ Color bookingStatusColor(String status) => switch (status) {
       'confirmed' => Palette.ash,
       'pending_payment' => Palette.gold,
       'refunded' => Palette.kumkum,
+      'expired' => Palette.stone,
       _ => Palette.stone,
     };
 
@@ -168,6 +167,7 @@ IconData bookingStatusIcon(String status) => switch (status) {
       'confirmed' => Icons.confirmation_number_rounded,
       'pending_payment' => Icons.hourglass_top_rounded,
       'refunded' => Icons.currency_rupee_rounded,
+      'expired' => Icons.event_busy_rounded,
       _ => Icons.cancel_rounded,
     };
 
@@ -180,7 +180,8 @@ class _BookedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final day = DayTheme.forDeity(SampleData.bySlug(b.templeSlug ?? '')?.deity?.slug);
-    final color = bookingStatusColor(b.status);
+    final status = b.isExpired ? 'expired' : b.status;
+    final color = bookingStatusColor(status);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       clipBehavior: Clip.antiAlias,
@@ -194,7 +195,7 @@ class _BookedCard extends StatelessWidget {
                 width: 54,
                 height: 54,
                 decoration: BoxDecoration(color: day.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
-                child: b.isLive && !b.isPast ? Icon(Icons.qr_code_2_rounded, color: day.accent, size: 30) : Icon(bookingStatusIcon(b.status), color: color),
+                child: b.isLive && !b.isPast ? Icon(Icons.qr_code_2_rounded, color: day.accent, size: 30) : Icon(bookingStatusIcon(status), color: color),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -202,7 +203,7 @@ class _BookedCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(b.pujaName, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif')),
-                    Text([b.templeName, DateFormat('EEE, d MMM').format(b.bookedFor), '${b.people} ${b.people == 1 ? 'person' : 'people'}'].whereType<String>().join(' · '), style: theme.textTheme.bodySmall, maxLines: 2),
+                    Text([b.templeName, '${DateFormat('EEE, d MMM').format(b.bookedFor)}${b.slotLabel != null ? ', ${b.slotLabel}' : ''}', '${b.people} ${b.people == 1 ? 'person' : 'people'}'].whereType<String>().join(' · '), style: theme.textTheme.bodySmall, maxLines: 2),
                     const SizedBox(height: 6),
                     // Wraps: on a narrow phone the pill and the reference
                     // do not both fit beside the amount.
@@ -214,7 +215,7 @@ class _BookedCard extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
-                          child: Text(b.statusLabel, style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w700)),
+                          child: Text(b.isExpired ? 'Expired' : b.statusLabel, style: theme.textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w700)),
                         ),
                         Text(b.reference, style: theme.textTheme.labelSmall?.copyWith(fontFamily: 'monospace', letterSpacing: 1)),
                       ],
@@ -259,12 +260,14 @@ class _NoteCard extends StatelessWidget {
           child: SizedBox(width: 46, height: 46, child: TempleCover(slug: b.templeSlug, motifSize: 22)),
         ),
         title: Text(b.pujaName, style: const TextStyle(fontFamily: 'NotoSerif')),
-        subtitle: Text([
-          b.templeName,
-          '${b.date.day}/${b.date.month}/${b.date.year} · ${b.people} ${b.people == 1 ? 'person' : 'people'}',
-          if (b.reference != null) 'Ref ${b.reference}',
-          if (b.note != null) b.note!,
-        ].join('\n'), style: theme.textTheme.bodySmall),
+        subtitle: Text(
+            [
+              b.templeName,
+              '${b.date.day}/${b.date.month}/${b.date.year} · ${b.people} ${b.people == 1 ? 'person' : 'people'}',
+              if (b.reference != null) 'Ref ${b.reference}',
+              if (b.note != null) b.note!,
+            ].join('\n'),
+            style: theme.textTheme.bodySmall),
         isThreeLine: true,
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -345,9 +348,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       return Scaffold(appBar: AppBar(), body: const EmptyShrine(motif: Motif.diya, message: 'This booking is not on this device. Pull to refresh My seva bookings.'));
     }
     final day = DayTheme.forDeity(SampleData.bySlug(b.templeSlug ?? '')?.deity?.slug);
-    final color = bookingStatusColor(b.status);
-    // A ticket only once it holds: an unpaid booking shows "Pay now".
-    final showCode = b.isConfirmed && b.code.isNotEmpty;
+    // Like a ticket for yesterday's show: kept, but no longer valid.
+    final expired = b.isExpired;
+    final status = expired ? 'expired' : b.status;
+    final statusLabel = expired ? 'Expired' : b.statusLabel;
+    final color = bookingStatusColor(status);
+    // A ticket only once it holds, and only until its day is over.
+    final showCode = b.isConfirmed && !expired && b.code.isNotEmpty;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.justBooked ? s('booking_confirmed_title') : b.pujaName),
@@ -367,6 +374,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 Text(b.pujaName, textAlign: TextAlign.center, style: const TextStyle(color: Palette.deep, fontFamily: 'NotoSerif', fontSize: 22)),
                 if (b.templeName != null) Text(b.templeName!, textAlign: TextAlign.center, style: const TextStyle(color: Palette.teak, fontSize: 13)),
                 const SizedBox(height: 14),
+                // When, at a glance, as on a show ticket.
+                _TicketStrip(booking: b, accent: day.accent),
+                const _Perforation(),
+                const SizedBox(height: 6),
                 if (showCode)
                   QrImageView(
                     data: b.qrData,
@@ -383,9 +394,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(bookingStatusIcon(b.status), size: 56, color: color),
+                        Icon(bookingStatusIcon(status), size: 56, color: color),
                         const SizedBox(height: 8),
-                        Text(b.isVerified ? s('booking_received') : b.statusLabel, style: TextStyle(color: color, fontWeight: FontWeight.w800)),
+                        Text(b.isVerified ? s('booking_received') : statusLabel.toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.w800, letterSpacing: expired ? 3 : 0)),
                         if (b.isVerified && b.verifiedAt != null) Text(DateFormat('d MMM, h:mm a').format(DateTime.tryParse(b.verifiedAt!)?.toLocal() ?? DateTime.now()), style: const TextStyle(color: Palette.teak, fontSize: 12)),
                       ],
                     ),
@@ -403,8 +414,12 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999), border: Border.all(color: color.withValues(alpha: 0.4))),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(bookingStatusIcon(b.status), size: 16, color: color), const SizedBox(width: 6), Text(b.statusLabel, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12))]),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(bookingStatusIcon(status), size: 16, color: color), const SizedBox(width: 6), Text(statusLabel, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 12))]),
                 ),
+                if (showCode) ...[
+                  const SizedBox(height: 8),
+                  Text('Valid on ${DateFormat('EEE, d MMM yyyy').format(b.bookedFor)} only', style: const TextStyle(color: Palette.teak, fontSize: 12, fontWeight: FontWeight.w600)),
+                ],
                 const SizedBox(height: 8),
                 const MotifIcon(Motif.kalasha, size: 22, color: Palette.kumkum),
               ],
@@ -414,11 +429,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           Text(
             b.isPendingPayment
                 ? (b.canPay ? s('booking_awaiting_payment') : s('booking_payment_pending'))
-                : b.isConfirmed
-                    ? s('booking_show_at_counter')
-                    : b.isVerified
-                        ? 'The temple received you. Thank you for your darshan.'
-                        : b.cancelReason ?? b.statusLabel,
+                : expired
+                    ? 'This ticket was for ${DateFormat('EEEE, d MMMM').format(b.bookedFor)} and was not used, so it expired when the day ended. Book again for another day.'
+                    : b.isConfirmed
+                        ? s('booking_show_at_counter')
+                        : b.isVerified
+                            ? 'The temple received you. Thank you for your darshan.'
+                            : b.cancelReason ?? b.statusLabel,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall,
           ),
@@ -431,7 +448,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             ),
           ],
           const SizedBox(height: 18),
-          _Fact(icon: Icons.calendar_month_rounded, label: 'Day', value: '${DateFormat('EEEE, d MMMM yyyy').format(b.bookedFor)}${b.pujaStartsAt != null ? ' · ${b.pujaStartsAt}' : ''}', accent: day.accent),
+          _Fact(icon: Icons.calendar_month_rounded, label: 'Day', value: '${DateFormat('EEEE, d MMMM yyyy').format(b.bookedFor)}${b.slotLabel != null ? ' · ${b.slotLabel}' : (b.pujaStartsAt != null ? ' · ${b.pujaStartsAt}' : '')}', accent: day.accent),
           _Fact(icon: Icons.groups_rounded, label: 'People', value: '${b.people}', accent: day.accent),
           _Fact(icon: Icons.person_rounded, label: s('booking_in_the_name_of'), value: [b.devoteeName, if (b.gotram != null) 'Gotram ${b.gotram}', if (b.nakshatram != null) b.nakshatram!].join(' · '), accent: day.accent),
           if (b.note != null) _Fact(icon: Icons.notes_rounded, label: 'Note', value: b.note!, accent: day.accent),
@@ -451,7 +468,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               icon: const Icon(Icons.temple_hindu_rounded),
               label: Text(b.templeName ?? 'Open the temple'),
             ),
-          if (b.canCancel) ...[
+          if (b.canCancel && !expired) ...[
             const SizedBox(height: 8),
             TextButton.icon(onPressed: _busy ? null : () => _cancel(b), icon: const Icon(Icons.cancel_outlined, color: Palette.kumkum), label: Text(s('booking_cancel'), style: const TextStyle(color: Palette.kumkum))),
           ],
@@ -488,6 +505,73 @@ class _Fact extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// DATE | TIME | PEOPLE across the ticket, as on a show ticket.
+class _TicketStrip extends StatelessWidget {
+  const _TicketStrip({required this.booking, required this.accent});
+
+  final PujaBooking booking;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = booking;
+    final time = b.slotLabel ?? b.pujaStartsAt;
+    Widget cell(String label, String value, {String? sub}) => Expanded(
+          child: Column(
+            children: [
+              Text(label, style: const TextStyle(color: Palette.teak, letterSpacing: 2, fontSize: 10, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(value, textAlign: TextAlign.center, style: const TextStyle(color: Palette.deep, fontSize: 16, fontWeight: FontWeight.w800, height: 1.15)),
+              if (sub != null) Text(sub, textAlign: TextAlign.center, style: const TextStyle(color: Palette.teak, fontSize: 11)),
+            ],
+          ),
+        );
+    final rule = Container(width: 1, height: 44, color: Palette.gold.withValues(alpha: 0.5));
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+      decoration: BoxDecoration(color: accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          cell('DATE', DateFormat('d MMM').format(b.bookedFor), sub: DateFormat('EEEE').format(b.bookedFor)),
+          rule,
+          cell('TIME', time ?? 'Any time', sub: time == null ? 'during darshan hours' : null),
+          rule,
+          cell('PEOPLE', '${b.people}'),
+        ],
+      ),
+    );
+  }
+}
+
+/// The torn edge between the ticket's details and its code.
+class _Perforation extends StatelessWidget {
+  const _Perforation();
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    return SizedBox(
+      height: 28,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          LayoutBuilder(
+            builder: (context, c) {
+              final n = (c.maxWidth / 10).floor();
+              return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [for (var i = 0; i < n; i++) Container(width: 5, height: 1.5, color: Palette.gold.withValues(alpha: 0.7))]);
+            },
+          ),
+          // Notches cut into both edges of the ticket.
+          Positioned(left: -33, child: Container(width: 26, height: 26, decoration: BoxDecoration(color: bg, shape: BoxShape.circle, border: Border.all(color: Palette.gold, width: 3)))),
+          Positioned(right: -33, child: Container(width: 26, height: 26, decoration: BoxDecoration(color: bg, shape: BoxShape.circle, border: Border.all(color: Palette.gold, width: 3)))),
         ],
       ),
     );

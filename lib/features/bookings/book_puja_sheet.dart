@@ -103,6 +103,7 @@ class BookPujaFlow {
         templeSlug: temple.slug,
         pujaId: puja.id!,
         day: r.day,
+        slotId: r.slot?.id,
         people: r.people,
         name: r.name,
         phone: r.phone,
@@ -208,9 +209,10 @@ Future<void> payAgain(BuildContext context, PujaBooking booking) async {
 }
 
 class _BookingRequest {
-  const _BookingRequest({required this.day, required this.people, this.name, this.phone, this.gotram, this.nakshatram, this.note});
+  const _BookingRequest({required this.day, this.slot, required this.people, this.name, this.phone, this.gotram, this.nakshatram, this.note});
 
   final DateTime day;
+  final PujaSlot? slot;
   final int people;
   final String? name;
   final String? phone;
@@ -239,6 +241,56 @@ class _BookPujaSheetState extends State<_BookPujaSheet> {
   late DateTime _day = _today;
   int _people = 1;
 
+  // Time slots, when the temple set them: loaded for the chosen day.
+  List<PujaSlot>? _slots;
+  PujaSlot? _slot;
+  bool _slotsLoading = false;
+  String? _slotsError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSlots();
+  }
+
+  void _setDay(DateTime d) {
+    setState(() => _day = d);
+    _loadSlots();
+  }
+
+  Future<void> _loadSlots() async {
+    final puja = widget.puja;
+    if (!puja.appBooking.hasSlots || puja.id == null) return;
+    final day = _day;
+    setState(() {
+      _slotsLoading = true;
+      _slotsError = null;
+      _slot = null;
+    });
+    try {
+      final slots = await BookingRepository(context.read<ApiClient>()).slots(templeSlug: widget.temple.slug, pujaId: puja.id!, day: day);
+      if (!mounted || day != _day) return;
+      setState(() {
+        _slots = slots;
+        // The first slot with room, so one tap books the usual case.
+        _slot = slots.where((x) => x.fits(_people)).firstOrNull;
+      });
+    } catch (_) {
+      if (mounted && day == _day) setState(() => _slotsError = 'Could not load the time slots. Check your connection.');
+    } finally {
+      if (mounted && day == _day) setState(() => _slotsLoading = false);
+    }
+  }
+
+  /// At most what the chosen slot has room for.
+  int get _maxPeople {
+    final max = widget.puja.appBooking.maxPeople;
+    final left = _slot?.available;
+    return left == null ? max : (left < max ? left : max);
+  }
+
+  bool get _ready => !widget.puja.appBooking.hasSlots || (_slot != null && _slot!.fits(_people));
+
   DateTime get _today {
     final n = DateTime.now();
     return DateTime(n.year, n.month, n.day);
@@ -255,7 +307,7 @@ class _BookPujaSheetState extends State<_BookPujaSheet> {
   Future<void> _pickDay() async {
     final last = _today.add(Duration(days: widget.puja.appBooking.advanceDays));
     final picked = await showDatePicker(context: context, initialDate: _day.isAfter(last) ? last : _day, firstDate: _today, lastDate: last);
-    if (picked != null) setState(() => _day = DateTime(picked.year, picked.month, picked.day));
+    if (picked != null) _setDay(DateTime(picked.year, picked.month, picked.day));
   }
 
   String _dayLabel(DateTime d) {
@@ -309,21 +361,50 @@ class _BookPujaSheetState extends State<_BookPujaSheet> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final d in quick) ChoiceChip(label: Text(_dayLabel(d)), selected: _day == d, onSelected: (_) => setState(() => _day = d)),
+                for (final d in quick) ChoiceChip(label: Text(_dayLabel(d)), selected: _day == d, onSelected: (_) => _setDay(d)),
                 ActionChip(avatar: const Icon(Icons.calendar_month_rounded, size: 16), label: Text(quick.contains(_day) ? s('booking_pick_day') : _dayLabel(_day)), onPressed: _pickDay),
               ],
             ),
-            if (puja.startsAt != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text('${s('booking_starts')} ${puja.startsAt}${puja.scheduleNote != null ? ' · ${puja.scheduleNote}' : ''}', style: theme.textTheme.bodySmall)),
+            if (ab.hasSlots) ...[
+              const SizedBox(height: 16),
+              Text('Time slot', style: theme.textTheme.labelLarge),
+              const SizedBox(height: 8),
+              if (_slotsLoading)
+                const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: LinearProgressIndicator())
+              else if (_slotsError != null)
+                Row(children: [Expanded(child: Text(_slotsError!, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error))), TextButton(onPressed: _loadSlots, child: const Text('Retry'))])
+              else if ((_slots ?? const []).isEmpty)
+                Text('No time slots on ${_dayLabel(_day)}. Choose another day.', style: theme.textTheme.bodySmall)
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final slot in _slots!)
+                      _SlotChip(
+                          slot: slot,
+                          selected: _slot?.id == slot.id,
+                          accent: day.accent,
+                          onTap: slot.fits(1)
+                              ? () => setState(() {
+                                    _slot = slot;
+                                    if (slot.available != null && _people > slot.available!) _people = slot.available!.clamp(1, ab.maxPeople);
+                                  })
+                              : null)
+                  ],
+                ),
+            ] else if (puja.startsAt != null)
+              Padding(padding: const EdgeInsets.only(top: 6), child: Text('${s('booking_starts')} ${puja.startsAt}${puja.scheduleNote != null ? ' · ${puja.scheduleNote}' : ''}', style: theme.textTheme.bodySmall)),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(child: Text(s('booking_how_many'), style: theme.textTheme.labelLarge)),
                 IconButton(onPressed: _people > 1 ? () => setState(() => _people--) : null, icon: const Icon(Icons.remove_circle_outline_rounded)),
                 Text('$_people', style: theme.textTheme.titleMedium),
-                IconButton(onPressed: _people < ab.maxPeople ? () => setState(() => _people++) : null, icon: const Icon(Icons.add_circle_outline_rounded)),
+                IconButton(onPressed: _people < _maxPeople ? () => setState(() => _people++) : null, icon: const Icon(Icons.add_circle_outline_rounded)),
               ],
             ),
-            Text('${s('booking_up_to')} ${ab.maxPeople}', style: theme.textTheme.bodySmall),
+            Text(_slot?.available != null && _slot!.available! < ab.maxPeople ? '${_slot!.available} left in this slot' : '${s('booking_up_to')} ${ab.maxPeople}', style: theme.textTheme.bodySmall),
             const SizedBox(height: 14),
             TextField(controller: _name, textCapitalization: TextCapitalization.words, decoration: InputDecoration(labelText: s('booking_in_the_name_of'), prefixIcon: const Icon(Icons.person_rounded))),
             const SizedBox(height: 10),
@@ -359,15 +440,18 @@ class _BookPujaSheetState extends State<_BookPujaSheet> {
                   ),
                 ),
                 FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pop(_BookingRequest(
-                    day: _day,
-                    people: _people,
-                    name: _name.text.trim(),
-                    phone: _phone.text.trim(),
-                    gotram: _gotram.text.trim(),
-                    nakshatram: _nakshatram.text.trim(),
-                    note: _note.text.trim(),
-                  )),
+                  onPressed: !_ready
+                      ? null
+                      : () => Navigator.of(context).pop(_BookingRequest(
+                            day: _day,
+                            slot: _slot,
+                            people: _people,
+                            name: _name.text.trim(),
+                            phone: _phone.text.trim(),
+                            gotram: _gotram.text.trim(),
+                            nakshatram: _nakshatram.text.trim(),
+                            note: _note.text.trim(),
+                          )),
                   style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent(), minimumSize: const Size(0, 50), padding: const EdgeInsets.symmetric(horizontal: 20)),
                   icon: Icon(total == 0 ? Icons.check_circle_rounded : Icons.lock_rounded),
                   label: Text(total == 0 ? s('booking_book_free') : '${s('booking_pay_and_book')} ${BookPujaFlow.rupees(total)}'),
@@ -377,6 +461,58 @@ class _BookPujaSheetState extends State<_BookPujaSheet> {
             const SizedBox(height: 8),
             Text(s('booking_footnote'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A time slot to pick, like a show time: the time, and how many places
+/// are left (or "Full", or "Started" for today's earlier slots).
+class _SlotChip extends StatelessWidget {
+  const _SlotChip({required this.slot, required this.selected, required this.accent, this.onTap});
+
+  final PujaSlot slot;
+  final bool selected;
+  final Color accent;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enabled = onTap != null;
+    final status = slot.started
+        ? 'Started'
+        : slot.isFull
+            ? 'Full'
+            : slot.available == null
+                ? 'Open'
+                : '${slot.available} left';
+    final fg = selected ? Colors.white : (enabled ? theme.colorScheme.onSurface : theme.colorScheme.onSurface.withValues(alpha: 0.38));
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      label: '${slot.label}, $status',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? accent : (enabled ? theme.colorScheme.surface : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? accent : (enabled ? accent.withValues(alpha: 0.45) : theme.colorScheme.outlineVariant)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(slot.label, style: theme.textTheme.labelLarge?.copyWith(color: fg, fontWeight: FontWeight.w700, decoration: slot.isFull ? TextDecoration.lineThrough : null)),
+              const SizedBox(height: 2),
+              Text(status, style: theme.textTheme.labelSmall?.copyWith(color: selected ? Colors.white.withValues(alpha: 0.9) : (enabled ? (slot.available != null && slot.available! <= 3 ? Palette.kumkum : Palette.tulsi) : fg))),
+            ],
+          ),
         ),
       ),
     );
