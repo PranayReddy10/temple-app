@@ -35,10 +35,19 @@ class BookingRepository {
 
   Future<PujaBooking> cancel(String reference, {String? reason}) async => PujaBooking.fromJson(Map<String, dynamic>.from((await _api.post('me/bookings/$reference/cancel', {if (reason != null && reason.isNotEmpty) 'reason': reason}))['data'] as Map));
 
+  /// A seva's time slots on one day, with the places left in each.
+  Future<List<PujaSlot>> slots({required String templeSlug, required int pujaId, required DateTime day}) async {
+    final body = await _api.get('temples/$templeSlug/pujas/$pujaId/slots', {'date': _date(day)});
+    return (body['data'] as List? ?? const []).map((e) => PujaSlot.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+  }
+
+  static String _date(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   Future<BookingStart> book({
     required String templeSlug,
     required int pujaId,
     required DateTime day,
+    int? slotId,
     required int people,
     String? name,
     String? phone,
@@ -50,6 +59,7 @@ class BookingRepository {
   }) async {
     final body = await _api.post('temples/$templeSlug/pujas/$pujaId/bookings', {
       'booked_for': '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
+      if (slotId != null) 'slot_id': slotId,
       'people': people,
       if (name != null && name.isNotEmpty) 'devotee_name': name,
       if (phone != null && phone.isNotEmpty) 'devotee_phone': phone,

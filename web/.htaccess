@@ -7,6 +7,11 @@
 # would open that instead of the app.
 DirectoryIndex index.html
 
+# Any address that is not found shows the site's own 404 page (the gopuram
+# with closed doors, and temples the address may have meant) rather than
+# the host's plain one.
+ErrorDocument 404 /laravel/public/index.php
+
 Options -Indexes
 
 # The web engine (canvaskit/*.wasm) must be served as application/wasm:

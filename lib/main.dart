@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,6 +38,11 @@ import 'core/state/yatra_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // In the browser, Back closes the screen on top, as the phone's back
+  // button does, rather than leaving the site. Screens here are pushed
+  // without names, so the browser's history would otherwise hold just one
+  // entry for the whole app.
+  if (kIsWeb) SystemNavigator.selectSingleEntryHistory();
   final prefs = await SharedPreferences.getInstance();
   TempleCovers.instance.attach(prefs);
   try {
