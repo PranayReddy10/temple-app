@@ -38,6 +38,7 @@ import '../family/family_screen.dart';
 import '../qr/qr_screens.dart';
 import '../add_temple/add_temple_screen.dart';
 import '../seva/seva_screen.dart';
+import '../media/in_app_browser.dart';
 import '../submissions/submissions_screen.dart';
 import '../temple/temple_screen.dart';
 import 'edit_profile_screen.dart';
@@ -340,6 +341,35 @@ class ProfileScreen extends StatelessWidget {
             },
           ),
         ),
+        const SectionHeader(title: 'Help & policies', motif: Motif.lotus),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: [
+              for (final (icon, title, slug) in const [
+                (Icons.privacy_tip_outlined, 'Privacy policy', 'privacy-policy'),
+                (Icons.gavel_rounded, 'Terms and conditions', 'terms-and-conditions'),
+                (Icons.currency_rupee_rounded, 'Refund and cancellation', 'refund-and-cancellation'),
+                (Icons.mail_outline_rounded, 'Contact us', 'contact-us'),
+              ])
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(icon),
+                  title: Text(title),
+                  trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                  onTap: () => InAppBrowserScreen.open(context, '${Brand.website}/$slug', title: title),
+                ),
+              if (auth.isSignedIn)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.person_remove_outlined, color: theme.colorScheme.error),
+                  title: Text('Delete account', style: TextStyle(color: theme.colorScheme.error)),
+                  subtitle: const Text('Remove your account and data'),
+                  onTap: () => confirmDeleteAccount(context),
+                ),
+            ],
+          ),
+        ),
         SectionHeader(title: 'Server', motif: Motif.shankhaChakra, subtitle: settings.apiBase),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -519,4 +549,54 @@ Future<void> confirmSignOut(BuildContext context) async {
   if (ok != true || !context.mounted) return;
   await context.read<AuthController>().logout();
   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signed out. Nothing of your account is left on this phone.')));
+}
+
+/// Profile → Delete account, as Google Play and the App Store require. Two
+/// steps: what goes and what stays, then typing DELETE.
+Future<void> confirmDeleteAccount(BuildContext context) async {
+  final typed = TextEditingController();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        icon: Icon(Icons.person_remove_outlined, color: Theme.of(context).colorScheme.error),
+        title: const Text('Delete your account?'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Your profile, check-ins and passport stamps, photos, memories, reviews, trips, and saved and followed temples are deleted. This cannot be undone.\n\n'
+                  'Records of seva bookings and payments are kept, as the law requires. Bookings for a future date stay with the temple: cancel them first if you want a refund. A premium plan ends with the account.'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: typed,
+                autocorrect: false,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'Type DELETE to confirm', border: OutlineInputBorder()),
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error, foregroundColor: Theme.of(context).colorScheme.onError),
+            onPressed: typed.text.trim().toUpperCase() == 'DELETE' ? () => Navigator.pop(context, true) : null,
+            child: const Text('Delete account'),
+          ),
+        ],
+      ),
+    ),
+  );
+  typed.dispose();
+  if (ok != true || !context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await context.read<AuthController>().deleteAccount();
+    messenger.showSnackBar(const SnackBar(content: Text('Your account has been deleted.')));
+  } catch (_) {
+    messenger.showSnackBar(const SnackBar(content: Text('Could not delete the account. Check your connection and try again, or write to ${Brand.supportEmail}.')));
+  }
 }
