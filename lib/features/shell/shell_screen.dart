@@ -5,6 +5,7 @@ import '../../core/audio/audio_queue.dart';
 import '../media/now_playing_screen.dart';
 
 import '../../core/platform.dart';
+import '../../core/services/analytics.dart';
 
 import '../../core/l10n/strings.dart';
 import '../../core/motifs/motif.dart';
@@ -32,6 +33,15 @@ class _ShellScreenState extends State<ShellScreen> {
   void initState() {
     super.initState();
     shellTabRequest.addListener(_onTabRequest);
+    Analytics.instance.screen(_tabs[_index]);
+  }
+
+  static const _tabs = ['home', 'explore', 'passport', 'yatra', 'profile'];
+
+  void _go(int i) {
+    i = i.clamp(0, 4);
+    if (i != _index) Analytics.instance.screen(_tabs[i]);
+    setState(() => _index = i);
   }
 
   @override
@@ -44,7 +54,7 @@ class _ShellScreenState extends State<ShellScreen> {
   void _onTabRequest() {
     final i = shellTabRequest.value;
     if (i == null || !mounted) return;
-    setState(() => _index = i.clamp(0, 4));
+    _go(i);
     shellTabRequest.value = null;
   }
 
@@ -54,7 +64,7 @@ class _ShellScreenState extends State<ShellScreen> {
     final day = context.watch<DayController>().theme;
     final scheme = Theme.of(context).colorScheme;
     final pages = [
-      HomeScreen(onExplore: () => setState(() => _index = 1), onTab: (i) => setState(() => _index = i)),
+      HomeScreen(onExplore: () => _go(1), onTab: _go),
       const ExploreScreen(),
       const PassportScreen(),
       const YatraScreen(),
@@ -69,7 +79,7 @@ class _ShellScreenState extends State<ShellScreen> {
           if (context.watch<AudioQueueController?>() != null) const MiniPlayer(),
           NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _go,
         destinations: [
           NavigationDestination(
             icon: MotifIcon(day.motif, size: 24, color: scheme.onSurface.withValues(alpha: 0.65)),

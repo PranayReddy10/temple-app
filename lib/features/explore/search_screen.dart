@@ -14,6 +14,7 @@ import '../../core/motifs/motif.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import '../temple/temple_screen.dart';
 
 /// Search by name, deity, city or state, with filters and a nearby mode.
@@ -49,6 +50,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('search');
     _run();
     final repo = context.read<TempleRepository>();
     Future.wait([repo.deities(), repo.categories(), repo.states()]).then((r) {
@@ -76,6 +78,8 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final r = await context.read<TempleRepository>().temples(_query.copyWith(page: 1));
       if (!mounted) return;
+      final term = _query.q ?? '';
+      if (term.trim().length >= 3) Analytics.instance.search(term);
       setState(() {
         _result = r;
         _items

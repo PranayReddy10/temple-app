@@ -31,6 +31,7 @@ dependencies:
   sign_in_with_apple: ^7.0.1
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
+  firebase_analytics: ^12.6.0
   google_mobile_ads: ^7.0.0
   applovin_max: ^4.6.4
   crypto: ^3.0.7

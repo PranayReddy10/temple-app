@@ -14,6 +14,7 @@ import '../../core/state/auth_controller.dart';
 import '../../core/state/location_controller.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/services/analytics.dart';
 import '../auth/auth_screen.dart';
 import '../seva/seva_widgets.dart';
 import '../temple/temple_screen.dart';
@@ -90,6 +91,7 @@ class _AddTempleScreenState extends State<AddTempleScreen> {
   @override
   void initState() {
     super.initState();
+    Analytics.instance.screen('add_temple');
     _yourName.text = context.read<AuthController>().devotee?.name ?? '';
     context.read<TempleRepository>().deities().then((r) {
       if (mounted) setState(() => _deityNames = r.data.map((d) => d.name).toList());

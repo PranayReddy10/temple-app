@@ -24,7 +24,8 @@ RewriteCond %{THE_REQUEST} \s/+laravel(/|\s|\?) [NC]
 RewriteRule ^ - [R=404,L]
 
 # Pages search engines read: the Flutter app is a blank page to them, so the
-# temple directory, the temple and state pages and the sitemap are rendered
-# by Laravel, which answers them on this domain too. /storage is where those
-# pages' photos are served from.
-RewriteRule ^(temples(/.*)?|states/.+|sitemap[^/]*\.xml|storage/.+)$ laravel/public/index.php [L,QSA]
+# temple directory, the temple, state and deity pages and the sitemap are
+# rendered by Laravel, which answers them on this domain too. /storage is
+# where those pages' photos are served from, and google*.html is Search
+# Console's check (the file name is set in Admin > Analytics & SEO).
+RewriteRule ^(temples(/.*)?|states/.+|deities/.+|sitemap[^/]*\.xml|storage/.+|google[0-9a-f]+\.html)$ laravel/public/index.php [L,QSA]
