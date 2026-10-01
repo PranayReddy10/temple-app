@@ -121,6 +121,15 @@ class AuthController extends ChangeNotifier {
 
   void onSignOut(Future<void> Function() hook) => _signOutHooks.add(hook);
 
+  /// Deletes the account on the server (Profile → Delete account), then
+  /// clears this device as signing out does. Bookings and payments are kept
+  /// on the server as the law requires; everything else of the account goes.
+  Future<void> deleteAccount() async {
+    await api.delete('me', {'confirm': 'DELETE'});
+    Analytics.instance.event('delete_account');
+    await logout();
+  }
+
   /// Signs out and leaves nothing of the account behind on the device.
   ///
   /// Dropping the token alone left the last person's visits, photos and

@@ -16,6 +16,10 @@ class Brand {
   /// Where community submissions go until the submissions API exists.
   static const String supportEmail = String.fromEnvironment('BRAND_SUPPORT_EMAIL', defaultValue: 'support@darshansaathi.com');
 
+  /// The devotees' website, where the privacy policy, terms and the other
+  /// policy pages live (edited in the admin panel: Website → Pages).
+  static const String website = String.fromEnvironment('BRAND_WEBSITE', defaultValue: 'https://darshansaathi.com');
+
   /// Base URL of the Laravel API, without the `/api/v1` suffix. The API and
   /// the admin panel live on temple.darshansaathi.com; darshansaathi.com
   /// itself is the devotees' website.

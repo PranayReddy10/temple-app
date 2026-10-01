@@ -29,3 +29,11 @@ RewriteRule ^ - [R=404,L]
 # where those pages' photos are served from, and google*.html is Search
 # Console's check (the file name is set in Admin > Analytics & SEO).
 RewriteRule ^(temples(/.*)?|states/.+|deities/.+|sitemap[^/]*\.xml|storage/.+|google[0-9a-f]+\.html)$ laravel/public/index.php [L,QSA]
+
+# Policy and information pages (privacy-policy, terms-and-conditions,
+# refund-and-cancellation, account-deletion, contact-us ...), edited in the
+# admin panel under Website > Pages: any one-word address that is not a
+# file or folder of this build. Unknown ones get Laravel's 404.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^[a-z0-9]+(-[a-z0-9]+)*/?$ laravel/public/index.php [L,QSA]
