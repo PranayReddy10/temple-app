@@ -10,6 +10,7 @@ import '../notifications/notifications_screen.dart';
 import '../premium/premium_screen.dart';
 
 import '../../core/brand.dart';
+import '../../core/platform.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
@@ -34,7 +35,6 @@ import '../bookings/bookings_screen.dart';
 import '../notifications/follows_screen.dart';
 import '../reviews/reviews_screen.dart';
 import '../certificates/certificates_screen.dart';
-import '../diagnostics/diagnostics_screen.dart';
 import '../family/family_screen.dart';
 import '../qr/qr_screens.dart';
 import '../add_temple/add_temple_screen.dart';
@@ -372,24 +372,13 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
         ),
-        SectionHeader(title: 'Server', motif: Motif.shankhaChakra, subtitle: settings.apiBase),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Expanded(child: OutlinedButton.icon(onPressed: () => _editServer(context, settings), icon: const Icon(Icons.dns_rounded), label: const Text('Change API server'))),
-              const SizedBox(width: 8),
-              Expanded(child: OutlinedButton.icon(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiagnosticsScreen())), icon: const Icon(Icons.troubleshoot_rounded), label: const Text('Check a temple'))),
-            ],
-          ),
-        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
           child: Column(
             children: [
               SizedBox(height: 60, width: double.infinity, child: CustomPaint(painter: GopuramPainter(color: theme.colorScheme.primary, opacity: 0.25, tiers: 5))),
               const SizedBox(height: 8),
-              Text('${Brand.name} · v0.4 · Phases 1–4', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
+              Text('${Brand.name} · v${AppPlatform.version}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
               Text(s('trust_note'), textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
             ],
           ),
@@ -407,19 +396,6 @@ class ProfileScreen extends StatelessWidget {
         'kn' => 'ಕನ್ನಡ',
         _ => 'English',
       };
-
-  static Future<void> _editServer(BuildContext context, AppSettings settings) async {
-    final c = TextEditingController(text: settings.apiBase);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('API server'),
-        content: TextField(controller: c, autofocus: true, keyboardType: TextInputType.url, decoration: const InputDecoration(hintText: 'https://example.com')),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Save'))],
-      ),
-    );
-    if (ok == true && c.text.trim().isNotEmpty) await settings.setApiBase(c.text.trim());
-  }
 }
 
 class _Avatar extends StatelessWidget {

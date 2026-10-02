@@ -12,7 +12,11 @@ class AppSettings extends ChangeNotifier {
   AppSettings(this._prefs, this.api) {
     _locale = Locale(_prefs.getString('locale') ?? 'en');
     _themeMode = ThemeMode.values[_prefs.getInt('theme_mode') ?? 0];
-    api.baseUrl = _prefs.getString('api_base') ?? Brand.defaultApiBase;
+    // Always the live server (or the one this build was made for with
+    // --dart-define=API_BASE_URL): published apps have no server setting,
+    // and an address saved by an older test build is dropped.
+    api.baseUrl = Brand.defaultApiBase;
+    _prefs.remove('api_base');
     api.language = _locale.languageCode;
     _doorAnimations = _prefs.getBool('door_animations') ?? true;
     _templeSounds = _prefs.getBool('opening_bell') ?? true;
@@ -83,9 +87,4 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setApiBase(String url) async {
-    api.baseUrl = url;
-    await _prefs.setString('api_base', api.baseUrl);
-    notifyListeners();
-  }
 }
