@@ -113,8 +113,9 @@ class BookingsController extends ChangeNotifier {
     notifyListeners();
     try {
       final list = await _repo!.mine();
+      // Event tickets come from their own list (refreshTickets).
       _booked
-        ..clear()
+        ..removeWhere((b) => !b.isEvent)
         ..addAll(list);
       await _saveBooked();
     } on ApiException catch (e) {
@@ -125,6 +126,25 @@ class BookingsController extends ChangeNotifier {
     _loading = false;
     notifyListeners();
   }
+
+  /// Event tickets ("I'll join" and paid) from the server, kept in the same
+  /// list as seva bookings. A server that predates them leaves the list as
+  /// it was.
+  Future<void> refreshTickets() async {
+    if (!canSync) return;
+    try {
+      final list = await _repo!.eventTickets();
+      _booked
+        ..removeWhere((b) => b.isEvent)
+        ..addAll(list);
+      await _saveBooked();
+    } catch (_) {
+      // Seva bookings say whether the server could be reached.
+    }
+  }
+
+  /// Seva bookings and event tickets together.
+  Future<void> refreshAll() => Future.wait([refresh(), refreshTickets()]);
 
   /// A booking just made, or one that changed: kept at once, before any
   /// refresh, so the code is on the device the moment it exists.
@@ -138,7 +158,7 @@ class BookingsController extends ChangeNotifier {
   Future<PujaBooking?> reload(String reference) async {
     if (_repo == null) return null;
     try {
-      final b = await _repo.show(reference);
+      final b = await _repo.show(reference, event: byReference(reference)?.isEvent ?? false);
       await put(b);
       return b;
     } catch (_) {
@@ -147,7 +167,7 @@ class BookingsController extends ChangeNotifier {
   }
 
   Future<PujaBooking> cancel(String reference, {String? reason}) async {
-    final b = await _repo!.cancel(reference, reason: reason);
+    final b = await _repo!.cancel(reference, reason: reason, event: byReference(reference)?.isEvent ?? false);
     await put(b);
     return b;
   }

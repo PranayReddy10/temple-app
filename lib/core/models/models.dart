@@ -749,8 +749,16 @@ class Puja {
 /// A puja, seva or prasadam the devotee booked through the app, as
 /// `GET /me/bookings` returns it: the reference the counter reads out, the
 /// code its scanner checks, and where it stands.
+///
+/// An event ticket (`GET /me/event-tickets`) is the same shape with `event`
+/// where a booking has `puja`, so it is read into the same class with
+/// [kind] "event": one list, one ticket screen, one way to pay.
 class PujaBooking {
   const PujaBooking({
+    this.kind = 'seva',
+    this.eventId,
+    this.eventType,
+    this.groupName,
     required this.reference,
     required this.code,
     this.qrUrl,
@@ -788,6 +796,13 @@ class PujaBooking {
     this.createdAt,
   });
 
+  /// seva, or event for a place at a gathering.
+  final String kind;
+
+  /// For an event ticket: the event, its type (bhajan…) and who leads it.
+  final int? eventId;
+  final String? eventType;
+  final String? groupName;
   final String reference;
   final String code;
   final String? qrUrl;
@@ -831,6 +846,7 @@ class PujaBooking {
   final bool canPay;
   final String? createdAt;
 
+  bool get isEvent => kind == 'event';
   bool get isFree => amountPaise == 0;
   bool get isPendingPayment => status == 'pending_payment';
   bool get isConfirmed => status == 'confirmed';
@@ -853,9 +869,17 @@ class PujaBooking {
   factory PujaBooking.fromJson(Map<String, dynamic> j) {
     final status = _m(j['status']);
     final temple = _m(j['temple']);
-    final puja = _m(j['puja']);
+    final event = _m(j['event']);
+    final isEvent = _s(j['kind']) == 'event' || j['event'] is Map;
+    // An event ticket names its event where a booking names its seva.
+    final puja = isEvent ? {'id': event['id'], 'name': event['title'], 'kind': event['type'], 'starts_at': event['starts_at'], 'image_url': event['image_url']} : _m(j['puja']);
     final payment = _m(j['payment']);
+    final day = _s(j['booked_for']) ?? _s(j['occurs_on']);
     return PujaBooking(
+      kind: isEvent ? 'event' : 'seva',
+      eventId: isEvent ? _i(event['id']) : null,
+      eventType: isEvent ? _s(event['type']) : null,
+      groupName: isEvent ? _s(event['group_name']) : null,
       reference: _s(j['reference']) ?? '',
       code: _s(j['code']) ?? '',
       qrUrl: _s(j['qr_url']),
@@ -866,12 +890,12 @@ class PujaBooking {
       templeName: _s(temple['name']),
       templeCity: _s(temple['city']),
       pujaId: _i(puja['id']),
-      pujaName: _s(puja['name']) ?? 'Seva',
+      pujaName: _s(puja['name']) ?? (isEvent ? 'Event' : 'Seva'),
       pujaKind: _s(puja['kind']) ?? 'puja',
       pujaStartsAt: _s(puja['starts_at']),
       pujaImageUrl: _s(puja['image_url']),
       instructions: _s(puja['instructions']),
-      bookedFor: DateTime.tryParse(_s(j['booked_for']) ?? '') ?? DateTime.now(),
+      bookedFor: DateTime.tryParse(day ?? '') ?? DateTime.now(),
       slotLabel: _s(_m(j['slot'])['label']),
       slotStartsAt: _s(_m(j['slot'])['starts_at']),
       slotEndsAt: _s(_m(j['slot'])['ends_at']),
@@ -891,19 +915,21 @@ class PujaBooking {
       canCancel: _b(j['can_cancel']),
       // An older server does not say; then any unpaid booking for today or
       // later can be paid for.
-      canPay: j.containsKey('can_pay') ? _b(j['can_pay']) : (_s(status['value']) == 'pending_payment' && !(DateTime.tryParse(_s(j['booked_for']) ?? '') ?? DateTime(2000)).isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day))),
+      canPay: j.containsKey('can_pay') ? _b(j['can_pay']) : (_s(status['value']) == 'pending_payment' && !(DateTime.tryParse(day ?? '') ?? DateTime(2000)).isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day))),
       createdAt: _s(j['created_at']),
     );
   }
 
   Map<String, dynamic> toJson() => {
+        'kind': kind,
+        if (isEvent) 'event': {'id': eventId, 'title': pujaName, 'type': eventType, 'group_name': groupName, 'starts_at': pujaStartsAt, 'image_url': pujaImageUrl},
         'reference': reference,
         'code': code,
         'qr_url': qrUrl,
         'status': {'value': status, 'label': statusLabel},
         'is_live': isLive,
         'temple': {'slug': templeSlug, 'name': templeName, 'city': templeCity},
-        'puja': {'id': pujaId, 'name': pujaName, 'kind': pujaKind, 'starts_at': pujaStartsAt, 'image_url': pujaImageUrl, 'instructions': instructions},
+        if (!isEvent) 'puja': {'id': pujaId, 'name': pujaName, 'kind': pujaKind, 'starts_at': pujaStartsAt, 'image_url': pujaImageUrl, 'instructions': instructions},
         'booked_for': '${bookedFor.year}-${bookedFor.month.toString().padLeft(2, '0')}-${bookedFor.day.toString().padLeft(2, '0')}',
         'slot': slotLabel == null ? null : {'label': slotLabel, 'starts_at': slotStartsAt, 'ends_at': slotEndsAt},
         'people': people,
@@ -958,9 +984,21 @@ class TempleEvent {
     this.templeSlug,
     this.templeName,
     this.templeCity,
+    this.isAllDay = true,
+    this.startsAt,
+    this.endsAt,
+    this.recurrence = 'none',
+    this.nextOn,
+    this.nextDates = const [],
+    this.groupName,
+    this.openToAll = true,
+    this.songs = const [],
+    this.registration = EventRegistrationInfo.none,
   });
 
   final int? id;
+
+  /// festival, program, puja, announcement or bhajan.
   final String? type;
   final String title;
   final String? description;
@@ -972,6 +1010,42 @@ class TempleEvent {
   final String? templeSlug;
   final String? templeName;
   final String? templeCity;
+  final bool isAllDay;
+
+  /// "18:30", or null for an all-day event.
+  final String? startsAt;
+  final String? endsAt;
+
+  /// none, yearly or weekly. A weekly gathering meets on [startsOn]'s
+  /// weekday; [nextDates] is the truth about when.
+  final String recurrence;
+  final String? nextOn;
+  final List<String> nextDates;
+
+  /// The mandali or group that leads it ("Sri Rama Bhajan Mandali").
+  final String? groupName;
+  final bool openToAll;
+
+  /// What will be sung, when the temple listed it.
+  final List<String> songs;
+
+  /// "I'll join" for a free gathering, tickets for a paid one.
+  final EventRegistrationInfo registration;
+
+  bool get isWeekly => recurrence == 'weekly';
+  bool get isBhajan => type == 'bhajan';
+
+  /// The next day it takes place: [nextOn], else the first of [nextDates],
+  /// else its first day.
+  DateTime? get nextDate => DateTime.tryParse(nextOn ?? nextDates.firstOrNull ?? startsOn ?? '');
+
+  /// The upcoming days, as dates; at least [nextDate] when the server gave
+  /// no list.
+  List<DateTime> get upcomingDates {
+    final list = nextDates.map((d) => DateTime.tryParse(d)).whereType<DateTime>().toList();
+    if (list.isEmpty && nextDate != null) list.add(nextDate!);
+    return list;
+  }
 
   factory TempleEvent.fromJson(Map<String, dynamic> j) {
     final t = _m(j['temple']);
@@ -988,6 +1062,157 @@ class TempleEvent {
       templeSlug: _s(t['slug']),
       templeName: _s(t['name']),
       templeCity: _s(t['city']),
+      isAllDay: j['is_all_day'] == null ? true : _b(j['is_all_day']),
+      startsAt: _s(j['starts_at']),
+      endsAt: _s(j['ends_at']),
+      recurrence: _s(j['recurrence']) ?? 'none',
+      nextOn: _s(j['next_on']),
+      nextDates: _l(j['next_dates']).map((e) => '$e').where((e) => e.isNotEmpty).toList(),
+      groupName: _s(j['group_name']),
+      openToAll: j['open_to_all'] == null ? true : _b(j['open_to_all']),
+      songs: _l(j['songs']).map((e) => '$e'.trim()).where((e) => e.isNotEmpty).toList(),
+      registration: j['registration'] is Map ? EventRegistrationInfo.fromJson(_m(j['registration'])) : EventRegistrationInfo.none,
+    );
+  }
+}
+
+/// Whether, and how, a devotee can say they are coming to an event.
+class EventRegistrationInfo {
+  const EventRegistrationInfo({this.enabled = false, this.isPaid = false, this.pricePaise = 0, this.price, this.capacity, this.maxPeople = 1, this.going = 0});
+
+  static const none = EventRegistrationInfo();
+
+  final bool enabled;
+  final bool isPaid;
+
+  /// Per person.
+  final int pricePaise;
+
+  /// "₹100.00 per person" or "Free", as the server words it.
+  final String? price;
+
+  /// People per date; null when there is no limit.
+  final int? capacity;
+
+  /// People one registration may bring.
+  final int maxPeople;
+
+  /// People coming on the next date.
+  final int going;
+
+  int totalFor(int people) => isPaid ? pricePaise * people : 0;
+
+  /// Places left on the next date; null when unlimited.
+  int? get left => capacity == null ? null : (capacity! - going).clamp(0, capacity!);
+  bool get isFull => left != null && left! <= 0;
+
+  factory EventRegistrationInfo.fromJson(Map<String, dynamic> j) => EventRegistrationInfo(
+        enabled: _b(j['enabled']),
+        isPaid: _b(j['is_paid']),
+        pricePaise: _i(j['price_paise']) ?? 0,
+        price: _s(j['price']),
+        capacity: _i(j['capacity']),
+        maxPeople: (_i(j['max_people']) ?? 1).clamp(1, 1000),
+        going: _i(j['going']) ?? 0,
+      );
+}
+
+/// A hundi purpose a temple accepts gifts for ("Annadanam").
+class DonationPurpose {
+  const DonationPurpose({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  factory DonationPurpose.fromJson(Map<String, dynamic> j) => DonationPurpose(value: _s(j['value']) ?? '', label: _s(j['label']) ?? _s(j['value']) ?? '');
+}
+
+/// The temple's online hundi: whether it is open, and its limits in rupees.
+class DonationSettings {
+  const DonationSettings({this.enabled = false, this.purposes = const [], this.minAmount = 10, this.maxAmount = 500000, this.suggestedAmounts = const [101, 251, 501, 1001, 2101, 5001]});
+
+  static const none = DonationSettings();
+
+  final bool enabled;
+  final List<DonationPurpose> purposes;
+  final int minAmount;
+  final int maxAmount;
+  final List<int> suggestedAmounts;
+
+  factory DonationSettings.fromJson(Map<String, dynamic> j) {
+    final suggested = _l(j['suggested_amounts']).map(_i).whereType<int>().where((a) => a > 0).toList();
+    return DonationSettings(
+      enabled: _b(j['enabled']),
+      purposes: _l(j['purposes']).map((e) => DonationPurpose.fromJson(_m(e))).where((p) => p.value.isNotEmpty).toList(),
+      minAmount: _d(j['min_amount'])?.ceil() ?? 10,
+      maxAmount: _d(j['max_amount'])?.floor() ?? 500000,
+      suggestedAmounts: suggested.isEmpty ? const [101, 251, 501, 1001, 2101, 5001] : suggested,
+    );
+  }
+}
+
+/// A gift to a temple's hundi, as `GET /me/donations` returns it.
+class Donation {
+  const Donation({
+    required this.reference,
+    required this.status,
+    required this.statusLabel,
+    this.amountPaise = 0,
+    this.amountLabel = '',
+    this.purpose,
+    this.purposeLabel,
+    this.donorName,
+    this.isAnonymous = false,
+    this.note,
+    this.templeSlug,
+    this.templeName,
+    this.templeCity,
+    this.paidAt,
+    this.createdAt,
+  });
+
+  final String reference;
+
+  /// pending_payment, paid, failed or refunded.
+  final String status;
+  final String statusLabel;
+  final int amountPaise;
+  final String amountLabel;
+  final String? purpose;
+  final String? purposeLabel;
+  final String? donorName;
+  final bool isAnonymous;
+  final String? note;
+  final String? templeSlug;
+  final String? templeName;
+  final String? templeCity;
+  final String? paidAt;
+  final String? createdAt;
+
+  bool get isPaid => status == 'paid';
+  bool get isPending => status == 'pending_payment';
+
+  factory Donation.fromJson(Map<String, dynamic> j) {
+    final status = _m(j['status']);
+    final purpose = _m(j['purpose']);
+    final temple = _m(j['temple']);
+    final paise = _i(j['amount_paise']) ?? 0;
+    return Donation(
+      reference: _s(j['reference']) ?? '',
+      status: _s(status['value']) ?? _s(j['status']) ?? 'pending_payment',
+      statusLabel: _s(status['label']) ?? 'Awaiting payment',
+      amountPaise: paise,
+      amountLabel: _s(j['amount']) ?? '₹${(paise / 100).toStringAsFixed(paise % 100 == 0 ? 0 : 2)}',
+      purpose: _s(purpose['value']) ?? (j['purpose'] is String ? j['purpose'] as String : null),
+      purposeLabel: _s(purpose['label']),
+      donorName: _s(j['donor_name']),
+      isAnonymous: _b(j['is_anonymous']),
+      note: _s(j['note']),
+      templeSlug: _s(temple['slug']),
+      templeName: _s(temple['name']),
+      templeCity: _s(temple['city']),
+      paidAt: _s(j['paid_at']),
+      createdAt: _s(j['created_at']),
     );
   }
 }
@@ -1016,9 +1241,13 @@ class TempleDetail {
     this.devotionalMedia = const [],
     this.language,
     this.engagement = Engagement.none,
+    this.donations = DonationSettings.none,
   });
 
   final TempleSummary summary;
+
+  /// The online hundi. Closed when the server predates it.
+  final DonationSettings donations;
 
   /// Likes, follows and how visits went. Empty from a server that predates
   /// the block, and for the bundled samples.
@@ -1096,6 +1325,7 @@ class TempleDetail {
       devotionalMedia: _l(j['devotional_media']).map((e) => DevotionalMedia.fromJson(_m(e))).toList(),
       language: _s(j['language']),
       engagement: j['engagement'] is Map ? Engagement.fromJson(_m(j['engagement'])) : Engagement.none,
+      donations: j['donations'] is Map ? DonationSettings.fromJson(_m(j['donations'])) : DonationSettings.none,
     );
   }
 }

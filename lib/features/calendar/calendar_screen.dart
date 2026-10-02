@@ -12,6 +12,7 @@ import '../../core/theme/day_theme.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../../core/services/analytics.dart';
+import '../events/event_screen.dart';
 import '../temple/temple_screen.dart';
 
 /// Festival calendar: a month grid with the weekday deity on every cell and
@@ -178,7 +179,7 @@ class _EventCard extends StatelessWidget {
             leading: Icon(event.isHappeningToday ? Icons.celebration_rounded : Icons.event_rounded, color: scheme.primary),
             title: Text(event.title, style: const TextStyle(fontFamily: 'NotoSerif')),
             subtitle: Text([event.dateLabel ?? event.startsOn, event.templeName].whereType<String>().join(' · ')),
-            onTap: event.templeSlug == null ? null : () => enterTemple(context, TempleScreen(slug: event.templeSlug!)),
+            onTap: event.id != null ? () => openEvent(context, event) : (event.templeSlug == null ? null : () => enterTemple(context, TempleScreen(slug: event.templeSlug!))),
           ),
           if (event.description != null) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text(event.description!, style: theme.textTheme.bodySmall)),
           Padding(

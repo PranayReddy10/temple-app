@@ -35,10 +35,7 @@ class BookPujaFlow {
   static Future<void> start(BuildContext context, TempleSummary temple, Puja puja) async {
     final s = S.of(context);
     final auth = context.read<AuthController>();
-    if (!auth.isSignedIn) {
-      await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
-      if (!context.mounted || !auth.isSignedIn) return;
-    }
+    if (!await ensureSignedIn(context) || !context.mounted) return;
     final config = context.read<AppConfigController>().config;
     if (puja.appBooking.requiresPayment && !config.paymentsEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(config.paymentsElsewhere ? s('booking_pay_elsewhere') : s('booking_pay_soon'))));
@@ -53,29 +50,9 @@ class BookPujaFlow {
     );
     if (request == null || !context.mounted) return;
 
-    String? gateway = config.defaultGateway;
-    if (puja.appBooking.totalFor(request.people) > 0 && config.gateways.length > 1) {
-      gateway = await showModalBottomSheet<String>(
-        context: context,
-        builder: (context) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(padding: const EdgeInsets.all(16), child: Text(s('pay_with'), style: Theme.of(context).textTheme.titleMedium)),
-              for (final g in config.gateways)
-                ListTile(
-                  leading: const Icon(Icons.account_balance_wallet_outlined),
-                  title: Text(g.name),
-                  subtitle: Text(g.code == 'phonepe' ? 'UPI, cards' : 'UPI, cards, net banking, wallets'),
-                  trailing: g.code == config.defaultGateway ? const Icon(Icons.star_rounded, size: 18) : null,
-                  onTap: () => Navigator.of(context).pop(g.code),
-                ),
-            ],
-          ),
-        ),
-      );
-      if (gateway == null || !context.mounted) return;
-    }
+    final picked = await chooseGateway(context, paid: puja.appBooking.totalFor(request.people) > 0);
+    if (picked == null || !context.mounted) return;
+    final gateway = picked.code;
 
     await _place(context, temple, puja, request, gateway);
   }
@@ -132,48 +109,99 @@ class BookPujaFlow {
   }
 }
 
+/// Signs the devotee in first when they are not: what booking, joining an
+/// event and giving to a hundi all need. True when signed in.
+Future<bool> ensureSignedIn(BuildContext context) async {
+  final auth = context.read<AuthController>();
+  if (auth.isSignedIn) return true;
+  await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
+  return context.mounted && auth.isSignedIn;
+}
+
+/// The gateway to pay through: asked only when something is to be paid and
+/// the server offers more than one. Null when the devotee closed the choice.
+Future<({String? code})?> chooseGateway(BuildContext context, {required bool paid}) async {
+  final s = S.of(context);
+  final config = context.read<AppConfigController>().config;
+  if (!paid || config.gateways.length <= 1) return (code: config.defaultGateway);
+  final code = await showModalBottomSheet<String>(
+    context: context,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(padding: const EdgeInsets.all(16), child: Text(s('pay_with'), style: Theme.of(context).textTheme.titleMedium)),
+          for (final g in config.gateways)
+            ListTile(
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: Text(g.name),
+              subtitle: Text(g.code == 'phonepe' ? 'UPI, cards' : 'UPI, cards, net banking, wallets'),
+              trailing: g.code == config.defaultGateway ? const Icon(Icons.star_rounded, size: 18) : null,
+              onTap: () => Navigator.of(context).pop(g.code),
+            ),
+        ],
+      ),
+    ),
+  );
+  return code == null ? null : (code: code);
+}
+
+/// Opens the gateway for a checkout the server created (a seva booking, an
+/// event ticket, a hundi gift) and asks the server how it ended: "paid",
+/// "pending" or "failed". Null when the devotee stopped before paying, or
+/// the gateway could not start (they have been told).
+Future<String?> runCheckout(BuildContext context, Checkout checkout, {String? gateway}) async {
+  final s = S.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final subs = context.read<SubscriptionController>();
+  if (NativeCheckout.supports(checkout.sdk)) {
+    final result = await NativeCheckout.pay(checkout.sdk!);
+    if (!result.completed) {
+      messenger.showSnackBar(SnackBar(content: Text(result.unavailable ? s('payment_needs_store_install') : s('booking_payment_cancelled'))));
+      return null;
+    }
+    final status = await subs.confirm(checkout.paymentId, result.fields);
+    return status == 'pending' ? await subs.settle(checkout.paymentId) : status;
+  }
+  if (NativeCheckout.isNative(checkout.gateway ?? gateway)) {
+    if (!context.mounted) return null;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(s('payment_could_not_start')),
+        content: Text(checkout.sdkError ?? s('payment_offline')),
+        actions: [FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
+      ),
+    );
+    return null;
+  }
+  await NativeCheckout.payInBrowserTab(checkout.checkoutUrl!, settled: () async => await subs.status(checkout.paymentId) != 'pending');
+  return subs.settle(checkout.paymentId, attempts: 10);
+}
+
 /// Takes the payment for a booking the server has just placed or re-opened
 /// ("Pay now"), then shows where it stands. Shared by a new booking and by
 /// paying again for one still awaiting payment, so both behave the same.
+/// An event ticket is paid for here too.
 Future<void> payFor(BuildContext context, BookingStart start, {String? gateway}) async {
   final s = S.of(context);
   final messenger = ScaffoldMessenger.of(context);
   final navigator = Navigator.of(context);
   final bookings = context.read<BookingsController>();
-  final subs = context.read<SubscriptionController>();
   var booking = start.booking;
   final value = booking.amountPaise / 100;
-  Analytics.instance.beginCheckout('seva', item: booking.pujaName, value: value, gateway: start.gateway ?? gateway);
+  final kind = booking.isEvent ? 'event' : 'seva';
+  Analytics.instance.beginCheckout(kind, item: booking.pujaName, value: value, gateway: start.gateway ?? gateway);
 
-  String status;
-  if (NativeCheckout.supports(start.sdk)) {
-    final result = await NativeCheckout.pay(start.sdk!);
-    if (!result.completed) {
-      messenger.showSnackBar(SnackBar(content: Text(result.unavailable ? s('payment_needs_store_install') : s('booking_payment_cancelled'))));
-      // Still awaiting payment on the server: My seva bookings offers
-      // "Pay now" until the day passes.
-      await bookings.reload(booking.reference);
-      return;
-    }
-    status = await subs.confirm(start.paymentId!, result.fields);
-    if (status == 'pending') status = await subs.settle(start.paymentId!);
-  } else if (NativeCheckout.isNative(start.gateway ?? gateway)) {
-    if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(s('payment_could_not_start')),
-        content: Text(start.sdkError ?? s('payment_offline')),
-        actions: [FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
-      ),
-    );
+  final status = await runCheckout(context, start.checkout!, gateway: gateway);
+  if (status == null) {
+    // Still awaiting payment on the server: My seva bookings offers
+    // "Pay now" until the day passes.
+    await bookings.reload(booking.reference);
     return;
-  } else {
-    await NativeCheckout.payInBrowserTab(start.checkoutUrl!, settled: () async => await subs.status(start.paymentId!) != 'pending');
-    status = await subs.settle(start.paymentId!, attempts: 10);
   }
   booking = await bookings.reload(booking.reference) ?? booking;
-  if (status == 'paid' || booking.isLive) Analytics.instance.purchase('seva', item: booking.pujaName, value: value, transactionId: start.paymentId);
+  if (status == 'paid' || booking.isLive) Analytics.instance.purchase(kind, item: booking.pujaName, value: value, transactionId: start.paymentId);
   if (status != 'paid' && !booking.isLive) {
     messenger.showSnackBar(SnackBar(content: Text(status == 'pending' ? s('booking_payment_pending') : s('booking_payment_failed'))));
     // The booking, awaiting payment, with "Pay now": never a ticket.
@@ -190,7 +218,7 @@ Future<void> payAgain(BuildContext context, PujaBooking booking) async {
   final repo = BookingRepository(context.read<ApiClient>());
   final bookings = context.read<BookingsController>();
   try {
-    final start = await repo.pay(booking.reference, platform: AppPlatform.name);
+    final start = await repo.pay(booking.reference, platform: AppPlatform.name, event: booking.isEvent);
     await bookings.put(start.booking);
     if (!context.mounted) return;
     if (!start.needsPayment) {

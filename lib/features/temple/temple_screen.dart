@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -30,6 +31,8 @@ import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../bookings/book_puja_sheet.dart';
 import '../bookings/bookings_screen.dart';
+import '../donations/donate_screen.dart';
+import '../events/event_screen.dart';
 import '../family/family_screen.dart';
 import '../media/in_app_browser.dart';
 import '../passport/stamp_widget.dart';
@@ -298,6 +301,10 @@ class _TempleScreenState extends State<TempleScreen> {
                       _Action(Icons.share_rounded, s('share'), () => Share.share('${t.name}${t.location.city == null ? '' : ', ${t.location.city}'} · ${Brand.name}')),
                     ],
                   ),
+                  if (d != null && d.donations.enabled) ...[
+                    const SizedBox(height: 16),
+                    _HundiCard(day: day, onGive: () => openHundi(context, t, d.donations)),
+                  ],
                   if (d != null) ...[
                     const SizedBox(height: 16),
                     _VisitToday(detail: d, day: day, bookable: bookable.length, onTimings: () => _jump(_Section.darshan), onSeva: () => _jump(_Section.seva)),
@@ -439,10 +446,21 @@ class _TempleScreenState extends State<TempleScreen> {
                       children: [
                         if (d.events[i].imageUrl != null) AspectRatio(aspectRatio: 16 / 7, child: TempleImage(url: d.events[i].imageUrl, deitySlug: t.deity?.slug)),
                         ListTile(
-                          leading: Icon(Icons.celebration_rounded, color: day.accent),
+                          leading: Icon(d.events[i].isBhajan ? Icons.music_note_rounded : Icons.celebration_rounded, color: day.accent),
                           title: Text(d.events[i].title, style: const TextStyle(fontFamily: 'NotoSerif')),
-                          subtitle: Text([d.events[i].dateLabel ?? d.events[i].startsOn, d.events[i].description].whereType<String>().join('\n')),
+                          subtitle: Text([
+                            d.events[i].isWeekly && d.events[i].nextDate != null ? '${s('event_weekly')} · ${DateFormat('EEE, d MMM').format(d.events[i].nextDate!)}' : (d.events[i].dateLabel ?? d.events[i].startsOn),
+                            d.events[i].description,
+                          ].whereType<String>().join('\n'), maxLines: 3, overflow: TextOverflow.ellipsis),
                           isThreeLine: d.events[i].description != null,
+                          trailing: d.events[i].id == null ? null : const Icon(Icons.chevron_right_rounded),
+                          // Its own page names the temple: the one in hand.
+                          onTap: d.events[i].id == null
+                              ? null
+                              : () => openEvent(
+                                    context,
+                                    TempleEvent(id: d.events[i].id, title: d.events[i].title, type: d.events[i].type, imageUrl: d.events[i].imageUrl, dateLabel: d.events[i].dateLabel, startsOn: d.events[i].startsOn, description: d.events[i].description, templeSlug: t.slug, templeName: t.name, templeCity: t.location.city),
+                                  ),
                         ),
                       ],
                     ),
@@ -1001,6 +1019,58 @@ class _ReviewStrip extends StatelessWidget {
 }
 
 enum _Section { overview, gallery, media, darshan, seva, reviews }
+
+/// The online hundi, offered where the temple has opened it.
+class _HundiCard extends StatelessWidget {
+  const _HundiCard({required this.day, required this.onGive});
+
+  final DayTheme day;
+  final VoidCallback onGive;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    return Material(
+      color: day.accent.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onGive,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), border: Border.all(color: day.accent.withValues(alpha: 0.4))),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(color: day.accent, borderRadius: BorderRadius.circular(14)),
+                child: Center(child: MotifIcon(Motif.kalasha, size: 26, color: day.onAccent())),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(s('hundi_give'), style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(s('hundi_pitch'), style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: onGive,
+                style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent(), visualDensity: VisualDensity.compact),
+                child: Text(s('hundi_pay')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _Action {
   const _Action(this.icon, this.label, this.onTap, {this.highlighted = false});

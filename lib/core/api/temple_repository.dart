@@ -267,10 +267,26 @@ class TempleRepository {
     return r.isOffline && _states != null ? _states! : r;
   }
 
-  Future<Result<List<TempleEvent>>> events() => _tryLive(
-        () async => ((await api.get('events'))['data'] as List).map((e) => TempleEvent.fromJson(e as Map<String, dynamic>)).toList(),
-        () => SampleData.events,
+  /// Upcoming events. [type] narrows them (bhajan, festival…); [lat] and
+  /// [lng] put the ones near the devotee first.
+  Future<Result<List<TempleEvent>>> events({String? type, double? lat, double? lng, double? radiusKm, String? temple, int? perPage}) => _tryLive(
+        () async {
+          final query = <String, String?>{
+            'type': type,
+            'lat': lat?.toString(),
+            'lng': lng?.toString(),
+            'radius': lat == null ? null : (radiusKm ?? 50).toString(),
+            'temple': temple,
+            'per_page': perPage?.toString(),
+          };
+          final json = await api.get('events', query);
+          return (json['data'] as List).map((e) => TempleEvent.fromJson(e as Map<String, dynamic>)).toList();
+        },
+        () => type == null ? SampleData.events : SampleData.events.where((e) => e.type == type).toList(),
       );
+
+  /// One event, with its dates, songs and registration.
+  Future<TempleEvent> event(int id) async => TempleEvent.fromJson(Map<String, dynamic>.from((await api.get('events/$id'))['data'] as Map));
 
   Future<Result<List<DevotionalDay>>> today() => _tryLive(
         () async {
