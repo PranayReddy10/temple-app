@@ -83,8 +83,13 @@ class ApiClient {
     return _decode(await http.Response.fromStream(streamed));
   }
 
+  /// A read always reaches the server. A CDN or host cache set to keep
+  /// everything would otherwise answer with a copy from before a change was
+  /// saved; a unique query string is a URL no cache has seen.
+  static Uri _fresh(Uri uri) => uri.replace(queryParameters: {...uri.queryParameters, '_': '${DateTime.now().microsecondsSinceEpoch}'});
+
   Future<Map<String, dynamic>> get(String path, [Map<String, String?>? query]) async {
-    final res = await _http.get(_uri(path, query), headers: _headers).timeout(timeout);
+    final res = await _http.get(_fresh(_uri(path, query)), headers: _headers).timeout(timeout);
     return _decode(res);
   }
 
