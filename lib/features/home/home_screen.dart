@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -49,6 +51,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Result<Paged<TempleSummary>>? _popular;
+
+  /// A wider pool for "More temples to explore", drawn from each day.
+  Result<Paged<TempleSummary>>? _more;
   Result<List<TempleEvent>>? _events;
   Result<Paged<TempleSummary>>? _nearby;
   String? _nearbyError;
@@ -78,11 +83,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final results = await Future.wait([
       repo.temples(const TempleQuery(perPage: 10, featuredOnly: true)),
       repo.events(),
+      repo.temples(const TempleQuery(perPage: 50, sort: 'recent')),
     ]);
     if (!mounted) return;
     setState(() {
       _popular = results[0] as Result<Paged<TempleSummary>>;
       _events = results[1] as Result<List<TempleEvent>>;
+      _more = results[2] as Result<Paged<TempleSummary>>;
     });
   }
 
@@ -108,6 +115,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } finally {
       if (mounted) setState(() => _locating = false);
     }
+  }
+
+  /// Up to ten temples not already on the page: not today's deity's, not
+  /// the popular ones, spread across deities, shuffled by the date so the
+  /// row changes daily but holds still while the day lasts.
+  List<TempleSummary> _exploreMore(List<TempleSummary> todays, String? todaysDeity) {
+    final pool = _more?.data.items ?? const <TempleSummary>[];
+    if (pool.isEmpty) return const [];
+    final shown = {for (final t in todays) t.slug, for (final t in _popular?.data.items ?? const <TempleSummary>[]) t.slug};
+    final now = DateTime.now();
+    final rnd = math.Random(now.year * 1000 + now.month * 40 + now.day);
+    final candidates = pool.where((t) => !shown.contains(t.slug) && (todaysDeity == null || t.deity?.slug != todaysDeity)).toList()..shuffle(rnd);
+    // One per deity first, so the row is varied, then fill up.
+    final picked = <TempleSummary>[];
+    final deities = <String?>{};
+    for (final t in candidates) {
+      if (deities.add(t.deity?.slug)) picked.add(t);
+    }
+    for (final t in candidates) {
+      if (picked.length >= 10) break;
+      if (!picked.contains(t)) picked.add(t);
+    }
+    return picked.take(10).toList();
   }
 
   void _open(TempleSummary t) => enterTemple(context, TempleScreen(slug: t.slug, preview: t), accent: DayTheme.forDeity(t.deity?.slug).accent);
@@ -187,6 +217,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           SliverToBoxAdapter(
             child: _popular == null ? const SizedBox(height: 180, child: DiyaLoader()) : _Carousel(temples: _popular!.data.items, onOpen: _open),
           ),
+          // Not everyone is looking for today's deity or the famous few:
+          // temples of other deities, a different selection each day.
+          if (_exploreMore(lead?.temples ?? const [], lead?.deity?.slug ?? day.deitySlug) case final more when more.isNotEmpty) ...[
+            SliverToBoxAdapter(child: SectionHeader(title: s('explore_more'), motif: Motif.om, actionLabel: s('see_all'), onAction: widget.onExplore)),
+            SliverToBoxAdapter(child: _Carousel(temples: more, onOpen: _open)),
+          ],
           SliverToBoxAdapter(child: SectionHeader(title: s('categories'), motif: Motif.shankhaChakra, actionLabel: s('see_all'), onAction: widget.onExplore)),
           const SliverToBoxAdapter(child: _CircuitRow()),
           SliverToBoxAdapter(child: _YatraPrompt(day: day, onOpen: () => widget.onTab?.call(3))),

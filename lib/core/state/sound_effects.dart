@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 import 'app_settings.dart';
 import 'mantra_player.dart';
 
-/// The app's few sounds: the bell as it opens, and a page turning in the
-/// passport. All synthesised (see
-/// tool/make_temple_bell.py and tool/make_temple_sounds.py).
+/// The app's few sounds: the bell as it opens (synthesised, see
+/// tool/make_temple_bell.py), and a real page flipping in the passport
+/// (assets/sounds/page_flip.mp3).
 ///
 /// Silent when "Temple sounds" is off or the app is muted, and silent
 /// without complaint where there is no audio (tests, a web tab not yet
@@ -16,7 +16,7 @@ class SoundEffects {
   SoundEffects._();
 
   static const bell = 'temple_bell.wav';
-  static const pageTurn = 'page_turn.wav';
+  static const pageTurn = 'page_flip.mp3';
 
   static final Map<String, ap.AudioPlayer> _players = {};
 
