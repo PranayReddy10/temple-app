@@ -96,6 +96,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _more = results[2] as Result<Paged<TempleSummary>>;
     });
     await _loadBhajans();
+    await _loadFestivals();
+  }
+
+  /// The next major festivals across India, for the strip above temple events.
+  List<Festival> _coming = const [];
+
+  Future<void> _loadFestivals() async {
+    final now = DateTime.now();
+    final r = await context.read<TempleRepository>().festivals(from: now, to: now.add(const Duration(days: 120)), kind: 'festival');
+    if (!mounted) return;
+    setState(() => _coming = r.data.where((f) => f.isMajor).take(8).toList());
   }
 
   /// "Bhajans this week": gatherings whose next date falls in the coming
@@ -262,10 +273,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           SliverToBoxAdapter(child: _YatraPrompt(day: day, onOpen: () => widget.onTab?.call(3))),
           const SliverToBoxAdapter(child: _SevaPrompt()),
           SliverToBoxAdapter(child: SectionHeader(title: s('festivals'), motif: Motif.bell, actionLabel: s('calendar'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())))),
+          if (_coming.isNotEmpty) SliverToBoxAdapter(child: _ComingFestivals(festivals: _coming)),
           if (_events == null)
             const SliverToBoxAdapter(child: SizedBox(height: 120, child: DiyaLoader()))
-          else if (_events!.data.isEmpty)
+          else if (_events!.data.isEmpty && _coming.isEmpty)
             const SliverToBoxAdapter(child: EmptyShrine(motif: Motif.bell, message: 'No upcoming events published yet.'))
+          else if (_events!.data.isEmpty)
+            const SliverToBoxAdapter(child: SizedBox.shrink())
           else
             SliverList.builder(
               itemCount: _events!.data.length,
@@ -1145,6 +1159,59 @@ class _TipsCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// The next major festivals across India as a strip of date cards; tapping
+/// one opens the calendar.
+class _ComingFestivals extends StatelessWidget {
+  const _ComingFestivals({required this.festivals});
+
+  final List<Festival> festivals;
+
+  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 112,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: festivals.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, i) {
+          final f = festivals[i];
+          final d = DateTime.tryParse(f.startsOn);
+          final accent = f.deity != null ? DayTheme.forDeity(f.deity).accent : (d == null ? theme.colorScheme.primary : DayTheme.forDate(d).accent);
+          final days = d == null ? null : DateTime(d.year, d.month, d.day).difference(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)).inDays;
+          return InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
+            child: Container(
+              width: 150,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: accent.withValues(alpha: 0.35)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(d == null ? '' : '${d.day} ${_months[d.month - 1]}', style: theme.textTheme.titleMedium?.copyWith(color: accent, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Expanded(child: Text(f.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600))),
+                  if (days != null) Text(days == 0 ? 'Today' : days == 1 ? 'Tomorrow' : 'In $days days', style: theme.textTheme.labelSmall),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

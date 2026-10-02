@@ -16,7 +16,9 @@ import '../events/event_screen.dart';
 import '../temple/temple_screen.dart';
 
 /// Festival calendar: a month grid with the weekday deity on every cell and
-/// a dot for each festival, then the month's events with reminder toggles.
+/// a dot for each festival, then India's festivals of the month (and, on
+/// request, the vrat days: Ekadashi, Purnima, Pradosh...) and temple events,
+/// each with a reminder.
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
 
@@ -28,14 +30,37 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
   Result<List<TempleEvent>>? _events;
 
+  /// India's festivals and vrat days, a year from the month before this one.
+  List<Festival>? _festivals;
+
+  /// Ekadashi, Purnima, Amavasya, Sankashti, Pradosh: off unless asked for,
+  /// or the month is a wall of dots.
+  bool _showVrats = false;
+
   @override
   void initState() {
     super.initState();
     Analytics.instance.screen('calendar');
-    context.read<TempleRepository>().events().then((r) {
+    final repo = context.read<TempleRepository>();
+    repo.events(perPage: 50).then((r) {
       if (mounted) setState(() => _events = r);
     });
+    final now = DateTime.now();
+    repo.festivals(from: DateTime(now.year, now.month - 1), to: DateTime(now.year + 1, now.month + 1, 0)).then((r) {
+      if (mounted) setState(() => _festivals = r.data);
+    });
   }
+
+  /// The month's festivals (and vrats when shown), as calendar entries.
+  List<Festival> _festivalsIn(DateTime m) {
+    final first = _ymd(DateTime(m.year, m.month));
+    final last = _ymd(DateTime(m.year, m.month + 1, 0));
+    return (_festivals ?? const <Festival>[])
+        .where((f) => (_showVrats || !f.isVrat) && f.startsOn.compareTo(last) <= 0 && (f.endsOn ?? f.startsOn).compareTo(first) >= 0)
+        .toList();
+  }
+
+  static String _ymd(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   List<TempleEvent> _inMonth(DateTime m) => (_events?.data ?? const []).where((e) {
         final s = DateTime.tryParse(e.startsOn ?? '');
@@ -54,6 +79,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final day = context.watch<DayController>().theme;
     final reminders = context.watch<RemindersController>();
     final events = _inMonth(_month);
+    final festivals = _festivalsIn(_month);
+    final festivalEvents = [for (final f in festivals) f.toEvent()];
     final upcoming = (_events?.data ?? const []).where((e) => (DateTime.tryParse(e.startsOn ?? '') ?? DateTime(2000)).isAfter(DateTime.now().subtract(const Duration(days: 1)))).toList()
       ..sort((a, b) => (a.startsOn ?? '').compareTo(b.startsOn ?? ''));
 
@@ -69,7 +96,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1)), icon: const Icon(Icons.chevron_right_rounded)),
             ],
           ),
-          _MonthGrid(month: _month, events: events, accent: day.accent),
+          _MonthGrid(month: _month, events: [...events, ...festivalEvents], accent: day.accent),
           const SizedBox(height: 8),
           Wrap(
             spacing: 10,
@@ -85,7 +112,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ],
           ),
           if (_events?.isOffline == true) const Padding(padding: EdgeInsets.only(top: 8), child: OfflineNote()),
-          SectionHeader(title: s('this_month'), motif: Motif.bell, subtitle: events.isEmpty ? 'No festivals published for this month' : '${events.length} ${events.length == 1 ? 'event' : 'events'}'),
+          SectionHeader(
+            title: s('festivals_of_india'),
+            motif: Motif.diya,
+            subtitle: _festivals == null ? null : (festivals.isEmpty ? s('no_festivals_month') : '${festivals.length}'),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              label: Text(s('show_vrat_days')),
+              selected: _showVrats,
+              onSelected: (v) => setState(() => _showVrats = v),
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (_festivals == null) const SizedBox(height: 60, child: DiyaLoader(size: 30)),
+          for (final f in festivals) _FestivalTile(festival: f, reminded: reminders.has(f.toEvent()), onRemind: () => reminders.toggle(f.toEvent())),
+          SectionHeader(title: s('this_month'), motif: Motif.bell, subtitle: events.isEmpty ? 'No temple events published for this month' : '${events.length} ${events.length == 1 ? 'event' : 'events'}'),
           if (_events == null) const SizedBox(height: 80, child: DiyaLoader(size: 36)),
           for (final e in events) _EventCard(event: e, reminded: reminders.has(e), onRemind: () => reminders.toggle(e)),
           if (upcoming.isNotEmpty && upcoming.any((e) => !events.contains(e))) ...[
@@ -195,6 +238,54 @@ class _EventCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+
+/// One festival or vrat day: the date, its almanac name, what it is, and a
+/// reminder. Major festivals stand out; vrat days are quieter.
+class _FestivalTile extends StatelessWidget {
+  const _FestivalTile({required this.festival, required this.reminded, required this.onRemind});
+
+  final Festival festival;
+  final bool reminded;
+  final VoidCallback onRemind;
+
+  static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final d = DateTime.tryParse(festival.startsOn);
+    final accent = festival.deity != null ? DayTheme.forDeity(festival.deity).accent : (d == null ? theme.colorScheme.primary : DayTheme.forDate(d).accent);
+    final s = S.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: festival.isMajor ? accent.withValues(alpha: 0.10) : null,
+      child: ListTile(
+        leading: SizedBox(
+          width: 44,
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(d == null ? '' : '${d.day}', style: theme.textTheme.titleLarge?.copyWith(color: accent, fontWeight: FontWeight.w700, height: 1)),
+            Text(d == null ? '' : '${_days[d.weekday - 1]} ${_months[d.month - 1]}', style: theme.textTheme.labelSmall),
+          ]),
+        ),
+        title: Text(festival.name, style: TextStyle(fontFamily: 'NotoSerif', fontWeight: festival.isMajor ? FontWeight.w700 : FontWeight.w500)),
+        subtitle: Text(
+          [festival.tithi, festival.description].whereType<String>().where((x) => x.isNotEmpty).join('\n'),
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall,
+        ),
+        isThreeLine: festival.description != null,
+        trailing: IconButton(
+          tooltip: reminded ? s('reminder_set') : s('remind_me'),
+          icon: Icon(reminded ? Icons.notifications_active_rounded : Icons.notifications_none_rounded, color: reminded ? accent : null),
+          onPressed: onRemind,
+        ),
       ),
     );
   }

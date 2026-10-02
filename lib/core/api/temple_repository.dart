@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:math' as math;
+
+import 'package:flutter/services.dart' show rootBundle;
 
 import '../data/sample_data.dart';
 import '../data/sample_media.dart';
@@ -284,6 +287,37 @@ class TempleRepository {
         },
         () => type == null ? SampleData.events : SampleData.events.where((e) => e.type == type).toList(),
       );
+
+  /// India's festivals and vrat days between two dates. The server's
+  /// calendar when it answers (editors may have corrected a date), the copy
+  /// bundled with the app otherwise.
+  Future<Result<List<Festival>>> festivals({required DateTime from, required DateTime to, String? kind}) async {
+    String day(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    bool inRange(Festival f) {
+      final s = f.startsOn;
+      final e = f.endsOn ?? f.startsOn;
+      return s.compareTo(day(to)) <= 0 && e.compareTo(day(from)) >= 0 && (kind == null || f.kind == kind);
+    }
+
+    try {
+      final json = await api.get('festivals', {'from': day(from), 'to': day(to), 'kind': kind, 'limit': '500'});
+      return Result((json['data'] as List).map((e) => Festival.fromJson(Map<String, dynamic>.from(e as Map))).toList(), DataSource.live);
+    } catch (_) {
+      _bundledFestivals ??= await _loadBundledFestivals();
+      return Result(_bundledFestivals!.where(inRange).toList(), DataSource.offline);
+    }
+  }
+
+  static List<Festival>? _bundledFestivals;
+
+  static Future<List<Festival>> _loadBundledFestivals() async {
+    try {
+      final raw = await rootBundle.loadString('assets/data/festivals.json');
+      return (jsonDecode(raw) as List).map((e) => Festival.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
 
   /// One event, with its dates, songs and registration.
   Future<TempleEvent> event(int id) async => TempleEvent.fromJson(Map<String, dynamic>.from((await api.get('events/$id'))['data'] as Map));
