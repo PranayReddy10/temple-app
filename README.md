@@ -102,8 +102,12 @@ Brand name and tagline come from `--dart-define=BRAND_NAME=…` and
 ```
 flutter analyze
 flutter test
-flutter build web --release
+flutter build web --release --no-web-resources-cdn
 ```
+
+The web engine always loads from the site itself (`web/flutter_bootstrap.js`
+sets `canvasKitBaseUrl`), never from Google's CDN, which on some mobile
+networks kept the loading screen up for minutes.
 
 ## The day themes
 
