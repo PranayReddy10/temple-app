@@ -2054,3 +2054,59 @@ class AppNotice {
         isRead: j['is_read'] == null ? null : _b(j['is_read']),
       );
 }
+
+
+/// A festival or vrat day kept across India, from the festival calendar
+/// (GET festivals, or the copy bundled in the app).
+class Festival {
+  const Festival({
+    required this.slug,
+    required this.name,
+    required this.startsOn,
+    this.endsOn,
+    this.kind = 'festival',
+    this.isMajor = false,
+    this.deity,
+    this.description,
+    this.tithi,
+  });
+
+  factory Festival.fromJson(Map<String, dynamic> j) => Festival(
+        slug: '${j['slug'] ?? ''}',
+        name: '${j['name'] ?? ''}',
+        // The API sends starts_on; the bundled file, date.
+        startsOn: '${j['starts_on'] ?? j['date'] ?? ''}',
+        endsOn: j['ends_on'] as String?,
+        kind: '${j['kind'] ?? 'festival'}',
+        isMajor: j['is_major'] == true,
+        deity: j['deity'] as String?,
+        description: j['description'] as String?,
+        tithi: j['tithi'] as String?,
+      );
+
+  final String slug;
+  final String name;
+  final String startsOn;
+  final String? endsOn;
+
+  /// festival, or vrat for the monthly days (Ekadashi, Purnima, Pradosh...).
+  final String kind;
+  final bool isMajor;
+  final String? deity;
+  final String? description;
+
+  /// "Chaitra Shukla Navami", as almanacs name the day.
+  final String? tithi;
+
+  bool get isVrat => kind == 'vrat';
+
+  /// As a calendar entry, so the month grid, reminders and "Add to
+  /// calendar" treat it like any event. No temple: it is kept everywhere.
+  TempleEvent toEvent() => TempleEvent(
+        type: isVrat ? 'vrat' : 'festival',
+        title: name,
+        description: [tithi, description].whereType<String>().where((s) => s.isNotEmpty).join(' · '),
+        startsOn: startsOn,
+        endsOn: endsOn ?? startsOn,
+      );
+}
