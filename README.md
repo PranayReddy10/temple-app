@@ -95,7 +95,7 @@ The devotees' website at https://darshansaathi.com is this app's web build:
 flutter build web --release --no-web-resources-cdn   # then upload build/web/ (with .htaccess) to darshansaathi.com's public_html
 ```
 
-The API server can also be changed at runtime from **Profile → Server**.
+There is no server setting in the app: published builds always use the live server, and a build for another server is made with `--dart-define=API_BASE_URL=…`.
 Brand name and tagline come from `--dart-define=BRAND_NAME=…` and
 `BRAND_TAGLINE=…`, mirroring `config/brand.php` on the backend.
 
