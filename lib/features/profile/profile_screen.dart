@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../donations/donate_screen.dart';
 import '../../core/state/notifications_controller.dart';
 import '../notifications/notifications_screen.dart';
 import '../premium/premium_screen.dart';
@@ -183,6 +184,7 @@ class ProfileScreen extends StatelessWidget {
               _ToolTile(icon: Icons.group_rounded, title: s('family_passport'), subtitle: 'Stamps for everyone who travels with you', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen()))),
               _ToolTile(icon: Icons.workspace_premium_rounded, title: s('certificates'), subtitle: 'Completed circuits and yatras', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CertificatesScreen()))),
               _ToolTile(icon: Icons.local_fire_department_rounded, title: s('bookings'), subtitle: '${context.watch<BookingsController>().upcomingCount} upcoming · codes for the counter', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BookingsScreen()))),
+              _ToolTile(icon: Icons.savings_rounded, title: s('my_hundi'), subtitle: s('my_hundi_sub'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyDonationsScreen()))),
               _ToolTile(icon: Icons.qr_code_2_rounded, title: s('my_qr'), subtitle: 'For temple counters on the QR network', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MyQrScreen()))),
               _ToolTile(icon: Icons.offline_pin_rounded, title: s('offline_pack'), subtitle: '${context.watch<OfflinePackController>().totalPacked} temples saved for offline, from your yatras', onTap: null),
               _ToolTile(icon: Icons.support_agent_rounded, title: s('submissions'), subtitle: '${context.watch<SubmissionsController>().all.length} requests and reports', onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubmissionsScreen()))),

@@ -84,7 +84,7 @@ Future<void> main() async {
   final subscriptions = SubscriptionController(api, auth);
   // Anything recorded offline goes out now; the account comes in.
   sync.sync();
-  bookings.refresh();
+  bookings.refreshAll();
   engagement.refresh();
   // Maintenance, updates, ads and push: from the admin panel, in the
   // background — the last answer is already loaded, so nothing waits.
@@ -103,7 +103,7 @@ Future<void> main() async {
     if (auth.isSignedIn == signedIn) return;
     signedIn = auth.isSignedIn;
     appConfig.load().then((_) => push.start());
-    bookings.refresh();
+    bookings.refreshAll();
     engagement.refresh();
   });
 

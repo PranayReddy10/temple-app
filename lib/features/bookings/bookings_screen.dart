@@ -17,6 +17,7 @@ import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../../core/services/analytics.dart';
 import 'book_puja_sheet.dart';
+import '../events/event_screen.dart';
 import '../temple/temple_screen.dart';
 
 /// The devotee's seva bookings: the ones made in the app, each with the code
@@ -95,11 +96,14 @@ class BookingsScreen extends StatefulWidget {
 }
 
 class _BookingsScreenState extends State<BookingsScreen> {
+  /// all, seva or event: offered once there are event tickets.
+  String _kind = 'all';
+
   @override
   void initState() {
     super.initState();
     Analytics.instance.screen('bookings');
-    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<BookingsController>().refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<BookingsController>().refreshAll());
   }
 
   @override
@@ -107,15 +111,18 @@ class _BookingsScreenState extends State<BookingsScreen> {
     final s = S.of(context);
     final theme = Theme.of(context);
     final ctl = context.watch<BookingsController>();
-    final booked = ctl.booked;
+    final everything = ctl.booked;
+    final hasEvents = everything.any((b) => b.isEvent);
+    final kind = hasEvents ? _kind : 'all';
+    final booked = kind == 'all' ? everything : everything.where((b) => b.isEvent == (kind == 'event')).toList();
     final ahead = booked.where((b) => !b.isPast).toList();
     final over = booked.where((b) => b.isPast).toList();
-    final notes = ctl.all;
-    final empty = booked.isEmpty && notes.isEmpty;
+    final notes = kind == 'event' ? const <SevaBooking>[] : ctl.all;
+    final empty = everything.isEmpty && ctl.all.isEmpty;
     return Scaffold(
       appBar: AppBar(title: Text(s('bookings'))),
       body: RefreshIndicator(
-        onRefresh: ctl.refresh,
+        onRefresh: ctl.refreshAll,
         child: empty
             ? ListView(
                 children: [
@@ -132,6 +139,20 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
                 children: [
                   if (ctl.error != null) const Padding(padding: EdgeInsets.only(bottom: 8), child: OfflineNote()),
+                  if (hasEvents)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: SegmentedButton<String>(
+                        segments: [
+                          ButtonSegment(value: 'all', label: Text(s('bookings_all'))),
+                          ButtonSegment(value: 'seva', label: Text(s('bookings_sevas')), icon: const Icon(Icons.local_fire_department_rounded, size: 18)),
+                          ButtonSegment(value: 'event', label: Text(s('bookings_events')), icon: const Icon(Icons.music_note_rounded, size: 18)),
+                        ],
+                        selected: {kind},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (v) => setState(() => _kind = v.first),
+                      ),
+                    ),
                   if (ahead.isNotEmpty) ...[
                     SectionHeader(title: s('upcoming'), motif: Motif.diya, subtitle: s('booking_show_at_counter')),
                     for (final b in ahead) _BookedCard(b: b),
@@ -195,7 +216,7 @@ class _BookedCard extends StatelessWidget {
                 width: 54,
                 height: 54,
                 decoration: BoxDecoration(color: day.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
-                child: b.isLive && !b.isPast ? Icon(Icons.qr_code_2_rounded, color: day.accent, size: 30) : Icon(bookingStatusIcon(status), color: color),
+                child: b.isLive && !b.isPast ? Icon(Icons.qr_code_2_rounded, color: day.accent, size: 30) : Icon(b.isEvent && status == 'confirmed' ? Icons.music_note_rounded : bookingStatusIcon(status), color: color),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -212,6 +233,11 @@ class _BookedCard extends StatelessWidget {
                       runSpacing: 4,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: day.accent.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(999), border: Border.all(color: day.accent.withValues(alpha: 0.35))),
+                          child: Text(S.of(context)(b.isEvent ? 'kind_event' : 'kind_seva'), style: theme.textTheme.labelSmall?.copyWith(color: day.accent, fontWeight: FontWeight.w700)),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(999)),
@@ -370,6 +396,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             child: Column(
               children: [
                 Text(Brand.name.toUpperCase(), style: const TextStyle(color: Palette.deep, letterSpacing: 3, fontSize: 11, fontWeight: FontWeight.w700)),
+                if (b.isEvent) Text(s('event_ticket').toUpperCase(), style: const TextStyle(color: Palette.teak, letterSpacing: 2, fontSize: 10, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(b.pujaName, textAlign: TextAlign.center, style: const TextStyle(color: Palette.deep, fontFamily: 'NotoSerif', fontSize: 22)),
                 if (b.templeName != null) Text(b.templeName!, textAlign: TextAlign.center, style: const TextStyle(color: Palette.teak, fontSize: 13)),
@@ -450,6 +477,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           const SizedBox(height: 18),
           _Fact(icon: Icons.calendar_month_rounded, label: 'Day', value: '${DateFormat('EEEE, d MMMM yyyy').format(b.bookedFor)}${b.slotLabel != null ? ' · ${b.slotLabel}' : (b.pujaStartsAt != null ? ' · ${b.pujaStartsAt}' : '')}', accent: day.accent),
           _Fact(icon: Icons.groups_rounded, label: 'People', value: '${b.people}', accent: day.accent),
+          if (b.groupName != null) _Fact(icon: Icons.music_note_rounded, label: s('event_led_by'), value: b.groupName!, accent: day.accent),
           _Fact(icon: Icons.person_rounded, label: s('booking_in_the_name_of'), value: [b.devoteeName, if (b.gotram != null) 'Gotram ${b.gotram}', if (b.nakshatram != null) b.nakshatram!].join(' · '), accent: day.accent),
           if (b.note != null) _Fact(icon: Icons.notes_rounded, label: 'Note', value: b.note!, accent: day.accent),
           _Fact(icon: Icons.currency_rupee_rounded, label: 'Paid', value: b.isFree ? s('booking_free') : '${b.amountLabel}${b.paymentStatus != null ? ' · ${b.paymentStatus}' : ''}', accent: day.accent),
@@ -462,6 +490,14 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             ),
           ],
           const SizedBox(height: 20),
+          if (b.isEvent && b.eventId != null) ...[
+            OutlinedButton.icon(
+              onPressed: () => openEvent(context, TempleEvent(id: b.eventId, title: b.pujaName, type: b.eventType, imageUrl: b.pujaImageUrl, groupName: b.groupName, templeSlug: b.templeSlug, templeName: b.templeName, templeCity: b.templeCity)),
+              icon: const Icon(Icons.event_rounded),
+              label: Text(s('event_open')),
+            ),
+            const SizedBox(height: 8),
+          ],
           if (b.templeSlug != null)
             OutlinedButton.icon(
               onPressed: () => enterTemple(context, TempleScreen(slug: b.templeSlug!, preview: SampleData.bySlug(b.templeSlug!)), accent: day.accent),
@@ -521,7 +557,7 @@ class _TicketStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final b = booking;
-    final time = b.slotLabel ?? b.pujaStartsAt;
+    final time = b.slotLabel ?? (b.isEvent ? eventTime(b.pujaStartsAt) : b.pujaStartsAt);
     Widget cell(String label, String value, {String? sub}) => Expanded(
           child: Column(
             children: [
@@ -541,7 +577,7 @@ class _TicketStrip extends StatelessWidget {
         children: [
           cell('DATE', DateFormat('d MMM').format(b.bookedFor), sub: DateFormat('EEEE').format(b.bookedFor)),
           rule,
-          cell('TIME', time ?? 'Any time', sub: time == null ? 'during darshan hours' : null),
+          cell('TIME', time ?? (b.isEvent ? 'All day' : 'Any time'), sub: time == null && !b.isEvent ? 'during darshan hours' : null),
           rule,
           cell('PEOPLE', '${b.people}'),
         ],

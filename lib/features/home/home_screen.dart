@@ -27,6 +27,7 @@ import '../../core/widgets/temple_widgets.dart';
 import '../notifications/notifications_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../days/day_screen.dart';
+import '../events/event_screen.dart';
 import '../guide/guide_screen.dart';
 import '../qr/qr_screens.dart';
 import '../explore/search_screen.dart';
@@ -55,6 +56,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// A wider pool for "More temples to explore", drawn from each day.
   Result<Paged<TempleSummary>>? _more;
   Result<List<TempleEvent>>? _events;
+
+  /// Bhajan gatherings in the coming week, near the devotee when known.
+  List<TempleEvent> _bhajans = const [];
   Result<Paged<TempleSummary>>? _nearby;
   String? _nearbyError;
   bool _locating = false;
@@ -91,6 +95,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _events = results[1] as Result<List<TempleEvent>>;
       _more = results[2] as Result<Paged<TempleSummary>>;
     });
+    await _loadBhajans();
+  }
+
+  /// "Bhajans this week": gatherings whose next date falls in the coming
+  /// seven days. Nothing shows when there are none, or when offline.
+  Future<void> _loadBhajans() async {
+    final loc = context.read<LocationController?>();
+    try {
+      final r = await context.read<TempleRepository>().events(type: 'bhajan', lat: loc?.latitude, lng: loc?.longitude, perPage: 20);
+      if (!mounted) return;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final weekOut = today.add(const Duration(days: 7));
+      final list = r.isOffline
+          ? const <TempleEvent>[]
+          : (r.data.where((e) {
+              final next = e.nextDate;
+              return e.isBhajan && next != null && !next.isBefore(today) && next.isBefore(weekOut);
+            }).toList()
+            ..sort((a, b) => a.nextDate!.compareTo(b.nextDate!)));
+      setState(() => _bhajans = list.take(6).toList());
+    } catch (_) {
+      if (mounted) setState(() => _bhajans = const []);
+    }
   }
 
   Future<void> _locate() async {
@@ -110,6 +138,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final r = await context.read<TempleRepository>().temples(TempleQuery(lat: pos.latitude, lng: pos.longitude, radiusKm: 300, perPage: 10));
       if (!mounted) return;
       setState(() => _nearby = r);
+      // Now that the devotee's position is known, bhajans near them first.
+      _loadBhajans();
     } catch (e) {
       if (mounted) setState(() => _nearbyError = e.toString());
     } finally {
@@ -205,6 +235,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
             ),
+          ],
+          if (_bhajans.isNotEmpty) ...[
+            SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'))),
+            SliverList.builder(itemCount: _bhajans.length, itemBuilder: (context, i) => BhajanCard(event: _bhajans[i])),
           ],
           SliverToBoxAdapter(child: SectionHeader(title: s('nearby'), motif: Motif.diya, actionLabel: _nearby == null ? null : s('see_all'), onAction: widget.onExplore)),
           SliverToBoxAdapter(child: _NearbySection(result: _nearby, error: _nearbyError, locating: _locating, onLocate: _locate, onOpen: _open)),
@@ -509,7 +543,7 @@ class _EventTile extends StatelessWidget {
       child: Card(
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: event.templeSlug == null ? null : () => enterTemple(context, TempleScreen(slug: event.templeSlug!)),
+          onTap: event.id != null ? () => openEvent(context, event) : (event.templeSlug == null ? null : () => enterTemple(context, TempleScreen(slug: event.templeSlug!))),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -539,7 +573,7 @@ class _EventTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (event.templeSlug != null) Icon(Icons.chevron_right_rounded, color: scheme.onSurface.withValues(alpha: 0.5)),
+                if (event.id != null || event.templeSlug != null) Icon(Icons.chevron_right_rounded, color: scheme.onSurface.withValues(alpha: 0.5)),
               ],
             ),
           ),
