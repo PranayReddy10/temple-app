@@ -301,14 +301,13 @@ class _TicketScreenState extends State<TicketScreen> {
                 children: [
                   Expanded(child: TextField(controller: _reply, minLines: 1, maxLines: 4, decoration: InputDecoration(hintText: s('reply')))),
                   const SizedBox(width: 8),
-                  IconButton.filled(
+                  SendButton(
                     onPressed: () async {
                       final body = _reply.text.trim();
                       if (body.isEmpty) return;
                       _reply.clear();
                       await ctl.reply(sub, body, author: auth.devotee?.name ?? 'You');
                     },
-                    icon: const Icon(Icons.send_rounded),
                   ),
                 ],
               ),
