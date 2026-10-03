@@ -53,6 +53,11 @@ RewriteRule ^ - [R=404,L]
 # Console's check (the file name is set in Admin > Analytics & SEO).
 RewriteRule ^(temples(/.*)?|states/.+|deities/.+|sitemap[^/]*\.xml|storage/.+|google[0-9a-f]+\.html)$ laravel/public/index.php [L,QSA]
 
+# The home page: Laravel serves this build's index.html with the search
+# engines' verification tags and the code pasted under Admin > Analytics &
+# SEO > Code for every page (WebAppHomeController).
+RewriteRule ^(index\.html)?$ laravel/public/index.php [L,QSA]
+
 # Opening temple links in the installed app: Android's assetlinks.json and
 # iOS's apple-app-site-association, built by Laravel from the settings in
 # Admin > App control. And IndexNow's key file, which proves to Bing and
