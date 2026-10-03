@@ -215,9 +215,9 @@ class SampleData {
         'mobile': 'Silent inside the temple.',
       },
       timings: const [
-        Timing(kind: 'opening', label: 'Morning darshan', dayLabel: 'Every day', opensAt: '05:00', closesAt: '12:00', window: '05:00 – 12:00'),
-        Timing(kind: 'opening', label: 'Evening darshan', dayLabel: 'Every day', opensAt: '16:00', closesAt: '21:00', window: '16:00 – 21:00'),
-        Timing(kind: 'aarti', label: 'Evening aarti', dayLabel: 'Every day', opensAt: '18:30', closesAt: '19:00', window: '18:30 – 19:00'),
+        Timing(kind: 'opening', label: 'Morning darshan', dayLabel: 'Every day', opensAt: '05:00', closesAt: '12:00', window: '5:00 AM – 12:00 PM'),
+        Timing(kind: 'opening', label: 'Evening darshan', dayLabel: 'Every day', opensAt: '16:00', closesAt: '21:00', window: '4:00 PM – 9:00 PM'),
+        Timing(kind: 'aarti', label: 'Evening aarti', dayLabel: 'Every day', opensAt: '18:30', closesAt: '19:00', window: '6:30 PM – 7:00 PM'),
       ],
       pujas: const [
         Puja(

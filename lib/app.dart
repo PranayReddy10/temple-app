@@ -33,7 +33,11 @@ class TempleApp extends StatelessWidget {
       navigatorKey: rootNavigatorKey,
       scaffoldMessengerKey: rootMessengerKey,
       // Maintenance and required updates cover every screen.
-      builder: (context, child) => AppGate(child: child ?? const SizedBox.shrink()),
+      // The 12-hour clock in time pickers and times, whatever the phone is set to.
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
+        child: AppGate(child: child ?? const SizedBox.shrink()),
+      ),
       home: const SplashScreen(),
     );
   }

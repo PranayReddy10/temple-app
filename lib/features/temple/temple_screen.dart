@@ -45,6 +45,7 @@ import '../submissions/submissions_screen.dart';
 import '../../core/state/temple_covers.dart';
 import '../../core/services/analytics.dart';
 import '../photo_stamp/photo_stamp_screen.dart';
+import '../../core/time_format.dart';
 
 /// The full temple profile. Entered through the temple door, and while open
 /// the app wears the temple deity's colour.
@@ -1534,7 +1535,7 @@ class _TimingsTable extends StatelessWidget {
                   ),
                   // Flexible: "06:00 – 12:00" beside a long label at large
                   // text would otherwise run off a narrow phone.
-                  Flexible(child: Text(timings[i].window ?? '${timings[i].opensAt ?? ''} – ${timings[i].closesAt ?? ''}', textAlign: TextAlign.end, style: theme.textTheme.titleSmall?.copyWith(color: accent))),
+                  Flexible(child: Text(timings[i].window ?? showTimeRange(timings[i].opensAt, timings[i].closesAt), textAlign: TextAlign.end, style: theme.textTheme.titleSmall?.copyWith(color: accent))),
                 ],
               ),
             ),
@@ -1621,7 +1622,7 @@ class _PujaCard extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 4,
                   children: [
-                    if (puja.startsAt != null) _Meta(icon: Icons.schedule_rounded, text: puja.startsAt!),
+                    if (puja.startsAt != null) _Meta(icon: Icons.schedule_rounded, text: showTime(puja.startsAt)!),
                     if (puja.durationLabel != null) _Meta(icon: Icons.hourglass_bottom_rounded, text: puja.durationLabel!),
                     if (puja.eligibility != null) _Meta(icon: Icons.person_rounded, text: puja.eligibility!),
                     if (puja.scheduleNote != null) _Meta(icon: Icons.info_outline_rounded, text: puja.scheduleNote!),
@@ -1729,7 +1730,7 @@ class _VisitToday extends StatelessWidget {
     final theme = Theme.of(context);
     final weekday = DateTime.now().weekday % 7;
     final today = detail.timings.where((t) => t.kind != 'aarti' && (t.dayOfWeek == null || t.dayOfWeek == weekday)).toList();
-    final hours = today.map((t) => t.window ?? [t.opensAt, t.closesAt].whereType<String>().join(' – ')).where((w) => w.isNotEmpty).toList();
+    final hours = today.map((t) => t.window ?? showTimeRange(t.opensAt, t.closesAt)).where((w) => w.isNotEmpty).toList();
     final aarti = detail.timings.where((t) => t.kind == 'aarti' && (t.dayOfWeek == null || t.dayOfWeek == weekday)).firstOrNull;
     final festival = detail.events.firstOrNull;
     final closed = detail.isClosedToday;
@@ -1740,7 +1741,7 @@ class _VisitToday extends StatelessWidget {
         closed ? (detail.closures.where((c) => c.isActiveToday).firstOrNull?.reason ?? 'A closure is in force') : (hours.isEmpty ? 'Timings not published yet' : hours.take(2).join(' · ')),
         onTimings,
       ),
-      if (aarti != null) (Icons.local_fire_department_rounded, aarti.label ?? 'Aarti', aarti.window ?? [aarti.opensAt, aarti.closesAt].whereType<String>().join(' – '), onTimings),
+      if (aarti != null) (Icons.local_fire_department_rounded, aarti.label ?? 'Aarti', aarti.window ?? showTimeRange(aarti.opensAt, aarti.closesAt), onTimings),
       if (festival != null) (Icons.celebration_rounded, festival.isHappeningToday ? 'Today' : 'Next festival', '${festival.title}${festival.dateLabel != null ? ' · ${festival.dateLabel}' : ''}', null),
       if (bookable > 0) (Icons.qr_code_2_rounded, 'Book in the app', '$bookable ${bookable == 1 ? 'seva' : 'sevas'} · pay here, show the code at the counter', onSeva),
     ];

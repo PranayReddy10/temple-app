@@ -2,6 +2,7 @@ import '../../core/api/temple_repository.dart';
 import '../../core/data/sample_data.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/day_theme.dart';
+import '../../core/time_format.dart';
 
 /// One reply from the guide: text, plus the temples it drew on so the UI can
 /// offer them as cards and the devotee can check the record.
@@ -74,13 +75,13 @@ class GuideEngine {
           : 'This is a ${trust.level.label.toLowerCase()} record, not yet checked against an official source, so confirm with the temple before travelling.';
       if (RegExp(r'\b(time|timing|timings|open|opens|close|closes|hours|darshan|aarti|when)\b').hasMatch(q)) {
         if (d.timings.isEmpty) return GuideReply('The record for ${d.summary.name} does not list timings yet. ${_contactLine(d)}\n\n$trustLine', temples: [d.summary]);
-        final lines = d.timings.map((t) => '• ${t.label ?? t.kind ?? 'Timing'} (${t.dayLabel ?? 'every day'}): ${t.window ?? '${t.opensAt} – ${t.closesAt}'}').join('\n');
+        final lines = d.timings.map((t) => '• ${t.label ?? t.kind ?? 'Timing'} (${t.dayLabel ?? 'every day'}): ${t.window ?? showTimeRange(t.opensAt, t.closesAt)}').join('\n');
         final closed = d.isClosedToday ? '\n\nIt is marked closed today.' : '';
         return GuideReply('${d.summary.name} timings:\n$lines$closed\n\n$trustLine', temples: [d.summary]);
       }
       if (RegExp(r'\b(pujas?|poojas?|sevas?|archanas?|abhishekam?s?|homams?|fees?|cost|price|book|booking)\b').hasMatch(q)) {
         if (d.pujas.isEmpty) return GuideReply('No pujas or sevas are published for ${d.summary.name} yet. ${_contactLine(d)}', temples: [d.summary]);
-        final lines = d.pujas.map((p) => '• ${p.name}${p.startsAt != null ? ' at ${p.startsAt}' : ''} — ${p.fee.display}${p.booking.isOfficial ? ' · official booking' : ''}').join('\n');
+        final lines = d.pujas.map((p) => '• ${p.name}${p.startsAt != null ? ' at ${showTime(p.startsAt)}' : ''} — ${p.fee.display}${p.booking.isOfficial ? ' · official booking' : ''}').join('\n');
         return GuideReply('Pujas and sevas at ${d.summary.name}:\n$lines\n\nA fee shown as "no published price" is not free; ask at the counter. Only links marked official are the temple\'s own booking route.', temples: [d.summary]);
       }
       if (RegExp(r'\b(dress|wear|photo|photograph|camera|phone|mobile|footwear|shoes|rule|rules|allowed|queue)\b').hasMatch(q)) {

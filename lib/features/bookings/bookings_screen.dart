@@ -20,6 +20,7 @@ import '../../core/services/analytics.dart';
 import 'book_puja_sheet.dart';
 import '../events/event_screen.dart';
 import '../temple/temple_screen.dart';
+import '../../core/time_format.dart';
 
 /// The devotee's seva bookings: the ones made in the app, each with the code
 /// the temple counter scans, and the notes kept of bookings made elsewhere.
@@ -476,7 +477,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             ),
           ],
           const SizedBox(height: 18),
-          _Fact(icon: Icons.calendar_month_rounded, label: 'Day', value: '${DateFormat('EEEE, d MMMM yyyy').format(b.bookedFor)}${b.slotLabel != null ? ' · ${b.slotLabel}' : (b.pujaStartsAt != null ? ' · ${b.pujaStartsAt}' : '')}', accent: day.accent),
+          _Fact(icon: Icons.calendar_month_rounded, label: 'Day', value: '${DateFormat('EEEE, d MMMM yyyy').format(b.bookedFor)}${b.slotLabel != null ? ' · ${b.slotLabel}' : (b.pujaStartsAt != null ? ' · ${showTime(b.pujaStartsAt)}' : '')}', accent: day.accent),
           _Fact(icon: Icons.groups_rounded, label: 'People', value: '${b.people}', accent: day.accent),
           if (b.groupName != null) _Fact(icon: Icons.music_note_rounded, label: s('event_led_by'), value: b.groupName!, accent: day.accent),
           _Fact(icon: Icons.person_rounded, label: s('booking_in_the_name_of'), value: [b.devoteeName, if (b.gotram != null) 'Gotram ${b.gotram}', if (b.nakshatram != null) b.nakshatram!].join(' · '), accent: day.accent),
@@ -567,7 +568,7 @@ class _TicketStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final b = booking;
-    final time = b.slotLabel ?? (b.isEvent ? eventTime(b.pujaStartsAt) : b.pujaStartsAt);
+    final time = b.slotLabel ?? showTime(b.pujaStartsAt);
     Widget cell(String label, String value, {String? sub}) => Expanded(
           child: Column(
             children: [

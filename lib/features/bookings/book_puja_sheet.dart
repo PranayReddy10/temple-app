@@ -18,6 +18,7 @@ import '../../core/theme/palette.dart';
 import '../../core/services/analytics.dart';
 import '../auth/auth_screen.dart';
 import 'bookings_screen.dart';
+import '../../core/time_format.dart';
 
 /// Booking a puja, seva or prasadam in the app, where the temple has
 /// switched it on for that seva.
@@ -422,7 +423,7 @@ class _BookPujaSheetState extends State<_BookPujaSheet> {
                   ],
                 ),
             ] else if (puja.startsAt != null)
-              Padding(padding: const EdgeInsets.only(top: 6), child: Text('${s('booking_starts')} ${puja.startsAt}${puja.scheduleNote != null ? ' · ${puja.scheduleNote}' : ''}', style: theme.textTheme.bodySmall)),
+              Padding(padding: const EdgeInsets.only(top: 6), child: Text('${s('booking_starts')} ${showTime(puja.startsAt)}${puja.scheduleNote != null ? ' · ${puja.scheduleNote}' : ''}', style: theme.textTheme.bodySmall)),
             const SizedBox(height: 16),
             Row(
               children: [

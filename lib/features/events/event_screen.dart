@@ -22,19 +22,13 @@ import '../../core/widgets/temple_widgets.dart';
 import '../bookings/book_puja_sheet.dart';
 import '../bookings/bookings_screen.dart';
 import '../temple/temple_screen.dart';
+import '../../core/time_format.dart';
 
 /// Opens an event's own page: a festival, a programme, a weekly bhajan.
 Future<void> openEvent(BuildContext context, TempleEvent event) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => EventScreen(id: event.id, preview: event)));
 
 /// "18:30" as the devotee reads it ("6:30 PM").
-String? eventTime(String? hhmm) {
-  if (hhmm == null) return null;
-  final parts = hhmm.split(':');
-  final h = int.tryParse(parts.first);
-  final m = parts.length > 1 ? int.tryParse(parts[1]) : 0;
-  if (h == null || m == null) return hhmm;
-  return DateFormat.jm().format(DateTime(2000, 1, 1, h, m));
-}
+String? eventTime(String? hhmm) => showTime(hhmm);
 
 /// "6:30 – 8:30 PM", or null for an all-day event.
 String? eventTimeRange(TempleEvent e) {

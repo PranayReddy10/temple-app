@@ -68,7 +68,7 @@ void main() {
     test('timings for a temple come from the record', () async {
       final r = await GuideEngine(offlineRepo()).ask('timings at Kashi Vishwanath');
       expect(r.text, contains('Kashi Vishwanath'));
-      expect(r.text, contains('05:00'));
+      expect(r.text, contains('5:00 AM'));
       expect(r.text, contains('community record'));
     });
 
