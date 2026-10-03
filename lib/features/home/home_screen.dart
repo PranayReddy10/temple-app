@@ -276,12 +276,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
             ],
-            // Bhajans near the devotee this week, and the way to start one.
-            SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'), actionLabel: s('raise_bhajan_short'), onAction: () => raiseBhajanSomewhere(context))),
-            if (_bhajans.isEmpty)
-              SliverToBoxAdapter(child: _RaiseBhajanPrompt(day: day, onRaise: () => raiseBhajanSomewhere(context)))
-            else
-              SliverList.builder(itemCount: _bhajans.length, itemBuilder: (context, i) => BhajanCard(event: _bhajans[i])),
             SliverToBoxAdapter(child: SectionHeader(title: s('nearby'), motif: Motif.diya, actionLabel: _nearby == null ? null : s('see_all'), onAction: widget.onExplore)),
             SliverToBoxAdapter(child: _NearbySection(result: _nearby, error: _nearbyError, locating: _locating, onLocate: _locate, onOpen: _open)),
             if (lead != null && lead.temples.isNotEmpty) ...[
@@ -308,6 +302,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SliverToBoxAdapter(child: _CircuitRow()),
             SliverToBoxAdapter(child: _YatraPrompt(day: day, onOpen: () => widget.onTab?.call(3))),
             const SliverToBoxAdapter(child: _SevaPrompt()),
+            // Bhajans near the devotee this week, and the way to start one.
+            SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'), actionLabel: s('raise_bhajan_short'), onAction: () => raiseBhajanSomewhere(context))),
+            if (_bhajans.isEmpty)
+              SliverToBoxAdapter(child: _RaiseBhajanPrompt(day: day, onRaise: () => raiseBhajanSomewhere(context)))
+            else
+              SliverList.builder(itemCount: _bhajans.length, itemBuilder: (context, i) => BhajanCard(event: _bhajans[i])),
             SliverToBoxAdapter(
                 child: SectionHeader(
                     title: s('festivals'), motif: Motif.bell, actionLabel: s('calendar'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())))),
