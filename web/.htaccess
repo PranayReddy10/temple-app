@@ -53,6 +53,12 @@ RewriteRule ^ - [R=404,L]
 # Console's check (the file name is set in Admin > Analytics & SEO).
 RewriteRule ^(temples(/.*)?|states/.+|deities/.+|sitemap[^/]*\.xml|storage/.+|google[0-9a-f]+\.html)$ laravel/public/index.php [L,QSA]
 
+# Opening temple links in the installed app: Android's assetlinks.json and
+# iOS's apple-app-site-association, built by Laravel from the settings in
+# Admin > App control. And IndexNow's key file, which proves to Bing and
+# others that the pings telling them about new temples come from this site.
+RewriteRule ^(\.well-known/(assetlinks\.json|apple-app-site-association)|apple-app-site-association|[0-9a-f]{32}\.txt)$ laravel/public/index.php [L,QSA]
+
 # Policy and information pages (privacy-policy, terms-and-conditions,
 # refund-and-cancellation, account-deletion, contact-us ...), edited in the
 # admin panel under Website > Pages: any one-word address that is not a

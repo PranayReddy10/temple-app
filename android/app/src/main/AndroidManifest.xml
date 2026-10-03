@@ -28,6 +28,21 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- A shared temple page (darshansaathi.com/temples/<slug>) opens
+                 that temple in the app. Verified by /.well-known/assetlinks.json,
+                 which the server builds from Admin > App control > Android
+                 signing certificate SHA-256; until that is set, Android asks
+                 which app to use instead of opening straight in the app. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="darshansaathi.com" android:pathPrefix="/temples/"/>
+                <data android:scheme="https" android:host="www.darshansaathi.com" android:pathPrefix="/temples/"/>
+            </intent-filter>
+            <!-- Links are read by the app (core/services/deep_links.dart), not
+                 Flutter's router, which would push the path as a route name. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false"/>
         </activity>
         <!-- AdMob app id. Required by the Google Mobile Ads SDK even while ads
              are switched off in the admin panel: without it the app closes on

@@ -93,5 +93,8 @@
 		<string>ppemerchantsdkv2</string>
 		<string>ppemerchantsdkv3</string>
 	</array>
+	<!-- Links are read by the app (core/services/deep_links.dart), not Flutter's router. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 </dict>
 </plist>

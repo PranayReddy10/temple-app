@@ -15,6 +15,8 @@ import '../home/home_screen.dart';
 import '../passport/passport_screen.dart';
 import '../profile/profile_screen.dart';
 import '../yatra/yatra_screen.dart';
+import '../../core/services/deep_links.dart';
+import '../temple/temple_screen.dart';
 
 /// Five tabs, per the project plan: Home, Explore, Passport, Yatra, Profile.
 class ShellScreen extends StatefulWidget {
@@ -34,6 +36,16 @@ class _ShellScreenState extends State<ShellScreen> {
     super.initState();
     shellTabRequest.addListener(_onTabRequest);
     Analytics.instance.screen(_tabs[_index]);
+    // A temple link (shared page, or the website's Open / Book buttons).
+    DeepLinks.pending.addListener(_openLink);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openLink());
+  }
+
+  void _openLink() {
+    if (!mounted || DeepLinks.pending.value == null) return;
+    final link = DeepLinks.take()!;
+    Analytics.instance.screen('deep_link', item: link.slug);
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => TempleScreen(slug: link.slug, openSevas: link.book)));
   }
 
   static const _tabs = ['home', 'explore', 'passport', 'yatra', 'profile'];
@@ -47,6 +59,7 @@ class _ShellScreenState extends State<ShellScreen> {
   @override
   void dispose() {
     shellTabRequest.removeListener(_onTabRequest);
+    DeepLinks.pending.removeListener(_openLink);
     super.dispose();
   }
 

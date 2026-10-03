@@ -53,13 +53,16 @@ import '../photo_stamp/photo_stamp_screen.dart';
 /// Songs & videos, Darshan, Seva) rather than separate tabs, so a devotee at
 /// the gate can flick from timings to the aarti video without losing place.
 class TempleScreen extends StatefulWidget {
-  const TempleScreen({super.key, required this.slug, this.preview, this.initialQr});
+  const TempleScreen({super.key, required this.slug, this.preview, this.initialQr, this.openSevas = false});
 
   final String slug;
   final TempleSummary? preview;
 
   /// A code already scanned for this temple: the check-in opens with it.
   final QrScanResult? initialQr;
+
+  /// Opened from "Book a seva" on the website: scroll to the sevas.
+  final bool openSevas;
 
   @override
   State<TempleScreen> createState() => _TempleScreenState();
@@ -75,6 +78,7 @@ class _TempleScreenState extends State<TempleScreen> {
   int _photo = 0;
   bool _previewing = false;
   bool _qrOffered = false;
+  bool _sevasShown = false;
   final _keys = {for (final k in _Section.values) k: GlobalKey()};
   // Cached here because dispose() may not look up ancestors through context.
   late final DayController _dayCtl = context.read<DayController>();
@@ -118,6 +122,12 @@ class _TempleScreenState extends State<TempleScreen> {
         _qrOffered = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _checkIn(r.data.summary, preset: widget.initialQr);
+        });
+      }
+      if (widget.openSevas && !_sevasShown) {
+        _sevasShown = true;
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) _jump(_Section.seva);
         });
       }
       final slug = r.data.summary.deity?.slug;
@@ -298,7 +308,7 @@ class _TempleScreenState extends State<TempleScreen> {
                       _Action(Icons.local_fire_department_rounded, bookable.isNotEmpty ? s('book_in_app') : s('pujas'), () => _jump(_Section.seva), highlighted: bookable.isNotEmpty),
                       _Action(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, saved ? s('saved') : s('save'), () => _toggleSave(favs, t), highlighted: saved),
                       _Action(following ? Icons.notifications_active_rounded : Icons.notifications_none_rounded, following ? s('following') : s('follow'), () => _follow(t), highlighted: following),
-                      _Action(Icons.share_rounded, s('share'), () => Share.share('${t.name}${t.location.city == null ? '' : ', ${t.location.city}'} · ${Brand.name}')),
+                      _Action(Icons.share_rounded, s('share'), () => Share.share(templeShareText(t.name, t.location.city, t.slug), subject: t.name)),
                     ],
                   ),
                   if (d != null && d.donations.enabled) ...[
@@ -1788,3 +1798,9 @@ class _Meta extends StatelessWidget {
         ],
       );
 }
+
+/// What sharing a temple sends: its name and place, and its page, which
+/// shows a preview with the temple's photo and opens the same temple in
+/// the app where it is installed.
+String templeShareText(String name, String? city, String slug) =>
+    '$name${city == null || city.isEmpty ? '' : ', $city'}\n${Brand.website.replaceAll(RegExp(r'/+$'), '')}/temples/$slug';
