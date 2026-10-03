@@ -78,4 +78,19 @@ void main() {
     start = await subs.begin(plan);
     expect(start.sdkError, contains('server has not been updated'));
   });
+
+  test('paying a temple does not wait on the subscriptions switch', () {
+    // A newer server says so outright, whatever plans are doing.
+    final split = AppConfig.fromJson({'payments': {'enabled': false, 'available_elsewhere': false, 'temple_payments': true, 'gateways': [{'code': 'razorpay', 'name': 'Razorpay'}]}});
+    expect(split.paymentsEnabled, isFalse);
+    expect(split.templePaymentsEnabled, isTrue);
+
+    // The admin can still pause every temple at once.
+    expect(AppConfig.fromJson({'payments': {'enabled': true, 'temple_payments': false}}).templePaymentsEnabled, isFalse);
+
+    // An older server without the flag: the plans switch, as before.
+    expect(AppConfig.fromJson({'payments': {'enabled': true}}).templePaymentsEnabled, isTrue);
+    expect(AppConfig.fromJson({'payments': {'enabled': false}}).templePaymentsEnabled, isFalse);
+    expect(AppConfig.fallback.templePaymentsEnabled, isFalse);
+  });
 }

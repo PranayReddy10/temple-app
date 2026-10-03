@@ -1894,10 +1894,11 @@ class AppConfig {
     this.ads = AdsConfig.off,
     this.paymentsEnabled = false,
     this.paymentsElsewhere = false,
+    bool? templePaymentsEnabled,
     this.gateways = const [],
     this.defaultGateway,
     this.supportEmail,
-  });
+  }) : templePaymentsEnabled = templePaymentsEnabled ?? paymentsEnabled;
 
   static const fallback = AppConfig();
 
@@ -1934,6 +1935,11 @@ class AppConfig {
 
   /// Plans exist but cannot be bought on this platform (iOS without IAP).
   final bool paymentsElsewhere;
+
+  /// Paying a temple in the app: a seva, an event ticket, the online hundi.
+  /// The temple's own money, so it does not wait on the subscriptions
+  /// switch; an older server without the flag falls back to that switch.
+  final bool templePaymentsEnabled;
   final List<({String code, String name})> gateways;
   final String? defaultGateway;
   final String? supportEmail;
@@ -1971,6 +1977,7 @@ class AppConfig {
       ads: j['ads'] is Map ? AdsConfig.fromJson(_m(j['ads'])) : AdsConfig.off,
       paymentsEnabled: _b(pay['enabled']),
       paymentsElsewhere: _b(pay['available_elsewhere']),
+      templePaymentsEnabled: pay['temple_payments'] == null ? null : _b(pay['temple_payments']),
       gateways: _l(pay['gateways']).map((g) => (code: '${_m(g)['code']}', name: '${_m(g)['name']}')).toList(),
       defaultGateway: _s(pay['default_gateway']),
       supportEmail: _s(j['support_email']),
