@@ -42,6 +42,7 @@ import '../seva/seva_screen.dart';
 import '../media/in_app_browser.dart';
 import '../submissions/submissions_screen.dart';
 import '../temple/temple_screen.dart';
+import '../../core/widgets/trust_app_link.dart';
 import 'edit_profile_screen.dart';
 import 'memories_screen.dart';
 
@@ -348,6 +349,15 @@ class ProfileScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: [
+              // For temple trusts and committees: the app made for them.
+              const ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.temple_hindu_rounded),
+                title: Text('For temples: ${Brand.trustAppName} app'),
+                subtitle: Text('Register your temple, manage sevas and bookings'),
+                trailing: Icon(Icons.open_in_new_rounded, size: 18),
+                onTap: openTrustApp,
+              ),
               for (final (icon, title, slug) in const [
                 (Icons.privacy_tip_outlined, 'Privacy policy', 'privacy-policy'),
                 (Icons.gavel_rounded, 'Terms and conditions', 'terms-and-conditions'),

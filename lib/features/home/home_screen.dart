@@ -15,6 +15,7 @@ import '../../core/motifs/motif.dart';
 import '../../core/data/sample_data.dart';
 import '../../core/state/location_controller.dart';
 import '../../core/state/auth_controller.dart';
+import '../../core/state/bookings_controller.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
@@ -33,6 +34,7 @@ import '../qr/qr_screens.dart';
 import '../explore/search_screen.dart';
 import '../seva/seva_screen.dart';
 import '../temple/temple_screen.dart';
+import 'upcoming_booking_bar.dart';
 
 /// Home: today's deity, search, nearby, popular temples and festivals.
 ///
@@ -97,6 +99,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
     await _loadBhajans();
     await _loadFestivals();
+    // So the booking bar is current when Home opens.
+    if (mounted) await context.read<BookingsController>().refreshAll();
   }
 
   /// The next major festivals across India, for the strip above temple events.
@@ -193,118 +197,135 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final todayData = dayCtl.today;
     final lead = todayData.firstOrNull;
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        await Future.wait([_load(), dayCtl.refresh()]);
-      },
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _DayHeader(day: day, lead: lead, onTap: () => enterTemple(context, DayScreen(weekday: day.weekday), accent: day.accent))),
-          SliverToBoxAdapter(child: _Greeting(name: context.watch<AuthController>().devotee?.name)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-              child: _SearchBar(hint: s('search_hint'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen(autofocus: true)))),
-            ),
-          ),
-          if (dayCtl.loaded && dayCtl.offline) const SliverToBoxAdapter(child: OfflineNote()),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-              child: Row(
-                children: [
-                  _QuickAction(icon: Icons.auto_awesome_rounded, label: s('ask_guide'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GuideScreen()))),
-                  const SizedBox(width: 8),
-                  _QuickAction(icon: Icons.calendar_month_rounded, label: s('calendar'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()))),
-                  const SizedBox(width: 8),
-                  _QuickAction(icon: Icons.qr_code_scanner_rounded, label: s('scan_qr'), onTap: () => scanCode(context)),
-                  const SizedBox(width: 8),
-                  _QuickAction(icon: Icons.route_rounded, label: s('new_yatra'), onTap: () => widget.onTab?.call(3)),
-                ],
+    final hasBooking = context.watch<BookingsController>().upcomingBooked.isNotEmpty;
+
+    return Stack(children: [
+      RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([_load(), dayCtl.refresh(), context.read<BookingsController>().refreshAll()]);
+        },
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: _DayHeader(day: day, lead: lead, onTap: () => enterTemple(context, DayScreen(weekday: day.weekday), accent: day.accent))),
+            SliverToBoxAdapter(child: _Greeting(name: context.watch<AuthController>().devotee?.name)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: _SearchBar(hint: s('search_hint'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SearchScreen(autofocus: true)))),
               ),
             ),
-          ),
-          SliverToBoxAdapter(child: _ReminderBanner(reminders: context.watch<RemindersController>().upcoming)),
-          SliverToBoxAdapter(child: _JourneyCard(day: day, onPassport: () => widget.onTab?.call(2))),
-          SliverToBoxAdapter(child: SectionHeader(title: s('todays_practice'), motif: Motif.diya)),
-          SliverToBoxAdapter(child: _PracticeCard(day: day)),
-          SliverToBoxAdapter(child: SectionHeader(title: s('browse_deities'), motif: Motif.om)),
-          const SliverToBoxAdapter(child: _DeityRow()),
-          SliverToBoxAdapter(child: SectionHeader(title: s('week'), motif: Motif.bell)),
-          SliverToBoxAdapter(child: _WeekStrip(current: day)),
-          if (dayCtl.todayMedia.isNotEmpty) ...[
-            SliverToBoxAdapter(child: SectionHeader(title: s('today_media'), motif: day.motif, actionLabel: s('see_all'), onAction: () => enterTemple(context, DayScreen(weekday: day.weekday), accent: day.accent))),
+            if (dayCtl.loaded && dayCtl.offline) const SliverToBoxAdapter(child: OfflineNote()),
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: scaledHeight(context, 200),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: dayCtl.todayMedia.take(10).length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, i) => MediaCard(media: dayCtl.todayMedia[i], day: day, width: 140),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Row(
+                  children: [
+                    _QuickAction(icon: Icons.auto_awesome_rounded, label: s('ask_guide'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GuideScreen()))),
+                    const SizedBox(width: 8),
+                    _QuickAction(icon: Icons.calendar_month_rounded, label: s('calendar'), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()))),
+                    const SizedBox(width: 8),
+                    _QuickAction(icon: Icons.qr_code_scanner_rounded, label: s('scan_qr'), onTap: () => scanCode(context)),
+                    const SizedBox(width: 8),
+                    _QuickAction(icon: Icons.route_rounded, label: s('new_yatra'), onTap: () => widget.onTab?.call(3)),
+                  ],
                 ),
               ),
             ),
-          ],
-          if (_bhajans.isNotEmpty) ...[
-            SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'))),
-            SliverList.builder(itemCount: _bhajans.length, itemBuilder: (context, i) => BhajanCard(event: _bhajans[i])),
-          ],
-          SliverToBoxAdapter(child: SectionHeader(title: s('nearby'), motif: Motif.diya, actionLabel: _nearby == null ? null : s('see_all'), onAction: widget.onExplore)),
-          SliverToBoxAdapter(child: _NearbySection(result: _nearby, error: _nearbyError, locating: _locating, onLocate: _locate, onOpen: _open)),
-          if (lead != null && lead.temples.isNotEmpty) ...[
-            SliverToBoxAdapter(child: SectionHeader(title: '${s('temples_of')} ${lead.deity?.name ?? day.deityName}', motif: day.motif, actionLabel: s('see_all'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SearchScreen(initial: TempleQuery(deity: lead.deity?.slug ?? day.deitySlug)))))),
-            SliverToBoxAdapter(child: _Carousel(temples: lead.temples, onOpen: _open)),
-          ],
-          const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'home'))),
-          SliverToBoxAdapter(child: SectionHeader(title: s('popular'), motif: Motif.kalasha, actionLabel: s('see_all'), onAction: widget.onExplore)),
-          SliverToBoxAdapter(
-            child: _popular == null ? const SizedBox(height: 180, child: DiyaLoader()) : _Carousel(temples: _popular!.data.items, onOpen: _open),
-          ),
-          // Not everyone is looking for today's deity or the famous few:
-          // temples of other deities, a different selection each day.
-          if (_exploreMore(lead?.temples ?? const [], lead?.deity?.slug ?? day.deitySlug) case final more when more.isNotEmpty) ...[
-            SliverToBoxAdapter(child: SectionHeader(title: s('explore_more'), motif: Motif.om, actionLabel: s('see_all'), onAction: widget.onExplore)),
-            SliverToBoxAdapter(child: _Carousel(temples: more, onOpen: _open)),
-          ],
-          SliverToBoxAdapter(child: SectionHeader(title: s('categories'), motif: Motif.shankhaChakra, actionLabel: s('see_all'), onAction: widget.onExplore)),
-          const SliverToBoxAdapter(child: _CircuitRow()),
-          SliverToBoxAdapter(child: _YatraPrompt(day: day, onOpen: () => widget.onTab?.call(3))),
-          const SliverToBoxAdapter(child: _SevaPrompt()),
-          SliverToBoxAdapter(child: SectionHeader(title: s('festivals'), motif: Motif.bell, actionLabel: s('calendar'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())))),
-          if (_coming.isNotEmpty) SliverToBoxAdapter(child: _ComingFestivals(festivals: _coming)),
-          if (_events == null)
-            const SliverToBoxAdapter(child: SizedBox(height: 120, child: DiyaLoader()))
-          else if (_events!.data.isEmpty && _coming.isEmpty)
-            const SliverToBoxAdapter(child: EmptyShrine(motif: Motif.bell, message: 'No upcoming events published yet.'))
-          else if (_events!.data.isEmpty)
-            const SliverToBoxAdapter(child: SizedBox.shrink())
-          else
-            SliverList.builder(
-              itemCount: _events!.data.length,
-              itemBuilder: (context, i) => _EventTile(event: _events!.data[i]),
+            SliverToBoxAdapter(child: _ReminderBanner(reminders: context.watch<RemindersController>().upcoming)),
+            SliverToBoxAdapter(child: _JourneyCard(day: day, onPassport: () => widget.onTab?.call(2))),
+            SliverToBoxAdapter(child: SectionHeader(title: s('todays_practice'), motif: Motif.diya)),
+            SliverToBoxAdapter(child: _PracticeCard(day: day)),
+            SliverToBoxAdapter(child: SectionHeader(title: s('browse_deities'), motif: Motif.om)),
+            const SliverToBoxAdapter(child: _DeityRow()),
+            SliverToBoxAdapter(child: SectionHeader(title: s('week'), motif: Motif.bell)),
+            SliverToBoxAdapter(child: _WeekStrip(current: day)),
+            if (dayCtl.todayMedia.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                  child:
+                      SectionHeader(title: s('today_media'), motif: day.motif, actionLabel: s('see_all'), onAction: () => enterTemple(context, DayScreen(weekday: day.weekday), accent: day.accent))),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: scaledHeight(context, 200),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: dayCtl.todayMedia.take(10).length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) => MediaCard(media: dayCtl.todayMedia[i], day: day, width: 140),
+                  ),
+                ),
+              ),
+            ],
+            if (_bhajans.isNotEmpty) ...[
+              SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'))),
+              SliverList.builder(itemCount: _bhajans.length, itemBuilder: (context, i) => BhajanCard(event: _bhajans[i])),
+            ],
+            SliverToBoxAdapter(child: SectionHeader(title: s('nearby'), motif: Motif.diya, actionLabel: _nearby == null ? null : s('see_all'), onAction: widget.onExplore)),
+            SliverToBoxAdapter(child: _NearbySection(result: _nearby, error: _nearbyError, locating: _locating, onLocate: _locate, onOpen: _open)),
+            if (lead != null && lead.temples.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                  child: SectionHeader(
+                      title: '${s('temples_of')} ${lead.deity?.name ?? day.deityName}',
+                      motif: day.motif,
+                      actionLabel: s('see_all'),
+                      onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SearchScreen(initial: TempleQuery(deity: lead.deity?.slug ?? day.deitySlug)))))),
+              SliverToBoxAdapter(child: _Carousel(temples: lead.temples, onOpen: _open)),
+            ],
+            const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'home'))),
+            SliverToBoxAdapter(child: SectionHeader(title: s('popular'), motif: Motif.kalasha, actionLabel: s('see_all'), onAction: widget.onExplore)),
+            SliverToBoxAdapter(
+              child: _popular == null ? const SizedBox(height: 180, child: DiyaLoader()) : _Carousel(temples: _popular!.data.items, onOpen: _open),
             ),
-          const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'home', compact: true))),
-          SliverToBoxAdapter(child: SectionHeader(title: s('verse_of_day'), motif: Motif.lotus)),
-          SliverToBoxAdapter(child: _VerseCard(day: day)),
-          SliverToBoxAdapter(child: SectionHeader(title: s('temple_tips'), motif: Motif.namam)),
-          const SliverToBoxAdapter(child: _TipsCard()),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
-              child: Column(
-                children: [
-                  const KolamDivider(),
-                  const SizedBox(height: 8),
-                  Text('${Brand.name} · ${Brand.tagline}', textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
-                ],
+            // Not everyone is looking for today's deity or the famous few:
+            // temples of other deities, a different selection each day.
+            if (_exploreMore(lead?.temples ?? const [], lead?.deity?.slug ?? day.deitySlug) case final more when more.isNotEmpty) ...[
+              SliverToBoxAdapter(child: SectionHeader(title: s('explore_more'), motif: Motif.om, actionLabel: s('see_all'), onAction: widget.onExplore)),
+              SliverToBoxAdapter(child: _Carousel(temples: more, onOpen: _open)),
+            ],
+            SliverToBoxAdapter(child: SectionHeader(title: s('categories'), motif: Motif.shankhaChakra, actionLabel: s('see_all'), onAction: widget.onExplore)),
+            const SliverToBoxAdapter(child: _CircuitRow()),
+            SliverToBoxAdapter(child: _YatraPrompt(day: day, onOpen: () => widget.onTab?.call(3))),
+            const SliverToBoxAdapter(child: _SevaPrompt()),
+            SliverToBoxAdapter(
+                child: SectionHeader(
+                    title: s('festivals'), motif: Motif.bell, actionLabel: s('calendar'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())))),
+            if (_coming.isNotEmpty) SliverToBoxAdapter(child: _ComingFestivals(festivals: _coming)),
+            if (_events == null)
+              const SliverToBoxAdapter(child: SizedBox(height: 120, child: DiyaLoader()))
+            else if (_events!.data.isEmpty && _coming.isEmpty)
+              const SliverToBoxAdapter(child: EmptyShrine(motif: Motif.bell, message: 'No upcoming events published yet.'))
+            else if (_events!.data.isEmpty)
+              const SliverToBoxAdapter(child: SizedBox.shrink())
+            else
+              SliverList.builder(
+                itemCount: _events!.data.length,
+                itemBuilder: (context, i) => _EventTile(event: _events!.data[i]),
+              ),
+            const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'home', compact: true))),
+            SliverToBoxAdapter(child: SectionHeader(title: s('verse_of_day'), motif: Motif.lotus)),
+            SliverToBoxAdapter(child: _VerseCard(day: day)),
+            SliverToBoxAdapter(child: SectionHeader(title: s('temple_tips'), motif: Motif.namam)),
+            const SliverToBoxAdapter(child: _TipsCard()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 32, 20, 32),
+                child: Column(
+                  children: [
+                    const KolamDivider(),
+                    const SizedBox(height: 8),
+                    Text('${Brand.name} · ${Brand.tagline}', textAlign: TextAlign.center, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.55))),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+            // Room to scroll the last of the page clear of the booking bar.
+            if (hasBooking) const SliverToBoxAdapter(child: SizedBox(height: UpcomingBookingBar.height)),
+          ],
+        ),
       ),
-    );
+      // The next seva or ticket, until it is done or its day is over.
+      const Positioned(left: 0, right: 0, bottom: 0, child: UpcomingBookingBar()),
+    ]);
   }
 }
 
@@ -468,7 +489,9 @@ class _WeekStrip extends StatelessWidget {
                 children: [
                   Text(d.dayName.substring(0, 3).toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: isToday ? d.onAccent() : d.accent)),
                   Flexible(child: MotifIcon(d.motif, size: 34, color: isToday ? d.onAccent() : d.accent, secondary: d.secondary)),
-                  FittedBox(fit: BoxFit.scaleDown, child: Text(d.deityName, maxLines: 1, style: theme.textTheme.labelMedium?.copyWith(color: isToday ? d.onAccent() : theme.colorScheme.onSurface, fontFamily: 'NotoSerif'))),
+                  FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(d.deityName, maxLines: 1, style: theme.textTheme.labelMedium?.copyWith(color: isToday ? d.onAccent() : theme.colorScheme.onSurface, fontFamily: 'NotoSerif'))),
                 ],
               ),
             ),
@@ -582,7 +605,8 @@ class _EventTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(event.title, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif')),
-                      if (event.templeName != null) Text('${event.templeName}${event.templeCity != null ? ' · ${event.templeCity}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall),
+                      if (event.templeName != null)
+                        Text('${event.templeName}${event.templeCity != null ? ' · ${event.templeCity}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall),
                       if (event.dateLabel != null) Text(event.dateLabel!, style: theme.textTheme.labelSmall?.copyWith(color: scheme.primary)),
                     ],
                   ),
@@ -663,7 +687,9 @@ class _ReminderBanner extends StatelessWidget {
               children: [
                 Icon(Icons.notifications_active_rounded, color: theme.colorScheme.primary),
                 const SizedBox(width: 10),
-                Expanded(child: Text('${r.title}${r.templeName != null ? ' at ${r.templeName}' : ''} is $when${soon.length > 1 ? ' · ${soon.length - 1} more' : ''}', style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600))),
+                Expanded(
+                    child: Text('${r.title}${r.templeName != null ? ' at ${r.templeName}' : ''} is $when${soon.length > 1 ? ' · ${soon.length - 1} more' : ''}',
+                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600))),
                 const Icon(Icons.chevron_right_rounded),
               ],
             ),
@@ -711,7 +737,8 @@ class _Greeting extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(first == null || first.isEmpty ? '${s('namaste')}!' : '${s('namaste')}, $first', style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
+                Text(first == null || first.isEmpty ? '${s('namaste')}!' : '${s('namaste')}, $first',
+                    style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
                 Text('$part · $date', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65))),
               ],
             ),
@@ -952,7 +979,8 @@ class _CircuitRow extends StatelessWidget {
                         children: [
                           MotifIcon(_motif(c.slug), size: 26, color: theme.colorScheme.primary),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600))),
+                          Expanded(
+                              child: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600))),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -1011,7 +1039,9 @@ class _YatraPrompt extends StatelessWidget {
                   ),
                   if (current != null) ...[
                     const SizedBox(height: 8),
-                    ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: current.progress, minHeight: 6, color: day.accent, backgroundColor: day.accent.withValues(alpha: 0.15))),
+                    ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(value: current.progress, minHeight: 6, color: day.accent, backgroundColor: day.accent.withValues(alpha: 0.15))),
                   ],
                 ],
               ),
@@ -1056,7 +1086,8 @@ class _SevaPrompt extends StatelessWidget {
                     children: [
                       Text('Seva drives', style: theme.textTheme.titleSmall?.copyWith(color: Palette.sandal, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 4),
-                      Text('Join hands to clean an old temple, a temple tank or a forgotten shrine — or raise one near you.', style: theme.textTheme.bodySmall?.copyWith(color: Palette.sandal.withValues(alpha: 0.85), height: 1.35)),
+                      Text('Join hands to clean an old temple, a temple tank or a forgotten shrine — or raise one near you.',
+                          style: theme.textTheme.bodySmall?.copyWith(color: Palette.sandal.withValues(alpha: 0.85), height: 1.35)),
                     ],
                   ),
                 ),
@@ -1164,7 +1195,6 @@ class _TipsCard extends StatelessWidget {
   }
 }
 
-
 /// The next major festivals across India as a strip of date cards; tapping
 /// one opens the calendar.
 class _ComingFestivals extends StatelessWidget {
@@ -1206,7 +1236,14 @@ class _ComingFestivals extends StatelessWidget {
                   Text(d == null ? '' : '${d.day} ${_months[d.month - 1]}', style: theme.textTheme.titleMedium?.copyWith(color: accent, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Expanded(child: Text(f.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600))),
-                  if (days != null) Text(days == 0 ? 'Today' : days == 1 ? 'Tomorrow' : 'In $days days', style: theme.textTheme.labelSmall),
+                  if (days != null)
+                    Text(
+                        days == 0
+                            ? 'Today'
+                            : days == 1
+                                ? 'Tomorrow'
+                                : 'In $days days',
+                        style: theme.textTheme.labelSmall),
                 ],
               ),
             ),

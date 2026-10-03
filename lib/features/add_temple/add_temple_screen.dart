@@ -18,6 +18,7 @@ import '../../core/services/analytics.dart';
 import '../auth/auth_screen.dart';
 import '../seva/seva_widgets.dart';
 import '../temple/temple_screen.dart';
+import '../../core/widgets/trust_app_link.dart';
 
 /// "My temple is not listed": the full form to add one.
 ///
@@ -342,6 +343,9 @@ class _AddTempleScreenState extends State<AddTempleScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // The temple's own people are better served by the Trust app.
+        const TrustAppCard(compact: true),
+        const SizedBox(height: 10),
         TextField(
           controller: _name,
           textCapitalization: TextCapitalization.words,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -490,6 +491,15 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
             ),
           ],
           const SizedBox(height: 20),
+          // Getting there: the temple's pin, or its name and town on the map.
+          if (b.templeName != null && !b.isPast) ...[
+            FilledButton.icon(
+              onPressed: () => openBookingDirections(b),
+              icon: const Icon(Icons.directions_rounded),
+              label: Text('${s('directions')} · ${b.templeName}', overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(height: 8),
+          ],
           if (b.isEvent && b.eventId != null) ...[
             OutlinedButton.icon(
               onPressed: () => openEvent(context, TempleEvent(id: b.eventId, title: b.pujaName, type: b.eventType, imageUrl: b.pujaImageUrl, groupName: b.groupName, templeSlug: b.templeSlug, templeName: b.templeName, templeCity: b.templeCity)),
@@ -612,4 +622,12 @@ class _Perforation extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Opens the map with the way to a booking's temple.
+Future<void> openBookingDirections(PujaBooking b) {
+  final uri = b.hasTempleLocation
+      ? Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${b.templeLatitude},${b.templeLongitude}')
+      : Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent([b.templeName, b.templeCity].whereType<String>().join(', '))}');
+  return launchUrl(uri, mode: LaunchMode.externalApplication);
 }
