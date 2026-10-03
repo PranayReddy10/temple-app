@@ -457,6 +457,15 @@ class _BookPujaSheetState extends State<_BookPujaSheet> {
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.info_outline_rounded, size: 18, color: day.accent), const SizedBox(width: 8), Expanded(child: Text(ab.instructions!, style: theme.textTheme.bodySmall))]),
               ),
             ],
+            if (total > 0) ...[
+              const SizedBox(height: 12),
+              // Said before the money moves: a paid seva is the temple's.
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.lock_clock_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(child: Text(s('booking_no_refund'), style: theme.textTheme.bodySmall)),
+              ]),
+            ],
             const SizedBox(height: 16),
             Row(
               children: [
