@@ -27,8 +27,6 @@ void main() {
     TempleCovers.harvest({'temple': {'slug': 'yadagiri', 'cover': {'thumbnail': 'https://x/y-t.webp', 'medium': 'https://x/y-m.webp'}}});
     await tester.pump();
     await tester.pumpWidget(const MaterialApp(home: SizedBox(width: 60, height: 60, child: TempleCover(slug: 'yadagiri'))));
-    // The fitted photo, and the blurred copy of it behind.
-    expect(find.byWidgetPredicate((w) => w is AppImage && w.url == 'https://x/y-t.webp' && w.fit == BoxFit.contain), findsOneWidget);
-    expect(find.byWidgetPredicate((w) => w is AppImage && w.url == 'https://x/y-t.webp'), findsNWidgets(2));
+    expect(find.byWidgetPredicate((w) => w is AppImage && w.url == 'https://x/y-t.webp'), findsOneWidget);
   });
 }

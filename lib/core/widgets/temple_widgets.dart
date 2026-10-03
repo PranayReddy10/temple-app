@@ -1,6 +1,3 @@
-import 'dart:ui' show ImageFilter;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
@@ -190,12 +187,7 @@ class TrustBadge extends StatelessWidget {
 
 /// Network photo with a deity-motif placeholder when there is none.
 class TempleImage extends StatelessWidget {
-  const TempleImage({super.key, this.url, this.deitySlug, this.fit = BoxFit.cover, this.motifSize = 56, this.photo, this.small = false, this.whole = true});
-
-  /// Show the whole photo inside the frame (over a blurred copy of itself)
-  /// rather than cropping it to fill. Off for the few places that want
-  /// the crop, such as a square thumbnail.
-  final bool whole;
+  const TempleImage({super.key, this.url, this.deitySlug, this.fit = BoxFit.cover, this.motifSize = 56, this.photo, this.small = false});
 
   final String? url;
 
@@ -230,26 +222,7 @@ class TempleImage extends StatelessWidget {
     );
     final urls = photo != null ? (small ? photo!.smallCandidates : photo!.candidates) : [if (url != null && url!.isNotEmpty) url!];
     if (urls.isEmpty) return placeholder;
-    if (fit != BoxFit.cover || !whole) return AppImage(urls.first, fit: fit, placeholder: placeholder, decodeWidth: 800, fallbacks: urls.sublist(1));
-    // The whole photo, never cropped: fitted inside the frame, with a
-    // blurred copy of itself filling what its shape leaves bare, so a
-    // portrait or a panorama reads as the picture and not as bars. On
-    // the web photos are <img> elements, which the blur cannot touch,
-    // so the deity's pattern fills behind instead.
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (kIsWeb)
-          placeholder
-        else
-          ImageFiltered(
-            imageFilter: ImageFilter.blur(sigmaX: 22, sigmaY: 22, tileMode: TileMode.decal),
-            child: AppImage(urls.first, fit: BoxFit.cover, placeholder: placeholder, decodeWidth: 200, fallbacks: urls.sublist(1)),
-          ),
-        if (!kIsWeb) const ColoredBox(color: Color(0x33000000)),
-        AppImage(urls.first, fit: BoxFit.contain, placeholder: const SizedBox.shrink(), decodeWidth: 800, fallbacks: urls.sublist(1)),
-      ],
-    );
+    return AppImage(urls.first, fit: fit, placeholder: placeholder, decodeWidth: 800, fallbacks: urls.sublist(1));
   }
 }
 

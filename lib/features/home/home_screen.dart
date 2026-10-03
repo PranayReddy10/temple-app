@@ -579,8 +579,10 @@ class _Carousel extends StatelessWidget {
     // Most of the screen's width, so the photo reads as a photo and the
     // name has room; the next card peeks in to say there are more.
     final width = (MediaQuery.sizeOf(context).width * 0.8).clamp(240.0, 340.0);
+    // 4:3, the same shape as the temple page's header, so one photo
+    // uploaded for a temple fits both without cropping.
     return SizedBox(
-      height: scaledHeight(context, 300),
+      height: width * 0.75,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -691,7 +693,7 @@ class _FollowedRow extends StatelessWidget {
     final theme = Theme.of(context);
     final width = (MediaQuery.sizeOf(context).width * 0.72).clamp(220.0, 300.0);
     return SizedBox(
-      height: scaledHeight(context, 190),
+      height: width * 0.75,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),

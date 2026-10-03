@@ -31,7 +31,6 @@ import '../../core/theme/palette.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../bookings/book_puja_sheet.dart';
-import '../bookings/bookings_screen.dart';
 import '../donations/donate_screen.dart';
 import '../events/event_screen.dart';
 import '../events/raise_bhajan_screen.dart';
@@ -372,29 +371,7 @@ class _TempleScreenState extends State<TempleScreen> {
             if (photos.isEmpty)
               SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _EmptyLine(icon: Icons.photo_library_outlined, text: s('no_photos'))))
             else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverGrid.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 6, crossAxisSpacing: 6),
-                  itemCount: photos.length,
-                  itemBuilder: (context, i) => GestureDetector(
-                    onTap: () => _openViewer(photos, i),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          TempleImage(photo: photos[i], small: true, deitySlug: t.deity?.slug, motifSize: 28),
-                          if (photos[i].isDevoteePhoto)
-                            Positioned(left: 6, bottom: 6, right: 6, child: _Pill(text: '${s('photo_by')} ${photos[i].devoteeName ?? photos[i].credit ?? ''}'.trim(), color: Palette.tulsi.withValues(alpha: 0.85)))
-                          else if (photos[i].category != null)
-                            Positioned(left: 6, bottom: 6, child: _Pill(text: photos[i].category!, color: Colors.black54)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              SliverToBoxAdapter(child: _PhotoStrip(photos: photos, deitySlug: t.deity?.slug, onOpen: (i) => _openViewer(photos, i))),
             // A native ad between sections, never above the temple's own
             // facts; off for no-ads plans and wherever the admin turns it off.
             const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'temple_detail'))),
@@ -408,13 +385,13 @@ class _TempleScreenState extends State<TempleScreen> {
               if (media.any(isVideoLike))
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: scaledHeight(context, 206),
+                    height: scaledHeight(context, 266),
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       itemCount: media.where(isVideoLike).length.clamp(0, 8),
                       separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, i) => MediaCard(media: media.where(isVideoLike).elementAt(i), day: day, width: 150),
+                      itemBuilder: (context, i) => MediaCard(media: media.where(isVideoLike).elementAt(i), day: day, width: 200),
                     ),
                   ),
                 ),
@@ -549,7 +526,6 @@ class _TempleScreenState extends State<TempleScreen> {
                                     puja: p,
                                     day: day,
                                     onBook: p.isBookableInApp ? () => BookPujaFlow.start(context, t, p) : null,
-                                    onNoted: () => BookingsScreen.record(context, t, p),
                                   ),
                                 ),
                             ],
@@ -1282,13 +1258,16 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 4:3 of the screen's width, the shape the home cards use too, so a
+    // temple's photo fits both without cropping.
+    final height = (MediaQuery.sizeOf(context).width * 0.75).clamp(260.0, 440.0);
     return SliverAppBar(
-      expandedHeight: 360,
+      expandedHeight: height,
       pinned: true,
       stretch: true,
       backgroundColor: day.accent,
       foregroundColor: day.onAccent(),
-      title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: 360),
+      title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: height),
       actions: [
         // A like: one tap, the lightest signal. A heart with its count.
         Tooltip(
@@ -1479,6 +1458,61 @@ class _QuickFacts extends StatelessWidget {
   }
 }
 
+/// The temple's photos as a strip of cards, each the whole picture at 4:3
+/// with its caption; tapping one opens it full screen, swipeable.
+class _PhotoStrip extends StatelessWidget {
+  const _PhotoStrip({required this.photos, required this.deitySlug, required this.onOpen});
+
+  final List<Photo> photos;
+  final String? deitySlug;
+  final ValueChanged<int> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    final width = (MediaQuery.sizeOf(context).width * 0.72).clamp(220.0, 320.0);
+    return SizedBox(
+      height: width * 0.75 + 52,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: photos.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) {
+          final p = photos[i];
+          final caption = p.isDevoteePhoto ? '${s('photo_by')} ${p.devoteeName ?? p.credit ?? ''}'.trim() : (p.category ?? p.credit ?? '');
+          return SizedBox(
+            width: width,
+            child: SoftCard(
+              onTap: () => onOpen(i),
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AspectRatio(aspectRatio: 4 / 3, child: TempleImage(photo: p, deitySlug: deitySlug, motifSize: 40)),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.fullscreen_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(caption.isEmpty ? '${i + 1} / ${photos.length}' : caption, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _EmptyLine extends StatelessWidget {
   const _EmptyLine({required this.icon, required this.text});
 
@@ -1541,7 +1575,7 @@ class _TimingsTable extends StatelessWidget {
           for (var i = 0; i < timings.length; i++) ...[
             if (i > 0) const Divider(height: 1, indent: 64),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
               child: Row(
                 children: [
                   IconBadge(
@@ -1563,9 +1597,20 @@ class _TimingsTable extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Flexible: "06:00 – 12:00" beside a long label at large
-                  // text would otherwise run off a narrow phone.
-                  Flexible(child: Text(timings[i].window ?? '${timings[i].opensAt ?? ''} – ${timings[i].closesAt ?? ''}', textAlign: TextAlign.end, style: theme.textTheme.titleSmall?.copyWith(color: accent))),
+                  const SizedBox(width: 10),
+                  // The hours as a pill, in from the edge; Flexible so a long
+                  // label beside "06:00 – 12:00" never runs off a narrow phone.
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+                      child: Text(
+                        timings[i].window ?? '${timings[i].opensAt ?? ''} – ${timings[i].closesAt ?? ''}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelLarge?.copyWith(color: accent, letterSpacing: 0.2),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1584,12 +1629,11 @@ class _TimingsTable extends StatelessWidget {
 /// seva ([onBook] non-null). Everything else shows as it always did: the
 /// temple's own link if there is one, otherwise "book at the temple".
 class _PujaCard extends StatelessWidget {
-  const _PujaCard({required this.puja, required this.day, this.onBook, required this.onNoted});
+  const _PujaCard({required this.puja, required this.day, this.onBook});
 
   final Puja puja;
   final DayTheme day;
   final VoidCallback? onBook;
-  final VoidCallback onNoted;
 
   @override
   Widget build(BuildContext context) {
@@ -1696,7 +1740,6 @@ class _PujaCard extends StatelessWidget {
                     ],
                   ),
                   if (b.note != null) Text(b.note!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
-                  Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: onNoted, icon: const Icon(Icons.bookmark_add_outlined, size: 16), label: const Text('I booked this'))),
                 ],
               ],
             ),
