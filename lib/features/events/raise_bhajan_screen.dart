@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import '../../core/api/temple_repository.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/motif.dart';
+import '../../core/state/engagement_controller.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
@@ -240,6 +243,102 @@ class _RaiseBhajanScreenState extends State<RaiseBhajanScreen> {
               icon: _busy ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send_rounded),
               label: Text(s('bhajan_send')),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// From Home, where no temple is in hand: pick one (the followed temples
+/// first, then any by name or town), then the form. The created event
+/// comes back, or null.
+Future<TempleEvent?> raiseBhajanSomewhere(BuildContext context) async {
+  if (!await ensureSignedIn(context) || !context.mounted) return null;
+  final temple = await showModalBottomSheet<TempleSummary>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => const _TemplePicker(),
+  );
+  if (temple == null || !context.mounted) return null;
+  return RaiseBhajanScreen.open(context, temple);
+}
+
+class _TemplePicker extends StatefulWidget {
+  const _TemplePicker();
+
+  @override
+  State<_TemplePicker> createState() => _TemplePickerState();
+}
+
+class _TemplePickerState extends State<_TemplePicker> {
+  final _search = TextEditingController();
+  Timer? _debounce;
+  List<TempleSummary> _results = const [];
+  bool _searching = false;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _changed(String q) {
+    _debounce?.cancel();
+    if (q.trim().length < 2) {
+      setState(() {
+        _results = const [];
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      final r = await context.read<TempleRepository>().temples(TempleQuery(q: q.trim(), perPage: 12));
+      if (!mounted || _search.text.trim() != q.trim()) return;
+      setState(() {
+        _results = r.data.items;
+        _searching = false;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    final followed = context.watch<EngagementController>().follows.map((f) => f.temple).toList();
+    final typing = _search.text.trim().length >= 2;
+    final list = typing ? _results : followed;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (context, controller) => ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            Text(s('bhajan_pick_temple'), style: theme.textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(s('bhajan_free_note'), style: theme.textTheme.bodySmall),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _search,
+              autofocus: followed.isEmpty,
+              onChanged: _changed,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(hintText: s('bhajan_pick_search'), prefixIcon: const Icon(Icons.search_rounded), isDense: true),
+            ),
+            const SizedBox(height: 14),
+            if (!typing && followed.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(s('bhajan_pick_followed').toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary))),
+            if (_searching) const Padding(padding: EdgeInsets.all(24), child: DiyaLoader(size: 36)),
+            if (typing && !_searching && list.isEmpty) Padding(padding: const EdgeInsets.all(16), child: Text(s('bhajan_pick_none'), textAlign: TextAlign.center, style: theme.textTheme.bodySmall)),
+            for (final t in list) Padding(padding: const EdgeInsets.only(bottom: 10), child: TempleCard(temple: t, compact: true, onTap: () => Navigator.of(context).pop(t))),
           ],
         ),
       ),

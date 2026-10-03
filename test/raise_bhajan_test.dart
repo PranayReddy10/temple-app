@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:temple_app/core/models/models.dart';
+import 'package:provider/provider.dart';
+import 'package:temple_app/core/state/engagement_controller.dart';
 import 'package:temple_app/features/events/raise_bhajan_screen.dart';
 
 import 'booking_test.dart' show templeHarness;
@@ -71,5 +73,41 @@ void main() {
 
     expect(find.text('Sent for review'), findsOneWidget);
     expect(find.textContaining("Sri Rama Temple's page, free"), findsOneWidget);
+  });
+
+  testWidgets('from Home, a temple is picked first: the followed ones, or any by name', (tester) async {
+    tester.view.physicalSize = const Size(360 * 3, 1200 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    final client = MockClient((r) async {
+      if (r.url.path == '/api/v1/temples' && r.url.queryParameters['q'] == 'tiru') {
+        return _json({'data': [{'slug': 'tirumala', 'name': 'Tirumala Venkateswara', 'city': 'Tirupati', 'trust': {'level': 'official'}}], 'meta': {'current_page': 1, 'last_page': 1}});
+      }
+      return _json({'data': []});
+    });
+    const followed = TempleSummary(slug: 'sri-rama', name: 'Sri Rama Temple', location: Location(city: 'Bhadrachalam'), trust: Trust(level: TrustLevel.community));
+    late BuildContext ctx;
+    await tester.pumpWidget(await templeHarness(client, home: Builder(builder: (c) {
+      ctx = c;
+      return Scaffold(body: Center(child: TextButton(onPressed: () => raiseBhajanSomewhere(c), child: const Text('Organise one'))));
+    })));
+    await tester.pump();
+    await ctx.read<EngagementController>().toggleFollow(followed);
+    await tester.pump();
+
+    await tester.tap(find.text('Organise one'));
+    await tester.pumpAndSettle();
+    expect(find.text('At which temple?'), findsOneWidget);
+    expect(find.text('Sri Rama Temple'), findsOneWidget, reason: 'a followed temple is offered first');
+
+    await tester.enterText(find.byType(TextField), 'tiru');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(find.text('Tirumala Venkateswara'), findsOneWidget);
+
+    await tester.tap(find.text('Tirumala Venkateswara'));
+    await tester.pumpAndSettle();
+    expect(find.text('Organise a bhajan here'), findsOneWidget);
+    expect(find.textContaining('A bhajan at Tirumala Venkateswara'), findsOneWidget);
   });
 }

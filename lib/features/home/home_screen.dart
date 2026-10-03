@@ -33,6 +33,7 @@ import '../notifications/notifications_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../days/day_screen.dart';
 import '../events/event_screen.dart';
+import '../events/raise_bhajan_screen.dart';
 import '../guide/guide_screen.dart';
 import '../qr/qr_screens.dart';
 import '../explore/search_screen.dart';
@@ -275,10 +276,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
               ),
             ],
-            if (_bhajans.isNotEmpty) ...[
-              SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'))),
+            // Bhajans near the devotee this week, and the way to start one.
+            SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'), actionLabel: s('raise_bhajan_short'), onAction: () => raiseBhajanSomewhere(context))),
+            if (_bhajans.isEmpty)
+              SliverToBoxAdapter(child: _RaiseBhajanPrompt(day: day, onRaise: () => raiseBhajanSomewhere(context)))
+            else
               SliverList.builder(itemCount: _bhajans.length, itemBuilder: (context, i) => BhajanCard(event: _bhajans[i])),
-            ],
             SliverToBoxAdapter(child: SectionHeader(title: s('nearby'), motif: Motif.diya, actionLabel: _nearby == null ? null : s('see_all'), onAction: widget.onExplore)),
             SliverToBoxAdapter(child: _NearbySection(result: _nearby, error: _nearbyError, locating: _locating, onLocate: _locate, onOpen: _open)),
             if (lead != null && lead.temples.isNotEmpty) ...[
@@ -1140,6 +1143,37 @@ class _YatraPrompt extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             FilledButton(onPressed: onOpen, style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent()), child: Text(current == null ? s('start') : s('open'))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// No bhajan this week: an invitation to organise one, free, at any temple.
+class _RaiseBhajanPrompt extends StatelessWidget {
+  const _RaiseBhajanPrompt({required this.day, required this.onRaise});
+
+  final DayTheme day;
+  final VoidCallback onRaise;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SoftCard(
+        onTap: onRaise,
+        color: day.accent.withValues(alpha: 0.08),
+        border: day.accent.withValues(alpha: 0.35),
+        child: Row(
+          children: [
+            IconBadge(null, motif: Motif.bell, color: day.accent, size: 48),
+            const SizedBox(width: 14),
+            Expanded(child: Text(s('bhajans_none'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface, height: 1.4))),
+            const SizedBox(width: 10),
+            FilledButton(onPressed: onRaise, style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent(), visualDensity: VisualDensity.compact), child: Text(s('raise_bhajan_short'))),
           ],
         ),
       ),
