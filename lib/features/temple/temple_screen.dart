@@ -1528,7 +1528,10 @@ class _TimingsTable extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(timings[i].label ?? timings[i].kind ?? 'Timing', style: theme.textTheme.titleSmall),
-                        Text(timings[i].dayLabel ?? 'Every day', style: theme.textTheme.bodySmall),
+                        Text(
+                          '${timings[i].dayLabel ?? 'Every day'}${!timings[i].isEveryDay && timings[i].appliesOn(DateTime.now().weekday % 7) ? ' · today' : ''}',
+                          style: theme.textTheme.bodySmall,
+                        ),
                         if (timings[i].notes != null) Text(timings[i].notes!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
                       ],
                     ),
@@ -1729,9 +1732,11 @@ class _VisitToday extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final weekday = DateTime.now().weekday % 7;
-    final today = detail.timings.where((t) => t.kind != 'aarti' && (t.dayOfWeek == null || t.dayOfWeek == weekday)).toList();
+    // A Sat & Sun timing replaces the every-day one at the weekend.
+    final todays = Timing.forDay(detail.timings, weekday);
+    final today = todays.where((t) => t.kind != 'aarti').toList();
     final hours = today.map((t) => t.window ?? showTimeRange(t.opensAt, t.closesAt)).where((w) => w.isNotEmpty).toList();
-    final aarti = detail.timings.where((t) => t.kind == 'aarti' && (t.dayOfWeek == null || t.dayOfWeek == weekday)).firstOrNull;
+    final aarti = todays.where((t) => t.kind == 'aarti').firstOrNull;
     final festival = detail.events.firstOrNull;
     final closed = detail.isClosedToday;
     final rows = <(IconData, String, String, VoidCallback?)>[
