@@ -34,6 +34,7 @@ import '../bookings/book_puja_sheet.dart';
 import '../bookings/bookings_screen.dart';
 import '../donations/donate_screen.dart';
 import '../events/event_screen.dart';
+import '../events/raise_bhajan_screen.dart';
 import '../family/family_screen.dart';
 import '../media/in_app_browser.dart';
 import '../passport/stamp_widget.dart';
@@ -673,6 +674,18 @@ class _TempleScreenState extends State<TempleScreen> {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: OutlinedButton.icon(onPressed: () => SubmissionsScreen.submit(context, temple: t), icon: const Icon(Icons.edit_note_rounded), label: Text(s('suggest_edit'))),
+              ),
+            ),
+            // Sing here: a bhajan gathering the devotee organises, free,
+            // once the editors have looked at it.
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: OutlinedButton.icon(
+                  onPressed: () => RaiseBhajanScreen.open(context, t),
+                  icon: const Icon(Icons.music_note_rounded),
+                  label: Text(s('raise_bhajan')),
+                ),
               ),
             ),
             // Care for the place itself: a clean-up or a lamp for a temple

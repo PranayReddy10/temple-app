@@ -320,6 +320,11 @@ class TempleRepository {
   }
 
   /// One event, with its dates, songs and registration.
+  /// A bhajan gathering the devotee raises at a temple. The server makes
+  /// it free and sends it to the editors; the answer carries its status.
+  Future<TempleEvent> raiseBhajan(String templeSlug, Map<String, dynamic> fields) async =>
+      TempleEvent.fromJson(Map<String, dynamic>.from((await api.post('temples/$templeSlug/bhajans', fields))['data'] as Map));
+
   Future<TempleEvent> event(int id) async => TempleEvent.fromJson(Map<String, dynamic>.from((await api.get('events/$id'))['data'] as Map));
 
   Future<Result<List<DevotionalDay>>> today() => _tryLive(

@@ -572,16 +572,21 @@ class _Carousel extends StatelessWidget {
   final void Function(TempleSummary) onOpen;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: scaledHeight(context, 262),
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: temples.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, i) => TempleCard(temple: temples[i], width: 230, onTap: () => onOpen(temples[i])),
-        ),
-      );
+  Widget build(BuildContext context) {
+    // Most of the screen's width, so the photo reads as a photo and the
+    // name has room; the next card peeks in to say there are more.
+    final width = (MediaQuery.sizeOf(context).width * 0.8).clamp(240.0, 340.0);
+    return SizedBox(
+      height: scaledHeight(context, 300),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: temples.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) => TempleCard(temple: temples[i], width: width, onTap: () => onOpen(temples[i])),
+      ),
+    );
+  }
 }
 
 class _EventTile extends StatelessWidget {
@@ -681,8 +686,9 @@ class _FollowedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final width = (MediaQuery.sizeOf(context).width * 0.72).clamp(220.0, 300.0);
     return SizedBox(
-      height: scaledHeight(context, 150),
+      height: scaledHeight(context, 190),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -694,7 +700,7 @@ class _FollowedRow extends StatelessWidget {
           final day = DayTheme.forDeity(t.deity?.slug);
           final reminders = [if (f.notifyFestivals) 'festivals', if (f.notifyEvents) 'events'];
           return SizedBox(
-            width: 200,
+            width: width,
             child: SoftCard(
               onTap: () => onOpen(t),
               padding: EdgeInsets.zero,
