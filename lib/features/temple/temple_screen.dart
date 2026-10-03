@@ -25,6 +25,7 @@ import '../../core/ads/ads.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/media_widgets.dart';
@@ -483,14 +484,14 @@ class _TempleScreenState extends State<TempleScreen> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverToBoxAdapter(
-                  child: Container(
-                    decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18), border: Border.all(color: theme.colorScheme.outlineVariant)),
+                  child: SoftCard(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Column(
                       children: [
                         for (final e in d.visitorRules.entries)
                           ListTile(
                             dense: true,
-                            leading: Icon(_ruleIcon(e.key), color: day.accent),
+                            leading: IconBadge(_ruleIcon(e.key), color: day.accent, size: 34),
                             title: Text(_ruleLabel(e.key), style: theme.textTheme.labelLarge?.copyWith(letterSpacing: 0.5)),
                             subtitle: Text(e.value),
                           ),
@@ -1114,23 +1115,18 @@ class _ActionGrid extends StatelessWidget {
             for (final a in actions)
               SizedBox(
                 width: w,
-                child: Material(
-                  color: a.highlighted ? day.accent.withValues(alpha: 0.16) : theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: a.onTap,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: a.highlighted ? day.accent : theme.colorScheme.outlineVariant)),
-                      child: Column(
-                        children: [
-                          Icon(a.icon, color: day.accent, size: 26),
-                          const SizedBox(height: 6),
-                          Text(a.label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
+                child: SoftCard(
+                  onTap: a.onTap,
+                  radius: 18,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                  color: a.highlighted ? day.accent.withValues(alpha: 0.14) : null,
+                  border: a.highlighted ? day.accent.withValues(alpha: 0.6) : null,
+                  child: Column(
+                    children: [
+                      IconBadge(a.icon, color: day.accent, size: 40, filled: a.highlighted),
+                      const SizedBox(height: 8),
+                      Text(a.label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: 12)),
+                    ],
                   ),
                 ),
               ),
@@ -1220,9 +1216,9 @@ class _BottomActions extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.paddingOf(context).bottom + 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, -2))],
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 16, offset: const Offset(0, -3))],
       ),
       child: Row(
         children: [
@@ -1274,12 +1270,12 @@ class _Hero extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SliverAppBar(
-      expandedHeight: 340,
+      expandedHeight: 360,
       pinned: true,
       stretch: true,
       backgroundColor: day.accent,
       foregroundColor: day.onAccent(),
-      title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: 340),
+      title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: 360),
       actions: [
         // A like: one tap, the lightest signal. A heart with its count.
         Tooltip(
@@ -1316,24 +1312,48 @@ class _Hero extends StatelessWidget {
               child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.45, 1], colors: [Colors.black.withValues(alpha: 0.4), Colors.transparent, Colors.black.withValues(alpha: 0.55)]),
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.4, 1], colors: [Colors.black.withValues(alpha: 0.4), Colors.transparent, Colors.black.withValues(alpha: 0.72)]),
                   ),
                 ),
               ),
             ),
             const Positioned(left: 0, right: 0, bottom: 0, child: IgnorePointer(child: SizedBox(height: 56, child: CustomPaint(painter: ToranaPainter(color: Palette.gold, strokeWidth: 3, scallops: 15))))),
-            Positioned(left: 16, bottom: 18, child: TrustBadge(trust: temple.trust)),
-            if (photos.length > 1)
-              Positioned(
-                right: 16,
-                bottom: 18,
-                child: Row(
+            // The temple's name over its own photo, where the eye lands.
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 22,
+              child: IgnorePointer(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    for (var i = 0; i < photos.length; i++) Container(width: i == index ? 16 : 6, height: 6, margin: const EdgeInsets.only(left: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: i == index ? 1 : 0.5), borderRadius: BorderRadius.circular(3))),
+                    Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, height: 1.15, shadows: const [Shadow(color: Colors.black54, blurRadius: 12)])),
+                    const SizedBox(height: 4),
+                    Text(
+                      [temple.deity?.name, temple.location.short].where((e) => e != null && e.isNotEmpty).join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.9), shadows: const [Shadow(color: Colors.black54, blurRadius: 8)]),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TrustBadge(trust: temple.trust),
+                        const Spacer(),
+                        if (photos.length > 1)
+                          Row(
+                            children: [
+                              for (var i = 0; i < photos.length; i++) Container(width: i == index ? 16 : 6, height: 6, margin: const EdgeInsets.only(left: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: i == index ? 1 : 0.5), borderRadius: BorderRadius.circular(3))),
+                            ],
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-            if (photos.isNotEmpty && photos[index].credit != null) Positioned(left: 16, bottom: 44, child: Text('© ${photos[index].credit}', style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70))),
+            ),
+            if (photos.isNotEmpty && photos[index].credit != null) Positioned(right: 16, top: MediaQuery.paddingOf(context).top + kToolbarHeight + 4, child: Text('© ${photos[index].credit}', style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70))),
           ],
         ),
       ),
@@ -1411,7 +1431,7 @@ class _QuickFacts extends StatelessWidget {
     ];
     final theme = Theme.of(context);
     return SizedBox(
-      height: scaledHeight(context, 92),
+      height: scaledHeight(context, 104),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1425,23 +1445,21 @@ class _QuickFacts extends StatelessWidget {
                   if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Allow location to see how far each temple is.')));
                 }
               : null,
-          child: Container(
-          width: 150,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: day.accent.withValues(alpha: 0.3)),
+          child: SizedBox(
+            width: 156,
+            child: SoftCard(
+              radius: 18,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [IconBadge(facts[i].$1, color: day.accent, size: 26), const SizedBox(width: 8), Expanded(child: Text(facts[i].$2.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.2, color: day.accent, fontSize: 10)))]),
+                  const Spacer(),
+                  Text(facts[i].$3, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif')),
+                ],
+              ),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [Icon(facts[i].$1, size: 14, color: day.accent), const SizedBox(width: 6), Expanded(child: Text(facts[i].$2.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: day.accent)))]),
-              const Spacer(),
-              Text(facts[i].$3, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif')),
-            ],
-          ),
-        ),
         ),
       ),
     );
@@ -1503,24 +1521,24 @@ class _TimingsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18), border: Border.all(color: theme.colorScheme.outlineVariant)),
+    return SoftCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           for (var i = 0; i < timings.length; i++) ...[
-            if (i > 0) const Divider(height: 1),
+            if (i > 0) const Divider(height: 1, indent: 64),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  Icon(
+                  IconBadge(
                       timings[i].kind == 'aarti'
                           ? Icons.local_fire_department_rounded
                           : timings[i].kind == 'darshan'
                               ? Icons.visibility_rounded
                               : Icons.schedule_rounded,
                       color: accent,
-                      size: 20),
+                      size: 38),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -1574,6 +1592,7 @@ class _PujaCard extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: inApp ? Palette.tulsi.withValues(alpha: 0.6) : theme.colorScheme.outlineVariant, width: inApp ? 1.5 : 1),
+        boxShadow: AppStyle.of(context).cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1744,21 +1763,21 @@ class _VisitToday extends StatelessWidget {
       if (festival != null) (Icons.celebration_rounded, festival.isHappeningToday ? 'Today' : 'Next festival', '${festival.title}${festival.dateLabel != null ? ' · ${festival.dateLabel}' : ''}', null),
       if (bookable > 0) (Icons.qr_code_2_rounded, 'Book in the app', '$bookable ${bookable == 1 ? 'seva' : 'sevas'} · pay here, show the code at the counter', onSeva),
     ];
-    return Container(
-      decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18), border: Border.all(color: (closed ? Palette.kumkum : day.accent).withValues(alpha: 0.35))),
+    return SoftCard(
+      padding: EdgeInsets.zero,
+      border: (closed ? Palette.kumkum : day.accent).withValues(alpha: 0.3),
       child: Column(
         children: [
           for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) const Divider(height: 1, indent: 48),
+            if (i > 0) const Divider(height: 1, indent: 62),
             InkWell(
               onTap: rows[i].$4,
-              borderRadius: BorderRadius.vertical(top: i == 0 ? const Radius.circular(18) : Radius.zero, bottom: i == rows.length - 1 ? const Radius.circular(18) : Radius.zero),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 child: Row(
                   children: [
-                    Icon(rows[i].$1, size: 20, color: i == 0 && closed ? Palette.kumkum : (rows[i].$1 == Icons.qr_code_2_rounded ? Palette.tulsi : day.accent)),
-                    const SizedBox(width: 14),
+                    IconBadge(rows[i].$1, size: 36, color: i == 0 && closed ? Palette.kumkum : (rows[i].$1 == Icons.qr_code_2_rounded ? Palette.tulsi : day.accent)),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

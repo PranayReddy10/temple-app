@@ -27,7 +27,7 @@ Future<void> openHundi(BuildContext context, TempleSummary temple, DonationSetti
   final s = S.of(context);
   if (!await ensureSignedIn(context) || !context.mounted) return;
   final config = context.read<AppConfigController>().config;
-  if (!config.paymentsEnabled) {
+  if (!config.templePaymentsEnabled) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(config.paymentsElsewhere ? s('booking_pay_elsewhere') : s('booking_pay_soon'))));
     return;
   }

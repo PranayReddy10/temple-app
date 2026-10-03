@@ -37,7 +37,9 @@ class BookPujaFlow {
     final auth = context.read<AuthController>();
     if (!await ensureSignedIn(context) || !context.mounted) return;
     final config = context.read<AppConfigController>().config;
-    if (puja.appBooking.requiresPayment && !config.paymentsEnabled) {
+    // Only the platform's own readiness gates this: the temple's approval
+    // is already in the seva's app_booking.enabled from the server.
+    if (puja.appBooking.requiresPayment && !config.templePaymentsEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(config.paymentsElsewhere ? s('booking_pay_elsewhere') : s('booking_pay_soon'))));
       return;
     }

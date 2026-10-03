@@ -10,6 +10,7 @@ import 'app_image.dart';
 import '../../features/media/media_player_screen.dart';
 import '../motifs/architecture.dart';
 import '../motifs/motif.dart';
+import '../theme/app_theme.dart';
 import '../theme/day_theme.dart';
 import '../state/temple_covers.dart';
 import '../data/sample_data.dart';
@@ -49,7 +50,8 @@ class KolamDivider extends StatelessWidget {
       );
 }
 
-/// Section heading with a small motif and an optional trailing action.
+/// Section heading: a short rule in the day's colour, the motif, the title
+/// in the serif, and room on the right for "See all".
 class SectionHeader extends StatelessWidget {
   const SectionHeader({super.key, required this.title, this.motif, this.actionLabel, this.onAction, this.subtitle});
 
@@ -63,26 +65,77 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 12, 12),
+      padding: const EdgeInsets.fromLTRB(20, 26, 12, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Container(width: 4, height: 20, decoration: BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 10),
           if (motif != null) ...[
             MotifIcon(motif!, size: 22, color: theme.colorScheme.primary),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
           ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.titleLarge),
-                if (subtitle != null) Text(subtitle!, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
+                Text(title, style: theme.textTheme.titleLarge?.copyWith(fontSize: 19)),
+                if (subtitle != null) Text(subtitle!, style: theme.textTheme.bodySmall),
               ],
             ),
           ),
           if (actionLabel != null) TextButton(onPressed: onAction, child: Text(actionLabel!)),
         ],
       ),
+    );
+  }
+}
+
+/// A card on a soft shadow instead of an outline: the content cards.
+class SoftCard extends StatelessWidget {
+  const SoftCard({super.key, required this.child, this.onTap, this.padding = const EdgeInsets.all(16), this.color, this.border, this.radius = AppTheme.radius});
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry padding;
+  final Color? color;
+  final Color? border;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(radius), boxShadow: AppStyle.of(context).cardShadow),
+      child: Material(
+        color: color ?? theme.colorScheme.surfaceContainerHighest,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: BorderSide(color: border ?? theme.colorScheme.outlineVariant)),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      ),
+    );
+  }
+}
+
+/// An icon on a tinted rounded square.
+class IconBadge extends StatelessWidget {
+  const IconBadge(this.icon, {super.key, this.color, this.size = 40, this.filled = false, this.motif});
+
+  final IconData? icon;
+  final Motif? motif;
+  final Color? color;
+  final double size;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = color ?? Theme.of(context).colorScheme.primary;
+    final fg = filled ? (ThemeData.estimateBrightnessForColor(c) == Brightness.dark ? Colors.white : Palette.ebony) : c;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: filled ? c : c.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(size * 0.3)),
+      child: Center(child: motif != null ? MotifIcon(motif!, size: size * 0.56, color: fg) : Icon(icon, size: size * 0.52, color: fg)),
     );
   }
 }
@@ -213,53 +266,56 @@ class TempleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final day = DayTheme.forDeity(temple.deity?.slug);
-    final card = Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: compact ? _compact(theme, day) : _tall(theme, day),
+    final card = Container(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(AppTheme.radius), boxShadow: AppStyle.of(context).cardShadow),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radius), side: compact ? BorderSide(color: theme.colorScheme.outlineVariant) : BorderSide.none),
+        child: InkWell(
+          onTap: onTap,
+          child: compact ? _compact(theme, day) : _tall(theme, day),
+        ),
       ),
     );
     return width == null ? card : SizedBox(width: width, child: card);
   }
 
-  Widget _tall(ThemeData theme, DayTheme day) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _tall(ThemeData theme, DayTheme day) => Stack(
+        fit: StackFit.expand,
         children: [
-          // The image takes whatever the text leaves, so a larger font never
-          // pushes the card past its strip.
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                TempleCover(slug: temple.slug, photo: temple.primaryPhoto, small: false, deitySlug: temple.deity?.slug, motifSize: 56),
-                Positioned(left: 10, top: 10, child: TrustBadge(trust: temple.trust, compact: true)),
-                if (temple.distanceKm != null)
-                  Positioned(
-                    right: 10,
-                    top: 10,
-                    child: _Pill(text: '${temple.distanceKm!.toStringAsFixed(temple.distanceKm! < 10 ? 1 : 0)} km', color: Palette.deep),
-                  ),
-              ],
+          TempleCover(slug: temple.slug, photo: temple.primaryPhoto, small: false, deitySlug: temple.deity?.slug, motifSize: 56),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: [0.35, 1], colors: [Colors.transparent, Color(0xCC000000)]),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          Positioned(left: 10, top: 10, child: TrustBadge(trust: temple.trust, compact: true)),
+          if (temple.distanceKm != null)
+            Positioned(
+              right: 10,
+              top: 10,
+              child: _Pill(text: '${temple.distanceKm!.toStringAsFixed(temple.distanceKm! < 10 ? 1 : 0)} km', color: Palette.deep),
+            ),
+          Positioned(
+            left: 14,
+            right: 14,
+            bottom: 14,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif', fontSize: 17)),
+                Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif', fontSize: 17, color: Colors.white, height: 1.2)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    MotifIcon(day.motif, size: 14, color: day.accent),
+                    MotifIcon(day.motif, size: 14, color: Colors.white.withValues(alpha: 0.9)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         [temple.deity?.name, temple.location.short].where((e) => e != null && e.isNotEmpty).join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
                       ),
                     ),
                   ],
