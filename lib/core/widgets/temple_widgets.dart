@@ -304,18 +304,18 @@ class TempleCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'NotoSerif', fontSize: 17, color: Colors.white, height: 1.2)),
+                Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleLarge?.copyWith(fontSize: 19, color: Colors.white, height: 1.2, shadows: const [Shadow(color: Colors.black54, blurRadius: 8)])),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    MotifIcon(day.motif, size: 14, color: Colors.white.withValues(alpha: 0.9)),
+                    MotifIcon(day.motif, size: 15, color: Colors.white.withValues(alpha: 0.9)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         [temple.deity?.name, temple.location.short].where((e) => e != null && e.isNotEmpty).join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                        style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.9), fontSize: 13.5),
                       ),
                     ),
                   ],
