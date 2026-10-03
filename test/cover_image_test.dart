@@ -27,6 +27,7 @@ void main() {
     await tester.pump();
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
-    expect(find.byWidgetPredicate((w) => w is AppImage && w.url == 'https://example.invalid/o.jpg'), findsOneWidget);
+    // Twice: the fitted photo and the blurred copy behind it both fell back.
+    expect(find.byWidgetPredicate((w) => w is AppImage && w.url == 'https://example.invalid/o.jpg'), findsNWidgets(2));
   });
 }
