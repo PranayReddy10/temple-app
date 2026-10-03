@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'core/services/deep_links.dart';
 import 'core/api/api_client.dart';
 import 'core/api/temple_repository.dart';
 import 'core/audio/audio_queue.dart';
@@ -44,6 +46,8 @@ Future<void> main() async {
   // entry for the whole app.
   if (kIsWeb) SystemNavigator.selectSingleEntryHistory();
   final prefs = await SharedPreferences.getInstance();
+  // A temple link the app was opened with: opened once Home is on screen.
+  unawaited(DeepLinks.start());
   TempleCovers.instance.attach(prefs);
   try {
     AppPlatform.version = (await PackageInfo.fromPlatform()).version;

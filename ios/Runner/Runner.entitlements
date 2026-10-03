@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Opens darshansaathi.com/temples/<slug> links in the app on iPhone.
+  To switch on: enable "Associated Domains" for com.darshansaathi.templevisit
+  in the Apple Developer portal, set this file as the Runner target's
+  Code Signing Entitlements (Xcode → Runner → Signing & Capabilities →
+  + Associated Domains does both), and fill in Admin → App control → iOS app ID
+  so the server's apple-app-site-association names the app.
+-->
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:darshansaathi.com</string>
+		<string>applinks:www.darshansaathi.com</string>
+	</array>
+</dict>
+</plist>
