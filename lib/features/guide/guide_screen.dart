@@ -138,7 +138,7 @@ class _GuideScreenState extends State<GuideScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.filled(onPressed: () => _ask(_input.text), icon: const Icon(Icons.send_rounded)),
+                SendButton(onPressed: () => _ask(_input.text), tooltip: 'Ask'),
               ],
             ),
           ),

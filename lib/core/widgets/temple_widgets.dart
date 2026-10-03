@@ -381,6 +381,43 @@ class _Pill extends StatelessWidget {
       );
 }
 
+/// The round send button beside a message field: the day's colour behind a
+/// white arrow, drawn outright rather than left to a theme, so it is seen
+/// on every page and in both schemes.
+class SendButton extends StatelessWidget {
+  const SendButton({super.key, required this.onPressed, this.busy = false, this.tooltip});
+
+  final VoidCallback? onPressed;
+  final bool busy;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final on = ThemeData.estimateBrightnessForColor(scheme.primary) == Brightness.dark ? Colors.white : Palette.ebony;
+    return Tooltip(
+      message: tooltip ?? 'Send',
+      child: Material(
+        color: scheme.primary,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        elevation: 2,
+        shadowColor: scheme.primary.withValues(alpha: 0.5),
+        child: InkWell(
+          onTap: busy ? null : onPressed,
+          child: SizedBox(
+            width: 50,
+            height: 50,
+            child: Center(
+              child: busy ? SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2, color: on)) : Icon(Icons.send_rounded, color: on, size: 24),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A flickering diya used as the loading indicator.
 class DiyaLoader extends StatefulWidget {
   const DiyaLoader({super.key, this.size = 56, this.label});
