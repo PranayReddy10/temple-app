@@ -23,6 +23,15 @@ class Brand {
   /// Base URL of the Laravel API, without the `/api/v1` suffix. The API and
   /// the admin panel live on temple.darshansaathi.com; darshansaathi.com
   /// itself is the devotees' website.
+  /// The Darshan Saathi Trust app, for temple teams: where a devotee who
+  /// runs a temple, or cannot find one, is sent to register and manage it.
+  static const String trustAppUrl = String.fromEnvironment(
+    'TRUST_APP_URL',
+    defaultValue: 'https://play.google.com/store/apps/details?id=com.darshansaathi.temple_trust',
+  );
+
+  static const String trustAppName = 'Darshan Saathi Trust';
+
   static const String defaultApiBase =
 
       String.fromEnvironment('API_BASE_URL', defaultValue: 'https://temple.darshansaathi.com');

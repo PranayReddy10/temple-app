@@ -768,6 +768,8 @@ class PujaBooking {
     this.templeSlug,
     this.templeName,
     this.templeCity,
+    this.templeLatitude,
+    this.templeLongitude,
     this.pujaId,
     required this.pujaName,
     this.pujaKind = 'puja',
@@ -814,6 +816,12 @@ class PujaBooking {
   final String? templeSlug;
   final String? templeName;
   final String? templeCity;
+
+  /// Where the temple is, for Directions; null when it has no map pin.
+  final double? templeLatitude;
+  final double? templeLongitude;
+
+  bool get hasTempleLocation => templeLatitude != null && templeLongitude != null;
   final int? pujaId;
   final String pujaName;
   final String pujaKind;
@@ -889,6 +897,8 @@ class PujaBooking {
       templeSlug: _s(temple['slug']),
       templeName: _s(temple['name']),
       templeCity: _s(temple['city']),
+      templeLatitude: (temple['latitude'] as num?)?.toDouble(),
+      templeLongitude: (temple['longitude'] as num?)?.toDouble(),
       pujaId: _i(puja['id']),
       pujaName: _s(puja['name']) ?? (isEvent ? 'Event' : 'Seva'),
       pujaKind: _s(puja['kind']) ?? 'puja',
@@ -928,7 +938,7 @@ class PujaBooking {
         'qr_url': qrUrl,
         'status': {'value': status, 'label': statusLabel},
         'is_live': isLive,
-        'temple': {'slug': templeSlug, 'name': templeName, 'city': templeCity},
+        'temple': {'slug': templeSlug, 'name': templeName, 'city': templeCity, 'latitude': templeLatitude, 'longitude': templeLongitude},
         if (!isEvent) 'puja': {'id': pujaId, 'name': pujaName, 'kind': pujaKind, 'starts_at': pujaStartsAt, 'image_url': pujaImageUrl, 'instructions': instructions},
         'booked_for': '${bookedFor.year}-${bookedFor.month.toString().padLeft(2, '0')}-${bookedFor.day.toString().padLeft(2, '0')}',
         'slot': slotLabel == null ? null : {'label': slotLabel, 'starts_at': slotStartsAt, 'ends_at': slotEndsAt},

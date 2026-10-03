@@ -14,6 +14,7 @@ import '../../core/motifs/motif.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../../core/widgets/trust_app_link.dart';
 import '../../core/services/analytics.dart';
 import '../temple/temple_screen.dart';
 
@@ -210,11 +211,16 @@ class _SearchScreenState extends State<SearchScreen> {
                             message: s('no_results'),
                             // Not every temple is listed yet; the people who
                             // know one can add it.
-                            action: FilledButton.icon(
-                              onPressed: () => AddTempleScreen.open(context, name: _query.q),
-                              icon: const Icon(Icons.add_location_alt_rounded),
-                              label: const Text('Not listed? Add this temple'),
-                            ),
+                            action: Column(mainAxisSize: MainAxisSize.min, children: [
+                              FilledButton.icon(
+                                onPressed: () => AddTempleScreen.open(context, name: _query.q),
+                                icon: const Icon(Icons.add_location_alt_rounded),
+                                label: const Text('Not listed? Add this temple'),
+                              ),
+                              const SizedBox(height: 8),
+                              // The temple's own people register it themselves.
+                              const TrustAppCard(compact: true),
+                            ]),
                           )
                         : NotificationListener<ScrollNotification>(
                             onNotification: (n) {
