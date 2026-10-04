@@ -343,6 +343,14 @@ class _TempleScreenState extends State<TempleScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (t.shortDescription != null) Text(t.shortDescription!, style: theme.textTheme.bodyLarge?.copyWith(fontFamily: 'NotoSerif', height: 1.5)),
+                      if (t.shortDescription != null && d.descriptionCredit != null)
+                        InkWell(
+                          onTap: d.descriptionCreditUrl == null ? null : () => launchUrl(Uri.parse(d.descriptionCreditUrl!), mode: LaunchMode.externalApplication),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(d.descriptionCredit!, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, decoration: d.descriptionCreditUrl == null ? null : TextDecoration.underline)),
+                          ),
+                        ),
                       if (d.history != null && d.history != t.shortDescription) ...[const SizedBox(height: 10), Text(d.history!, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5))],
                       if (d.significance != null) ...[const SizedBox(height: 10), Text(d.significance!, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5))],
                     ],

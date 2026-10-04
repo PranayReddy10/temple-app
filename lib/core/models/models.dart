@@ -1253,6 +1253,8 @@ class TempleDetail {
     this.alternateNames = const [],
     this.categories = const [],
     this.history,
+    this.descriptionCredit,
+    this.descriptionCreditUrl,
     this.significance,
     this.architectureStyle,
     this.builtPeriod,
@@ -1294,6 +1296,11 @@ class TempleDetail {
   final List<String> alternateNames;
   final List<CategoryRef> categories;
   final String? history;
+
+  /// "From Wikipedia, CC BY-SA 4.0" when the description is the article's
+  /// opening: shown beside it, as the licence asks.
+  final String? descriptionCredit;
+  final String? descriptionCreditUrl;
   final String? significance;
   final String? architectureStyle;
   final String? builtPeriod;
@@ -1334,6 +1341,8 @@ class TempleDetail {
       alternateNames: _l(j['alternate_names']).map((e) => _s(_m(e)['name']) ?? '').where((e) => e.isNotEmpty).toList(),
       categories: _l(j['categories']).map((e) => CategoryRef.fromJson(_m(e))).toList(),
       history: _s(about['history']),
+      descriptionCredit: _s(_m(about['description_credit'])['text']),
+      descriptionCreditUrl: _s(_m(about['description_credit'])['url']),
       significance: _s(about['significance']),
       architectureStyle: _s(about['architecture_style']),
       builtPeriod: _s(about['built_period']),
