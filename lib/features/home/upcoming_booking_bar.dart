@@ -6,6 +6,7 @@ import '../../core/l10n/strings.dart';
 import '../../core/state/bookings_controller.dart';
 import '../../core/theme/palette.dart';
 import '../bookings/bookings_screen.dart';
+import '../../core/time_format.dart';
 
 /// The seva or ticket coming up, pinned to the bottom of Home.
 ///
@@ -36,7 +37,7 @@ class UpcomingBookingBar extends StatelessWidget {
     final more = upcoming.length - 1;
     final theme = Theme.of(context);
     final color = bookingStatusColor(b.status);
-    final time = b.slotLabel ?? b.pujaStartsAt;
+    final time = b.slotLabel ?? showTime(b.pujaStartsAt);
 
     return SafeArea(
       top: false,

@@ -536,11 +536,14 @@ class Playback {
 }
 
 class Timing {
-  const Timing({this.kind, this.label, this.dayOfWeek, this.dayLabel, this.opensAt, this.closesAt, this.window, this.notes});
+  const Timing({this.kind, this.label, this.dayOfWeek, this.days, this.dayLabel, this.opensAt, this.closesAt, this.window, this.notes});
 
   final String? kind;
   final String? label;
   final int? dayOfWeek;
+
+  /// The days it holds on (0 = Sunday … 6 = Saturday); null is every day.
+  final List<int>? days;
   final String? dayLabel;
   final String? opensAt;
   final String? closesAt;
@@ -551,12 +554,29 @@ class Timing {
         kind: _s(j['kind']),
         label: _s(j['label']),
         dayOfWeek: _i(j['day_of_week']),
+        // An older server sends only day_of_week.
+        days: j['days'] is List ? [for (final d in j['days'] as List) if (d is num) d.toInt()] : (_i(j['day_of_week']) == null ? null : [_i(j['day_of_week'])!]),
         dayLabel: _s(j['day_label']),
         opensAt: _s(j['opens_at']),
         closesAt: _s(j['closes_at']),
         window: _s(j['window']),
         notes: _s(j['notes']),
       );
+
+  bool get isEveryDay => days == null || days!.isEmpty;
+
+  /// [weekday] as the server counts: 0 = Sunday … 6 = Saturday.
+  bool appliesOn(int weekday) => isEveryDay || days!.contains(weekday);
+
+  /// The timings that hold on a day. One set for some days (a "Sat & Sun"
+  /// darshan) takes the place of the every-day timing with the same kind
+  /// and label that day, so a weekend shows its own hours, not both.
+  static List<Timing> forDay(Iterable<Timing> timings, int weekday) {
+    String key(Timing t) => '${t.kind}|${(t.label ?? '').trim().toLowerCase()}';
+    final on = timings.where((t) => t.appliesOn(weekday)).toList();
+    final replaced = {for (final t in on) if (!t.isEveryDay) key(t)};
+    return on.where((t) => !(t.isEveryDay && replaced.contains(key(t)))).toList();
+  }
 }
 
 class Fee {

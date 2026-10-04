@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/l10n/strings.dart';
@@ -329,7 +330,7 @@ class _Bubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final date = when == null ? '' : (DateTime.tryParse(when!)?.toLocal().toString().substring(0, 16) ?? '');
+    final date = when == null ? '' : (DateTime.tryParse(when!) == null ? '' : DateFormat('d MMM yyyy, h:mm a').format(DateTime.parse(when!).toLocal()));
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
