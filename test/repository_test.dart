@@ -114,4 +114,25 @@ void main() {
     final km = TempleRepository.distanceKm(17.3850, 78.4867, 13.6833, 79.3474);
     expect(km, closeTo(423, 15));
   });
+
+  test('a change of language fetches temple pages and deities again, translated', () async {
+    var calls = 0;
+    final api = ApiClient(
+      baseUrl: 'https://example.test',
+      client: MockClient((req) async {
+        calls++;
+        final name = req.headers['Accept-Language'] == 'te' ? 'రాముడు' : 'Rama';
+        return http.Response(jsonEncode({'data': [{'id': 1, 'name': name, 'slug': 'rama'}]}), 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+    final repo = TempleRepository(api);
+
+    expect((await repo.deities()).data.first.name, 'Rama');
+    await repo.deities();
+    expect(calls, 1, reason: 'kept for the session');
+
+    api.language = 'te';
+    expect((await repo.deities()).data.first.name, 'రాముడు');
+    expect(calls, 2);
+  });
 }
