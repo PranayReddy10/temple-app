@@ -149,6 +149,20 @@ class TempleRepository {
     }
   }
   Result<List<DeityRef>>? _deities;
+
+  /// The language the copies kept for the session were fetched in. Temple
+  /// and deity names come back translated, so a switch of language forgets
+  /// them rather than showing yesterday's Telugu to today's Hindi reader.
+  String? _cachedLanguage;
+
+  void _forgetIfLanguageChanged() {
+    if (_cachedLanguage == api.language) return;
+    _cachedLanguage = api.language;
+    _detailCache.clear();
+    _deities = null;
+    _categories = null;
+    _states = null;
+  }
   Result<List<CategoryRef>>? _categories;
   Result<List<StateRef>>? _states;
 
@@ -214,6 +228,7 @@ class TempleRepository {
   /// devotee changed something on it (wrote a review), the page must show
   /// the server's answer, not what it looked like before.
   Future<Result<TempleDetail>> temple(String slug, {bool fresh = false}) async {
+    _forgetIfLanguageChanged();
     final cached = _detailCache[slug];
     if (!fresh && cached != null && DateTime.now().difference(cached.at) < detailFreshFor) return Result(cached.detail, DataSource.live);
     return _tryLive(
@@ -241,6 +256,7 @@ class TempleRepository {
   // first request that failed left the whole session on sample data, and
   // pull-to-refresh could not get past it. [fresh] asks the server again.
   Future<Result<List<DeityRef>>> deities({bool fresh = false}) async {
+    _forgetIfLanguageChanged();
     if (!fresh && _deities != null) return _deities!;
     final r = await _tryLive(
       () async => ((await api.get('deities'))['data'] as List).map((e) => DeityRef.fromJson(e as Map<String, dynamic>)).toList(),
@@ -251,6 +267,7 @@ class TempleRepository {
   }
 
   Future<Result<List<CategoryRef>>> categories({bool fresh = false}) async {
+    _forgetIfLanguageChanged();
     if (!fresh && _categories != null) return _categories!;
     final r = await _tryLive(
       () async => ((await api.get('categories'))['data'] as List).map((e) => CategoryRef.fromJson(e as Map<String, dynamic>)).toList(),
@@ -261,6 +278,7 @@ class TempleRepository {
   }
 
   Future<Result<List<StateRef>>> states({bool fresh = false}) async {
+    _forgetIfLanguageChanged();
     if (!fresh && _states != null) return _states!;
     final r = await _tryLive(
       () async => ((await api.get('states'))['data'] as List).map((e) => StateRef.fromJson(e as Map<String, dynamic>)).toList(),
