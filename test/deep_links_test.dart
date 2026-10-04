@@ -13,6 +13,19 @@ void main() {
     expect(DeepLink.parse(Uri.parse('https://darshansaathi.com/?temple=sri-rama-bhadrachalam&action=book')), const DeepLink('sri-rama-bhadrachalam', book: true));
   });
 
+  test('Donate on the website opens the hundi', () {
+    expect(DeepLink.parse(Uri.parse('https://darshansaathi.com/?temple=sri-rama&action=donate')), const DeepLink('sri-rama', donate: true));
+  });
+
+  test("a temple's QR code scanned with the camera checks in with the code", () {
+    const url = 'https://darshansaathi.com/temples/sri-rama/checkin?s=AbCd123_-x';
+    final link = DeepLink.parse(Uri.parse(url))!;
+    expect(link.slug, 'sri-rama');
+    expect(link.checkinCode, url);
+    // Without its signature it is only the temple page.
+    expect(DeepLink.parse(Uri.parse('https://darshansaathi.com/temples/sri-rama/checkin'))!.checkinCode, isNull);
+  });
+
   test('anything else is not a temple', () {
     expect(DeepLink.parse(Uri.parse('https://darshansaathi.com/')), isNull);
     expect(DeepLink.parse(Uri.parse('https://darshansaathi.com/temples')), isNull);

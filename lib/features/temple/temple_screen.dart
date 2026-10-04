@@ -55,7 +55,7 @@ import '../../core/time_format.dart';
 /// Songs & videos, Darshan, Seva) rather than separate tabs, so a devotee at
 /// the gate can flick from timings to the aarti video without losing place.
 class TempleScreen extends StatefulWidget {
-  const TempleScreen({super.key, required this.slug, this.preview, this.initialQr, this.openSevas = false});
+  const TempleScreen({super.key, required this.slug, this.preview, this.initialQr, this.openSevas = false, this.openHundi = false});
 
   final String slug;
   final TempleSummary? preview;
@@ -65,6 +65,9 @@ class TempleScreen extends StatefulWidget {
 
   /// Opened from "Book a seva" on the website: scroll to the sevas.
   final bool openSevas;
+
+  /// Opened from "Donate" on the website: the hundi opens.
+  final bool openHundi;
 
   @override
   State<TempleScreen> createState() => _TempleScreenState();
@@ -81,6 +84,7 @@ class _TempleScreenState extends State<TempleScreen> {
   bool _previewing = false;
   bool _qrOffered = false;
   bool _sevasShown = false;
+  bool _hundiShown = false;
   final _keys = {for (final k in _Section.values) k: GlobalKey()};
   // Cached here because dispose() may not look up ancestors through context.
   late final DayController _dayCtl = context.read<DayController>();
@@ -124,6 +128,13 @@ class _TempleScreenState extends State<TempleScreen> {
         _qrOffered = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _checkIn(r.data.summary, preset: widget.initialQr);
+        });
+      }
+      if (widget.openHundi && !_hundiShown) {
+        _hundiShown = true;
+        final donations = r.data.donations;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && donations.enabled) openHundi(context, r.data.summary, donations);
         });
       }
       if (widget.openSevas && !_sevasShown) {
