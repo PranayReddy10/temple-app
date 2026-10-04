@@ -1255,6 +1255,7 @@ class TempleDetail {
     this.history,
     this.descriptionCredit,
     this.descriptionCreditUrl,
+    this.textCredits = const {},
     this.significance,
     this.architectureStyle,
     this.builtPeriod,
@@ -1301,6 +1302,10 @@ class TempleDetail {
   /// opening: shown beside it, as the licence asks.
   final String? descriptionCredit;
   final String? descriptionCreditUrl;
+
+  /// The same credit for history and significance taken from Wikipedia,
+  /// by field: {'history': (text, url)}.
+  final Map<String, ({String text, String? url})> textCredits;
   final String? significance;
   final String? architectureStyle;
   final String? builtPeriod;
@@ -1343,6 +1348,10 @@ class TempleDetail {
       history: _s(about['history']),
       descriptionCredit: _s(_m(about['description_credit'])['text']),
       descriptionCreditUrl: _s(_m(about['description_credit'])['url']),
+      textCredits: {
+        for (final e in _m(about['credits']).entries)
+          if (_s(_m(e.value)['text']) != null) e.key: (text: _s(_m(e.value)['text'])!, url: _s(_m(e.value)['url'])),
+      },
       significance: _s(about['significance']),
       architectureStyle: _s(about['architecture_style']),
       builtPeriod: _s(about['built_period']),
