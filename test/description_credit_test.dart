@@ -15,6 +15,19 @@ void main() {
     expect(d.descriptionCredit, 'From Wikipedia, CC BY-SA 4.0');
     expect(d.descriptionCreditUrl, 'https://en.wikipedia.org/wiki/Ramappa_Temple');
 
+    final w = TempleDetail.fromJson({
+      'slug': 'ramappa',
+      'name': 'Ramappa Temple',
+      'about': {
+        'significance': 'Devotees come at Maha Shivaratri.',
+        'credits': {
+          'significance': {'text': 'From Wikipedia, CC BY-SA 4.0', 'url': 'https://en.wikipedia.org/wiki/Ramappa_Temple'},
+        },
+      },
+    });
+    expect(w.textCredits['significance']?.text, 'From Wikipedia, CC BY-SA 4.0');
+    expect(w.textCredits['history'], isNull);
+
     final ours = TempleDetail.fromJson({'slug': 'x', 'name': 'X', 'about': {'short_description': 'Written by us.', 'description_credit': null}});
     expect(ours.descriptionCredit, isNull);
   });
