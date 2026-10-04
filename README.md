@@ -19,7 +19,7 @@ working version:
 | Temple design system, light and dark, tinted per weekday deity | `core/theme/` |
 | Opening temple doors on every "enter" (temple, day, yatra) and on launch | `core/widgets/temple_door.dart` |
 | Five tabs: Home, Explore, Passport, Yatra, Profile | `features/shell/` |
-| Home: today's deity, mantra, week strip, nearby, popular, festivals | `features/home/` |
+| Home: today's deity, mantra, the temples you follow, week strip, nearby, popular, festivals | `features/home/` |
 | Day pages: one sanctum per weekday with mantra, offering, vrat, media, temples | `features/days/` |
 | Explore: lamp map of India, circuits, deities, states, search with filters and nearby | `features/explore/` |
 | Temple profile: hero gallery with viewer, section anchors, at-a-glance facts, deity mantra, songs, chants and videos, timings, closures, events, pujas, facilities, rules, contact, trust | `features/temple/` |

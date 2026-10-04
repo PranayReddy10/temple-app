@@ -401,7 +401,7 @@ class EventJoinFlow {
     if (event.id == null || !r.enabled) return;
     if (!await ensureSignedIn(context) || !context.mounted) return;
     final config = context.read<AppConfigController>().config;
-    if (r.isPaid && !config.paymentsEnabled) {
+    if (r.isPaid && !config.templePaymentsEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(config.paymentsElsewhere ? s('booking_pay_elsewhere') : s('booking_pay_soon'))));
       return;
     }

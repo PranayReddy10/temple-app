@@ -17,18 +17,23 @@ import '../../core/state/location_controller.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/bookings_controller.dart';
 import '../../core/state/day_controller.dart';
+import '../../core/state/engagement_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
 import '../../core/state/reminders_controller.dart';
+import '../../core/api/engagement_repository.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_door.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/temple_widgets.dart';
+import '../notifications/follows_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../calendar/calendar_screen.dart';
 import '../days/day_screen.dart';
 import '../events/event_screen.dart';
+import '../events/raise_bhajan_screen.dart';
 import '../guide/guide_screen.dart';
 import '../qr/qr_screens.dart';
 import '../explore/search_screen.dart';
@@ -101,6 +106,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _loadFestivals();
     // So the booking bar is current when Home opens.
     if (mounted) await context.read<BookingsController>().refreshAll();
+    // And the temples the devotee follows, from the account.
+    if (mounted) await context.read<EngagementController>().refresh();
   }
 
   /// The next major festivals across India, for the strip above temple events.
@@ -232,6 +239,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
             SliverToBoxAdapter(child: _ReminderBanner(reminders: context.watch<RemindersController>().upcoming)),
+            // The temples the devotee follows: theirs before anyone's.
+            if (context.watch<EngagementController>().follows case final follows when follows.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: SectionHeader(
+                  title: s('followed_home'),
+                  motif: Motif.bell,
+                  subtitle: s('followed_home_sub'),
+                  actionLabel: s('see_all'),
+                  onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FollowsScreen())),
+                ),
+              ),
+              SliverToBoxAdapter(child: _FollowedRow(follows: follows, onOpen: _open)),
+            ],
             SliverToBoxAdapter(child: _JourneyCard(day: day, onPassport: () => widget.onTab?.call(2))),
             SliverToBoxAdapter(child: SectionHeader(title: s('todays_practice'), motif: Motif.diya)),
             SliverToBoxAdapter(child: _PracticeCard(day: day)),
@@ -255,10 +275,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-            ],
-            if (_bhajans.isNotEmpty) ...[
-              SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'))),
-              SliverList.builder(itemCount: _bhajans.length, itemBuilder: (context, i) => BhajanCard(event: _bhajans[i])),
             ],
             SliverToBoxAdapter(child: SectionHeader(title: s('nearby'), motif: Motif.diya, actionLabel: _nearby == null ? null : s('see_all'), onAction: widget.onExplore)),
             SliverToBoxAdapter(child: _NearbySection(result: _nearby, error: _nearbyError, locating: _locating, onLocate: _locate, onOpen: _open)),
@@ -286,6 +302,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SliverToBoxAdapter(child: _CircuitRow()),
             SliverToBoxAdapter(child: _YatraPrompt(day: day, onOpen: () => widget.onTab?.call(3))),
             const SliverToBoxAdapter(child: _SevaPrompt()),
+            // Bhajans near the devotee this week, and the way to start one.
+            SliverToBoxAdapter(child: SectionHeader(title: s('bhajans_week'), motif: Motif.bell, subtitle: s('bhajans_week_sub'), actionLabel: s('raise_bhajan_short'), onAction: () => raiseBhajanSomewhere(context))),
+            if (_bhajans.isEmpty)
+              SliverToBoxAdapter(child: _RaiseBhajanPrompt(day: day, onRaise: () => raiseBhajanSomewhere(context)))
+            else
+              SliverList.builder(itemCount: _bhajans.length, itemBuilder: (context, i) => BhajanCard(event: _bhajans[i])),
             SliverToBoxAdapter(
                 child: SectionHeader(
                     title: s('festivals'), motif: Motif.bell, actionLabel: s('calendar'), onAction: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())))),
@@ -429,16 +451,16 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
+    return Container(
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(999), boxShadow: AppStyle.of(context).cardShadow),
+      child: Material(
       color: theme.colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(999),
-      elevation: 3,
-      shadowColor: theme.colorScheme.primary.withValues(alpha: 0.3),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
           child: Row(
             children: [
               Icon(Icons.search_rounded, color: theme.colorScheme.primary),
@@ -448,6 +470,7 @@ class _SearchBar extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -552,16 +575,23 @@ class _Carousel extends StatelessWidget {
   final void Function(TempleSummary) onOpen;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: scaledHeight(context, 262),
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: temples.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, i) => TempleCard(temple: temples[i], width: 230, onTap: () => onOpen(temples[i])),
-        ),
-      );
+  Widget build(BuildContext context) {
+    // Most of the screen's width, so the photo reads as a photo and the
+    // name has room; the next card peeks in to say there are more.
+    final width = (MediaQuery.sizeOf(context).width * 0.8).clamp(240.0, 340.0);
+    // 4:3, the same shape as the temple page's header, so one photo
+    // uploaded for a temple fits both without cropping.
+    return SizedBox(
+      height: width * 0.75,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: temples.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) => TempleCard(temple: temples[i], width: width, onTap: () => onOpen(temples[i])),
+      ),
+    );
+  }
 }
 
 class _EventTile extends StatelessWidget {
@@ -577,12 +607,12 @@ class _EventTile extends StatelessWidget {
     final dayNum = event.startsOn != null && event.startsOn!.length >= 10 ? event.startsOn!.substring(8, 10) : '';
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-      child: Card(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: event.id != null ? () => openEvent(context, event) : (event.templeSlug == null ? null : () => enterTemple(context, TempleScreen(slug: event.templeSlug!))),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+      child: SoftCard(
+        onTap: event.id != null ? () => openEvent(context, event) : (event.templeSlug == null ? null : () => enterTemple(context, TempleScreen(slug: event.templeSlug!))),
+        padding: const EdgeInsets.all(12),
+        child: Builder(
+          builder: (context) => Padding(
+            padding: EdgeInsets.zero,
             child: Row(
               children: [
                 Container(
@@ -634,24 +664,94 @@ class _QuickAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Expanded(
-      child: Material(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: theme.colorScheme.outlineVariant)),
-            child: Column(
-              children: [
-                Icon(icon, color: theme.colorScheme.primary),
-                const SizedBox(height: 4),
-                Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 0.3, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
+      child: SoftCard(
+        onTap: onTap,
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
+        radius: 18,
+        child: Column(
+          children: [
+            IconBadge(icon, size: 38),
+            const SizedBox(height: 8),
+            Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 0.2, fontSize: 11.5)),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// The temples the devotee follows, as a strip of cards; the bell marks
+/// what each may send.
+class _FollowedRow extends StatelessWidget {
+  const _FollowedRow({required this.follows, required this.onOpen});
+
+  final List<FollowedTemple> follows;
+  final void Function(TempleSummary) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final width = (MediaQuery.sizeOf(context).width * 0.72).clamp(220.0, 300.0);
+    return SizedBox(
+      height: width * 0.75,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: follows.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) {
+          final f = follows[i];
+          final t = f.temple;
+          final day = DayTheme.forDeity(t.deity?.slug);
+          final reminders = [if (f.notifyFestivals) 'festivals', if (f.notifyEvents) 'events'];
+          return SizedBox(
+            width: width,
+            child: SoftCard(
+              onTap: () => onOpen(t),
+              padding: EdgeInsets.zero,
+              border: Colors.transparent,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  TempleCover(slug: t.slug, photo: t.primaryPhoto, small: false, deitySlug: t.deity?.slug, motifSize: 40),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: [0.3, 1], colors: [Colors.transparent, Color(0xCC000000)]),
+                    ),
+                  ),
+                  Positioned(
+                    right: 10,
+                    top: 10,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: day.accent, shape: BoxShape.circle, border: Border.all(color: Colors.white.withValues(alpha: 0.6))),
+                      child: Icon(Icons.notifications_active_rounded, size: 14, color: day.onAccent()),
+                    ),
+                  ),
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(t.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif', color: Colors.white, height: 1.2)),
+                        const SizedBox(height: 2),
+                        Text(
+                          [t.location.short, if (reminders.isNotEmpty) reminders.join(' · ')].where((e) => e.isNotEmpty).join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.85), fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -727,19 +827,16 @@ class _Greeting extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(22, 16, 22, 10),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: theme.colorScheme.primary.withValues(alpha: 0.12)),
-            child: MotifIcon(Motif.diya, size: 26, color: theme.colorScheme.primary),
-          ),
-          const SizedBox(width: 10),
+          const IconBadge(null, motif: Motif.diya, size: 46),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text('$part · $date'.toUpperCase(), style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary, letterSpacing: 1.2, fontSize: 10.5)),
+                const SizedBox(height: 2),
                 Text(first == null || first.isEmpty ? '${s('namaste')}!' : '${s('namaste')}, $first',
-                    style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600)),
-                Text('$part · $date', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65))),
+                    style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'NotoSerif', fontWeight: FontWeight.w600, fontSize: 22)),
               ],
             ),
           ),
@@ -1048,6 +1145,37 @@ class _YatraPrompt extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             FilledButton(onPressed: onOpen, style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent()), child: Text(current == null ? s('start') : s('open'))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// No bhajan this week: an invitation to organise one, free, at any temple.
+class _RaiseBhajanPrompt extends StatelessWidget {
+  const _RaiseBhajanPrompt({required this.day, required this.onRaise});
+
+  final DayTheme day;
+  final VoidCallback onRaise;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SoftCard(
+        onTap: onRaise,
+        color: day.accent.withValues(alpha: 0.08),
+        border: day.accent.withValues(alpha: 0.35),
+        child: Row(
+          children: [
+            IconBadge(null, motif: Motif.bell, color: day.accent, size: 48),
+            const SizedBox(width: 14),
+            Expanded(child: Text(s('bhajans_none'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface, height: 1.4))),
+            const SizedBox(width: 10),
+            FilledButton(onPressed: onRaise, style: FilledButton.styleFrom(backgroundColor: day.accent, foregroundColor: day.onAccent(), visualDensity: VisualDensity.compact), child: Text(s('raise_bhajan_short'))),
           ],
         ),
       ),

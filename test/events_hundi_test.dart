@@ -261,7 +261,13 @@ void main() {
       final list = find.descendant(of: find.byType(CustomScrollView), matching: find.byType(Scrollable)).first;
       await tester.scrollUntilVisible(find.text('Every Friday'), 200, scrollable: list);
       expect(find.text('Every Friday'), findsOneWidget);
-      await tester.scrollUntilVisible(find.byType(ChoiceChip).last, 200, scrollable: list);
+      // The chips sit a little further down; a list child is not built
+      // until it scrolls into the cache, so scroll until all three are.
+      for (var i = 0; i < 12 && find.byType(ChoiceChip).evaluate().length < 3; i++) {
+        await tester.drag(list, const Offset(0, -150));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+      }
       expect(find.byType(ChoiceChip), findsNWidgets(3));
       await tester.scrollUntilVisible(find.text('Raghupati Raghava'), 200, scrollable: list);
       expect(find.text('Sri Rama Jaya Rama'), findsOneWidget);

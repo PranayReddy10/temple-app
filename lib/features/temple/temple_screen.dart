@@ -25,14 +25,15 @@ import '../../core/ads/ads.dart';
 import '../../core/state/favourites_controller.dart';
 import '../../core/state/passport_controller.dart';
 import '../../core/state/yatra_controller.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/day_theme.dart';
 import '../../core/theme/palette.dart';
 import '../../core/widgets/media_widgets.dart';
 import '../../core/widgets/temple_widgets.dart';
 import '../bookings/book_puja_sheet.dart';
-import '../bookings/bookings_screen.dart';
 import '../donations/donate_screen.dart';
 import '../events/event_screen.dart';
+import '../events/raise_bhajan_screen.dart';
 import '../family/family_screen.dart';
 import '../media/in_app_browser.dart';
 import '../passport/stamp_widget.dart';
@@ -371,29 +372,7 @@ class _TempleScreenState extends State<TempleScreen> {
             if (photos.isEmpty)
               SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _EmptyLine(icon: Icons.photo_library_outlined, text: s('no_photos'))))
             else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverGrid.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 6, crossAxisSpacing: 6),
-                  itemCount: photos.length,
-                  itemBuilder: (context, i) => GestureDetector(
-                    onTap: () => _openViewer(photos, i),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          TempleImage(photo: photos[i], small: true, deitySlug: t.deity?.slug, motifSize: 28),
-                          if (photos[i].isDevoteePhoto)
-                            Positioned(left: 6, bottom: 6, right: 6, child: _Pill(text: '${s('photo_by')} ${photos[i].devoteeName ?? photos[i].credit ?? ''}'.trim(), color: Palette.tulsi.withValues(alpha: 0.85)))
-                          else if (photos[i].category != null)
-                            Positioned(left: 6, bottom: 6, child: _Pill(text: photos[i].category!, color: Colors.black54)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              SliverToBoxAdapter(child: _PhotoStrip(photos: photos, deitySlug: t.deity?.slug, onOpen: (i) => _openViewer(photos, i))),
             // A native ad between sections, never above the temple's own
             // facts; off for no-ads plans and wherever the admin turns it off.
             const SliverPadding(padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: NativeAdSlot(placement: 'temple_detail'))),
@@ -407,13 +386,13 @@ class _TempleScreenState extends State<TempleScreen> {
               if (media.any(isVideoLike))
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: scaledHeight(context, 206),
+                    height: scaledHeight(context, 266),
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       itemCount: media.where(isVideoLike).length.clamp(0, 8),
                       separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, i) => MediaCard(media: media.where(isVideoLike).elementAt(i), day: day, width: 150),
+                      itemBuilder: (context, i) => MediaCard(media: media.where(isVideoLike).elementAt(i), day: day, width: 200),
                     ),
                   ),
                 ),
@@ -484,14 +463,14 @@ class _TempleScreenState extends State<TempleScreen> {
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverToBoxAdapter(
-                  child: Container(
-                    decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18), border: Border.all(color: theme.colorScheme.outlineVariant)),
+                  child: SoftCard(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Column(
                       children: [
                         for (final e in d.visitorRules.entries)
                           ListTile(
                             dense: true,
-                            leading: Icon(_ruleIcon(e.key), color: day.accent),
+                            leading: IconBadge(_ruleIcon(e.key), color: day.accent, size: 34),
                             title: Text(_ruleLabel(e.key), style: theme.textTheme.labelLarge?.copyWith(letterSpacing: 0.5)),
                             subtitle: Text(e.value),
                           ),
@@ -548,7 +527,6 @@ class _TempleScreenState extends State<TempleScreen> {
                                     puja: p,
                                     day: day,
                                     onBook: p.isBookableInApp ? () => BookPujaFlow.start(context, t, p) : null,
-                                    onNoted: () => BookingsScreen.record(context, t, p),
                                   ),
                                 ),
                             ],
@@ -673,6 +651,18 @@ class _TempleScreenState extends State<TempleScreen> {
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: OutlinedButton.icon(onPressed: () => SubmissionsScreen.submit(context, temple: t), icon: const Icon(Icons.edit_note_rounded), label: Text(s('suggest_edit'))),
+              ),
+            ),
+            // Sing here: a bhajan gathering the devotee organises, free,
+            // once the editors have looked at it.
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              sliver: SliverToBoxAdapter(
+                child: OutlinedButton.icon(
+                  onPressed: () => RaiseBhajanScreen.open(context, t),
+                  icon: const Icon(Icons.music_note_rounded),
+                  label: Text(s('raise_bhajan')),
+                ),
               ),
             ),
             // Care for the place itself: a clean-up or a lamp for a temple
@@ -1115,23 +1105,18 @@ class _ActionGrid extends StatelessWidget {
             for (final a in actions)
               SizedBox(
                 width: w,
-                child: Material(
-                  color: a.highlighted ? day.accent.withValues(alpha: 0.16) : theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: a.onTap,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
-                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: a.highlighted ? day.accent : theme.colorScheme.outlineVariant)),
-                      child: Column(
-                        children: [
-                          Icon(a.icon, color: day.accent, size: 26),
-                          const SizedBox(height: 6),
-                          Text(a.label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                    ),
+                child: SoftCard(
+                  onTap: a.onTap,
+                  radius: 18,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                  color: a.highlighted ? day.accent.withValues(alpha: 0.14) : null,
+                  border: a.highlighted ? day.accent.withValues(alpha: 0.6) : null,
+                  child: Column(
+                    children: [
+                      IconBadge(a.icon, color: day.accent, size: 40, filled: a.highlighted),
+                      const SizedBox(height: 8),
+                      Text(a.label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: 12)),
+                    ],
                   ),
                 ),
               ),
@@ -1221,9 +1206,9 @@ class _BottomActions extends StatelessWidget {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, MediaQuery.paddingOf(context).bottom + 10),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, -2))],
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 16, offset: const Offset(0, -3))],
       ),
       child: Row(
         children: [
@@ -1274,13 +1259,16 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // 4:3 of the screen's width, the shape the home cards use too, so a
+    // temple's photo fits both without cropping.
+    final height = (MediaQuery.sizeOf(context).width * 0.75).clamp(260.0, 440.0);
     return SliverAppBar(
-      expandedHeight: 340,
+      expandedHeight: height,
       pinned: true,
       stretch: true,
       backgroundColor: day.accent,
       foregroundColor: day.onAccent(),
-      title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: 340),
+      title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: height),
       actions: [
         // A like: one tap, the lightest signal. A heart with its count.
         Tooltip(
@@ -1317,24 +1305,48 @@ class _Hero extends StatelessWidget {
               child: IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.45, 1], colors: [Colors.black.withValues(alpha: 0.4), Colors.transparent, Colors.black.withValues(alpha: 0.55)]),
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.4, 1], colors: [Colors.black.withValues(alpha: 0.4), Colors.transparent, Colors.black.withValues(alpha: 0.72)]),
                   ),
                 ),
               ),
             ),
             const Positioned(left: 0, right: 0, bottom: 0, child: IgnorePointer(child: SizedBox(height: 56, child: CustomPaint(painter: ToranaPainter(color: Palette.gold, strokeWidth: 3, scallops: 15))))),
-            Positioned(left: 16, bottom: 18, child: TrustBadge(trust: temple.trust)),
-            if (photos.length > 1)
-              Positioned(
-                right: 16,
-                bottom: 18,
-                child: Row(
+            // The temple's name over its own photo, where the eye lands.
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 22,
+              child: IgnorePointer(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    for (var i = 0; i < photos.length; i++) Container(width: i == index ? 16 : 6, height: 6, margin: const EdgeInsets.only(left: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: i == index ? 1 : 0.5), borderRadius: BorderRadius.circular(3))),
+                    Text(temple.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.headlineSmall?.copyWith(color: Colors.white, height: 1.15, shadows: const [Shadow(color: Colors.black54, blurRadius: 12)])),
+                    const SizedBox(height: 4),
+                    Text(
+                      [temple.deity?.name, temple.location.short].where((e) => e != null && e.isNotEmpty).join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white.withValues(alpha: 0.9), shadows: const [Shadow(color: Colors.black54, blurRadius: 8)]),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TrustBadge(trust: temple.trust),
+                        const Spacer(),
+                        if (photos.length > 1)
+                          Row(
+                            children: [
+                              for (var i = 0; i < photos.length; i++) Container(width: i == index ? 16 : 6, height: 6, margin: const EdgeInsets.only(left: 4), decoration: BoxDecoration(color: Colors.white.withValues(alpha: i == index ? 1 : 0.5), borderRadius: BorderRadius.circular(3))),
+                            ],
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-            if (photos.isNotEmpty && photos[index].credit != null) Positioned(left: 16, bottom: 44, child: Text('© ${photos[index].credit}', style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70))),
+            ),
+            if (photos.isNotEmpty && photos[index].credit != null) Positioned(right: 16, top: MediaQuery.paddingOf(context).top + kToolbarHeight + 4, child: Text('© ${photos[index].credit}', style: theme.textTheme.labelSmall?.copyWith(color: Colors.white70))),
           ],
         ),
       ),
@@ -1412,7 +1424,7 @@ class _QuickFacts extends StatelessWidget {
     ];
     final theme = Theme.of(context);
     return SizedBox(
-      height: scaledHeight(context, 92),
+      height: scaledHeight(context, 104),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1426,24 +1438,77 @@ class _QuickFacts extends StatelessWidget {
                   if (!ok && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Allow location to see how far each temple is.')));
                 }
               : null,
-          child: Container(
-          width: 150,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: day.accent.withValues(alpha: 0.3)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [Icon(facts[i].$1, size: 14, color: day.accent), const SizedBox(width: 6), Expanded(child: Text(facts[i].$2.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.5, color: day.accent)))]),
-              const Spacer(),
-              Text(facts[i].$3, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif')),
-            ],
+          child: SizedBox(
+            width: 156,
+            child: SoftCard(
+              radius: 18,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [IconBadge(facts[i].$1, color: day.accent, size: 26), const SizedBox(width: 8), Expanded(child: Text(facts[i].$2.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 1.2, color: day.accent, fontSize: 10)))]),
+                  const Spacer(),
+                  Text(facts[i].$3, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleSmall?.copyWith(fontFamily: 'NotoSerif')),
+                ],
+              ),
+            ),
           ),
         ),
-        ),
+      ),
+    );
+  }
+}
+
+/// The temple's photos as a strip of cards, each the whole picture at 4:3
+/// with its caption; tapping one opens it full screen, swipeable.
+class _PhotoStrip extends StatelessWidget {
+  const _PhotoStrip({required this.photos, required this.deitySlug, required this.onOpen});
+
+  final List<Photo> photos;
+  final String? deitySlug;
+  final ValueChanged<int> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final theme = Theme.of(context);
+    final width = (MediaQuery.sizeOf(context).width * 0.72).clamp(220.0, 320.0);
+    return SizedBox(
+      height: width * 0.75 + 52,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: photos.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) {
+          final p = photos[i];
+          final caption = p.isDevoteePhoto ? '${s('photo_by')} ${p.devoteeName ?? p.credit ?? ''}'.trim() : (p.category ?? p.credit ?? '');
+          return SizedBox(
+            width: width,
+            child: SoftCard(
+              onTap: () => onOpen(i),
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AspectRatio(aspectRatio: 4 / 3, child: TempleImage(photo: p, deitySlug: deitySlug, motifSize: 40)),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+                      child: Row(
+                        children: [
+                          Icon(Icons.fullscreen_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 6),
+                          Expanded(child: Text(caption.isEmpty ? '${i + 1} / ${photos.length}' : caption, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1504,24 +1569,24 @@ class _TimingsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18), border: Border.all(color: theme.colorScheme.outlineVariant)),
+    return SoftCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           for (var i = 0; i < timings.length; i++) ...[
-            if (i > 0) const Divider(height: 1),
+            if (i > 0) const Divider(height: 1, indent: 64),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
               child: Row(
                 children: [
-                  Icon(
+                  IconBadge(
                       timings[i].kind == 'aarti'
                           ? Icons.local_fire_department_rounded
                           : timings[i].kind == 'darshan'
                               ? Icons.visibility_rounded
                               : Icons.schedule_rounded,
                       color: accent,
-                      size: 20),
+                      size: 38),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -1536,9 +1601,20 @@ class _TimingsTable extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Flexible: "06:00 – 12:00" beside a long label at large
-                  // text would otherwise run off a narrow phone.
-                  Flexible(child: Text(timings[i].window ?? showTimeRange(timings[i].opensAt, timings[i].closesAt), textAlign: TextAlign.end, style: theme.textTheme.titleSmall?.copyWith(color: accent))),
+                  const SizedBox(width: 10),
+                  // The hours as a pill, in from the edge; Flexible so a long
+                  // label beside "06:00 – 12:00" never runs off a narrow phone.
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+                      child: Text(
+                        timings[i].window ?? '${timings[i].opensAt ?? ''} – ${timings[i].closesAt ?? ''}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelLarge?.copyWith(color: accent, letterSpacing: 0.2),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1557,12 +1633,11 @@ class _TimingsTable extends StatelessWidget {
 /// seva ([onBook] non-null). Everything else shows as it always did: the
 /// temple's own link if there is one, otherwise "book at the temple".
 class _PujaCard extends StatelessWidget {
-  const _PujaCard({required this.puja, required this.day, this.onBook, required this.onNoted});
+  const _PujaCard({required this.puja, required this.day, this.onBook});
 
   final Puja puja;
   final DayTheme day;
   final VoidCallback? onBook;
-  final VoidCallback onNoted;
 
   @override
   Widget build(BuildContext context) {
@@ -1578,6 +1653,7 @@ class _PujaCard extends StatelessWidget {
         color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: inApp ? Palette.tulsi.withValues(alpha: 0.6) : theme.colorScheme.outlineVariant, width: inApp ? 1.5 : 1),
+        boxShadow: AppStyle.of(context).cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1668,7 +1744,6 @@ class _PujaCard extends StatelessWidget {
                     ],
                   ),
                   if (b.note != null) Text(b.note!, style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)),
-                  Align(alignment: Alignment.centerRight, child: TextButton.icon(onPressed: onNoted, icon: const Icon(Icons.bookmark_add_outlined, size: 16), label: const Text('I booked this'))),
                 ],
               ],
             ),
@@ -1750,21 +1825,21 @@ class _VisitToday extends StatelessWidget {
       if (festival != null) (Icons.celebration_rounded, festival.isHappeningToday ? 'Today' : 'Next festival', '${festival.title}${festival.dateLabel != null ? ' · ${festival.dateLabel}' : ''}', null),
       if (bookable > 0) (Icons.qr_code_2_rounded, 'Book in the app', '$bookable ${bookable == 1 ? 'seva' : 'sevas'} · pay here, show the code at the counter', onSeva),
     ];
-    return Container(
-      decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(18), border: Border.all(color: (closed ? Palette.kumkum : day.accent).withValues(alpha: 0.35))),
+    return SoftCard(
+      padding: EdgeInsets.zero,
+      border: (closed ? Palette.kumkum : day.accent).withValues(alpha: 0.3),
       child: Column(
         children: [
           for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0) const Divider(height: 1, indent: 48),
+            if (i > 0) const Divider(height: 1, indent: 62),
             InkWell(
               onTap: rows[i].$4,
-              borderRadius: BorderRadius.vertical(top: i == 0 ? const Radius.circular(18) : Radius.zero, bottom: i == rows.length - 1 ? const Radius.circular(18) : Radius.zero),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 child: Row(
                   children: [
-                    Icon(rows[i].$1, size: 20, color: i == 0 && closed ? Palette.kumkum : (rows[i].$1 == Icons.qr_code_2_rounded ? Palette.tulsi : day.accent)),
-                    const SizedBox(width: 14),
+                    IconBadge(rows[i].$1, size: 36, color: i == 0 && closed ? Palette.kumkum : (rows[i].$1 == Icons.qr_code_2_rounded ? Palette.tulsi : day.accent)),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

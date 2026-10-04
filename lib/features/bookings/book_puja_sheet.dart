@@ -38,7 +38,9 @@ class BookPujaFlow {
     final auth = context.read<AuthController>();
     if (!await ensureSignedIn(context) || !context.mounted) return;
     final config = context.read<AppConfigController>().config;
-    if (puja.appBooking.requiresPayment && !config.paymentsEnabled) {
+    // Only the platform's own readiness gates this: the temple's approval
+    // is already in the seva's app_booking.enabled from the server.
+    if (puja.appBooking.requiresPayment && !config.templePaymentsEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(config.paymentsElsewhere ? s('booking_pay_elsewhere') : s('booking_pay_soon'))));
       return;
     }
@@ -455,6 +457,15 @@ class _BookPujaSheetState extends State<_BookPujaSheet> {
                 decoration: BoxDecoration(color: day.accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14), border: Border.all(color: day.accent.withValues(alpha: 0.3))),
                 child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(Icons.info_outline_rounded, size: 18, color: day.accent), const SizedBox(width: 8), Expanded(child: Text(ab.instructions!, style: theme.textTheme.bodySmall))]),
               ),
+            ],
+            if (total > 0) ...[
+              const SizedBox(height: 12),
+              // Said before the money moves: a paid seva is the temple's.
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.lock_clock_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(child: Text(s('booking_no_refund'), style: theme.textTheme.bodySmall)),
+              ]),
             ],
             const SizedBox(height: 16),
             Row(

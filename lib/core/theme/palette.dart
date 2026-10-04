@@ -22,6 +22,10 @@ class Palette {
   static const Color ash = Color(0xFF6B7FA8);
   static const Color tulsi = Color(0xFF2E7D55);
   static const Color ivory = Color(0xFFFFF8EC);
+
+  /// The card face in the light scheme: a shade lighter than ivory, so a
+  /// card lifts off the sandal page on its shadow alone.
+  static const Color paper = Color(0xFFFFFCF5);
   static const Color stone = Color(0xFFB8A48B);
   static const Color darkStone = Color(0xFF2B1B16);
 
