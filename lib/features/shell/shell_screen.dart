@@ -17,6 +17,8 @@ import '../profile/profile_screen.dart';
 import '../yatra/yatra_screen.dart';
 import '../../core/services/deep_links.dart';
 import '../temple/temple_screen.dart';
+import '../qr/qr_screens.dart';
+import '../payments/payment_result_screen.dart';
 
 /// Five tabs, per the project plan: Home, Explore, Passport, Yatra, Profile.
 class ShellScreen extends StatefulWidget {
@@ -38,14 +40,38 @@ class _ShellScreenState extends State<ShellScreen> {
     Analytics.instance.screen(_tabs[_index]);
     // A temple link (shared page, or the website's Open / Book buttons).
     DeepLinks.pending.addListener(_openLink);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _openLink());
+    DeepLinks.pendingPayment.addListener(_openPayment);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openLink();
+      _openPayment();
+    });
   }
 
   void _openLink() {
     if (!mounted || DeepLinks.pending.value == null) return;
     final link = DeepLinks.take()!;
     Analytics.instance.screen('deep_link', item: link.slug);
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => TempleScreen(slug: link.slug, openSevas: link.book)));
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TempleScreen(
+        slug: link.slug,
+        openSevas: link.book,
+        openHundi: link.donate,
+        // The temple's QR code, scanned with the phone camera: check in with
+        // it, as if scanned in the app. The server checks the signature.
+        initialQr: link.checkinCode == null
+            ? null
+            : QrScanResult(slug: link.slug, raw: link.checkinCode!),
+      ),
+    ));
+  }
+
+  /// Back from paying on the website: how the payment ended.
+  void _openPayment() {
+    final id = DeepLinks.pendingPayment.value;
+    if (!mounted || id == null) return;
+    DeepLinks.pendingPayment.value = null;
+    Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PaymentResultScreen(paymentId: id)));
   }
 
   static const _tabs = ['home', 'explore', 'passport', 'yatra', 'profile'];
@@ -60,6 +86,7 @@ class _ShellScreenState extends State<ShellScreen> {
   void dispose() {
     shellTabRequest.removeListener(_onTabRequest);
     DeepLinks.pending.removeListener(_openLink);
+    DeepLinks.pendingPayment.removeListener(_openPayment);
     super.dispose();
   }
 
@@ -89,26 +116,40 @@ class _ShellScreenState extends State<ShellScreen> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (context.watch<AudioQueueController?>() != null) const MiniPlayer(),
+          if (context.watch<AudioQueueController?>() != null)
+            const MiniPlayer(),
           NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: _go,
-        destinations: [
-          NavigationDestination(
-            icon: MotifIcon(day.motif, size: 24, color: scheme.onSurface.withValues(alpha: 0.65)),
-            selectedIcon: MotifIcon(day.motif, size: 26, color: scheme.primary),
-            label: s('home'),
+            selectedIndex: _index,
+            onDestinationSelected: _go,
+            destinations: [
+              NavigationDestination(
+                icon: MotifIcon(day.motif,
+                    size: 24, color: scheme.onSurface.withValues(alpha: 0.65)),
+                selectedIcon:
+                    MotifIcon(day.motif, size: 26, color: scheme.primary),
+                label: s('home'),
+              ),
+              NavigationDestination(
+                  icon: const Icon(Icons.explore_outlined),
+                  selectedIcon: const Icon(Icons.explore_rounded),
+                  label: s('explore')),
+              NavigationDestination(
+                icon: MotifIcon(Motif.kalasha,
+                    size: 24, color: scheme.onSurface.withValues(alpha: 0.65)),
+                selectedIcon:
+                    MotifIcon(Motif.kalasha, size: 26, color: scheme.primary),
+                label: s('passport'),
+              ),
+              NavigationDestination(
+                  icon: const Icon(Icons.route_outlined),
+                  selectedIcon: const Icon(Icons.route_rounded),
+                  label: s('yatra')),
+              NavigationDestination(
+                  icon: const Icon(Icons.person_outline_rounded),
+                  selectedIcon: const Icon(Icons.person_rounded),
+                  label: s('profile')),
+            ],
           ),
-          NavigationDestination(icon: const Icon(Icons.explore_outlined), selectedIcon: const Icon(Icons.explore_rounded), label: s('explore')),
-          NavigationDestination(
-            icon: MotifIcon(Motif.kalasha, size: 24, color: scheme.onSurface.withValues(alpha: 0.65)),
-            selectedIcon: MotifIcon(Motif.kalasha, size: 26, color: scheme.primary),
-            label: s('passport'),
-          ),
-          NavigationDestination(icon: const Icon(Icons.route_outlined), selectedIcon: const Icon(Icons.route_rounded), label: s('yatra')),
-          NavigationDestination(icon: const Icon(Icons.person_outline_rounded), selectedIcon: const Icon(Icons.person_rounded), label: s('profile')),
-        ],
-      ),
         ],
       ),
     );

@@ -4,32 +4,55 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 
 /// A temple to open, from a link: a shared `darshansaathi.com/temples/<slug>`
-/// page opened on the phone, or the website's "Open in the app" / "Book a
-/// seva" (`/?temple=<slug>&action=book`).
+/// page opened on the phone, the website's "Open in the app" / "Book a
+/// seva" / "Donate" (`/?temple=<slug>&action=book|donate`), or the temple's
+/// QR code scanned with the phone camera (`/temples/<slug>/checkin?s=…`).
 class DeepLink {
-  const DeepLink(this.slug, {this.book = false});
+  const DeepLink(this.slug,
+      {this.book = false, this.donate = false, this.checkinCode});
 
   final String slug;
 
   /// Straight to the temple's sevas.
   final bool book;
 
-  @override
-  bool operator ==(Object other) => other is DeepLink && other.slug == slug && other.book == book;
+  /// Straight to its hundi.
+  final bool donate;
+
+  /// The scanned check-in code, whole: the visit is checked in with it.
+  final String? checkinCode;
 
   @override
-  int get hashCode => Object.hash(slug, book);
+  bool operator ==(Object other) =>
+      other is DeepLink &&
+      other.slug == slug &&
+      other.book == book &&
+      other.donate == donate &&
+      other.checkinCode == checkinCode;
+
+  @override
+  int get hashCode => Object.hash(slug, book, donate, checkinCode);
 
   /// The temple a URL is about, or null when it is not one.
   static DeepLink? parse(Uri uri) {
     final query = uri.queryParameters['temple']?.trim();
-    final book = uri.queryParameters['action'] == 'book';
-    if (query != null && _slug.hasMatch(query)) return DeepLink(query, book: book);
+    final action = uri.queryParameters['action'];
+    final book = action == 'book';
+    final donate = action == 'donate';
+    if (query != null && _slug.hasMatch(query)) {
+      return DeepLink(query, book: book, donate: donate);
+    }
 
     final parts = uri.pathSegments.where((p) => p.isNotEmpty).toList();
     final i = parts.indexOf('temples');
     if (i >= 0 && i + 1 < parts.length && _slug.hasMatch(parts[i + 1])) {
-      return DeepLink(parts[i + 1], book: book);
+      final checkin = i + 2 < parts.length &&
+          parts[i + 2] == 'checkin' &&
+          (uri.queryParameters['s'] ?? '').isNotEmpty;
+      return DeepLink(parts[i + 1],
+          book: book,
+          donate: donate,
+          checkinCode: checkin ? uri.toString() : null);
     }
     return null;
   }
@@ -44,6 +67,12 @@ class DeepLinks {
 
   static final pending = ValueNotifier<DeepLink?>(null);
 
+  /// A payment made on the website, whose page sent the devotee back here
+  /// (`/?payment=<id>`): its result is shown.
+  static final pendingPayment = ValueNotifier<String?>(null);
+
+  static final _paymentId = RegExp(r'^[0-9a-fA-F-]{36}$');
+
   static StreamSubscription<Uri>? _sub;
 
   /// Reads the link the app was opened with, and listens for later ones.
@@ -51,6 +80,10 @@ class DeepLinks {
     if (kIsWeb) {
       // The web app: the address it was opened at.
       pending.value = DeepLink.parse(Uri.base);
+      final payment = Uri.base.queryParameters['payment'];
+      if (payment != null && _paymentId.hasMatch(payment)) {
+        pendingPayment.value = payment;
+      }
       return;
     }
     try {
