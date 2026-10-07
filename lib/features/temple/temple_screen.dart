@@ -354,20 +354,17 @@ class _TempleScreenState extends State<TempleScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (t.shortDescription != null) Text(t.shortDescription!, style: theme.textTheme.bodyLarge?.copyWith(fontFamily: 'NotoSerif', height: 1.5)),
-                      if (t.shortDescription != null && d.descriptionCredit != null) _credit(context, d.descriptionCredit!, d.descriptionCreditUrl),
                       if (d.significance != null) ...[
                         const SizedBox(height: 14),
                         Text('Significance', style: theme.textTheme.titleSmall),
                         const SizedBox(height: 4),
                         Text(d.significance!, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5)),
-                        if (d.textCredits['significance'] != null) _credit(context, d.textCredits['significance']!.text, d.textCredits['significance']!.url),
                       ],
                       if (d.history != null && d.history != t.shortDescription) ...[
                         const SizedBox(height: 14),
                         Text('History', style: theme.textTheme.titleSmall),
                         const SizedBox(height: 4),
                         Text(d.history!, style: theme.textTheme.bodyMedium?.copyWith(height: 1.5)),
-                        if (d.textCredits['history'] != null) _credit(context, d.textCredits['history']!.text, d.textCredits['history']!.url),
                       ],
                     ],
                   ),
@@ -1909,16 +1906,3 @@ class _Meta extends StatelessWidget {
 /// the app where it is installed.
 String templeShareText(String name, String? city, String slug) =>
     '$name${city == null || city.isEmpty ? '' : ', $city'}\n${Brand.website.replaceAll(RegExp(r'/+$'), '')}/temples/$slug';
-
-/// "From Wikipedia, CC BY-SA 4.0" under a text taken from Wikipedia, as its
-/// licence asks; tapping it opens the article.
-Widget _credit(BuildContext context, String text, String? url) {
-  final theme = Theme.of(context);
-  return InkWell(
-    onTap: url == null ? null : () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
-    child: Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Text(text, style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant, decoration: url == null ? null : TextDecoration.underline)),
-    ),
-  );
-}
