@@ -55,11 +55,11 @@ RewriteRule ^ - [R=404,L]
 # temple directory, the temple, state and deity pages and the sitemap are
 # rendered by Laravel, which answers them on this domain too (and the temple
 # pages in Telugu, Hindi, Tamil and Kannada under /te, /hi, /ta, /kn; district
-# pages are /states/<state>/<district>). /storage is
+# pages are /states/<state>/<district>, tag pages /tags/<tag>). /storage is
 # where those pages' photos are served from, and google*.html is Search
 # Console's check (the file name is set in Admin > Analytics & SEO).
 RewriteRule ^((te|hi|ta|kn)/)?(temples(/.*)?)$ laravel/public/index.php [L,QSA]
-RewriteRule ^(states/.+|deities/.+|sitemap[^/]*\.xml|storage/.+|google[0-9a-f]+\.html)$ laravel/public/index.php [L,QSA]
+RewriteRule ^(states/.+|deities/.+|tags/.+|sitemap[^/]*\.xml|storage/.+|google[0-9a-f]+\.html)$ laravel/public/index.php [L,QSA]
 
 # The home page: Laravel serves this build's index.html with the search
 # engines' verification tags and the code pasted under Admin > Analytics &
