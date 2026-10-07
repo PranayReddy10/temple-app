@@ -42,16 +42,24 @@ Options -Indexes
 
 RewriteEngine On
 
+# One address per page: www.darshansaathi.com moves to darshansaathi.com,
+# so search engines do not split a temple's ranking between two copies.
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
 # Nothing of the Laravel project is reachable by its folder name.
 RewriteCond %{THE_REQUEST} \s/+laravel(/|\s|\?) [NC]
 RewriteRule ^ - [R=404,L]
 
 # Pages search engines read: the Flutter app is a blank page to them, so the
 # temple directory, the temple, state and deity pages and the sitemap are
-# rendered by Laravel, which answers them on this domain too. /storage is
+# rendered by Laravel, which answers them on this domain too (and the temple
+# pages in Telugu, Hindi, Tamil and Kannada under /te, /hi, /ta, /kn; district
+# pages are /states/<state>/<district>). /storage is
 # where those pages' photos are served from, and google*.html is Search
 # Console's check (the file name is set in Admin > Analytics & SEO).
-RewriteRule ^(temples(/.*)?|states/.+|deities/.+|sitemap[^/]*\.xml|storage/.+|google[0-9a-f]+\.html)$ laravel/public/index.php [L,QSA]
+RewriteRule ^((te|hi|ta|kn)/)?(temples(/.*)?)$ laravel/public/index.php [L,QSA]
+RewriteRule ^(states/.+|deities/.+|sitemap[^/]*\.xml|storage/.+|google[0-9a-f]+\.html)$ laravel/public/index.php [L,QSA]
 
 # The home page: Laravel serves this build's index.html with the search
 # engines' verification tags and the code pasted under Admin > Analytics &
