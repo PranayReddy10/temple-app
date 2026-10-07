@@ -58,7 +58,8 @@
 <body>
   <div id="loading" aria-label="Loading"><div></div></div>
   <!-- What search engines and link previews read: the app itself draws on a
-       canvas they cannot. Removed once the app's first frame is up. -->
+       canvas they cannot. The server adds links to states, deities and
+       popular temples before </main> (WebAppHomeController). -->
   <main id="seo" style="position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden">
     <h1>Darshan Saathi: your temple companion</h1>
     <p>Darshan timings, puja and seva booking, dress code and directions for Hindu temples across India, with bhajans, a temple passport and yatra planning.</p>
@@ -114,8 +115,11 @@
       started = true;
       var el = document.getElementById('loading');
       if (el) { el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 300); }
+      // The text and links stay in the page for search engines, which read
+      // the page after the app has started; hidden from screen readers,
+      // which read the app's own labels instead.
       var seo = document.getElementById('seo');
-      if (seo) { seo.remove(); }
+      if (seo) { seo.setAttribute('aria-hidden', 'true'); seo.inert = true; }
     });
   </script>
   <script src="flutter_bootstrap.js" async></script>
