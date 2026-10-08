@@ -18,7 +18,7 @@ Save Photo → Share → Plan the next Yatra.
 | Repo | Contains |
 | --- | --- |
 | `temple-website` | Laravel 12 REST API + Filament admin + temple portal + public web |
-| `temple-app` | Flutter — Android, iOS and Flutter Web from one codebase |
+| `temple-app` | Flutter — Android and iOS from one codebase (the website is HTML from `temple-website`) |
 
 The Flutter app talks to this repo only through versioned REST endpoints
 (`/api/v1/...`). Nothing in the app depends on Laravel specifics, so the
@@ -62,7 +62,7 @@ own entry point.
 | --- | --- | --- | --- |
 | **Staff** — super admin, editors | `/admin` | Session (Filament) | `users` |
 | **Temple authority** — trust, temple office | `/temple` | Session (Filament) | `users`, scoped to their temples |
-| **Devotees** — app and web users | Flutter app, public web | API token (Sanctum) | `devotees` (separate table) |
+| **Devotees** — app and web users | Flutter app, HTML website | API token (Sanctum) | `devotees` (separate table) |
 
 **Staff and temple authorities share the `users` table.** Both are small,
 known populations who manage content through a Filament panel. A
