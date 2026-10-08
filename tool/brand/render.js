@@ -41,14 +41,8 @@ for (const img of ios.images) {
   png(`${APP}/ios/Runner/Assets.xcassets/AppIcon.appiconset/${img.filename}`, px, { scale: 0.78 });
 }
 
-// --- Flutter web (darshansaathi.com): favicon, PWA icons, share image.
-png(`${APP}/web/favicon.png`, 64, { scale: 0.96, radius: 18, door: true });
-png(`${APP}/web/icons/Icon-192.png`, 192, { scale: 0.82, radius: 22 });
-png(`${APP}/web/icons/Icon-512.png`, 512, { scale: 0.82, radius: 22 });
-png(`${APP}/web/icons/Icon-maskable-192.png`, 192, { scale: 0.6 });
-png(`${APP}/web/icons/Icon-maskable-512.png`, 512, { scale: 0.6 });
-
-// --- The server (temple.darshansaathi.com): admin, portal, QR pages.
+// --- The server: the website (darshansaathi.com) and temple.darshansaathi.com.
+png(`${SITE}/public/favicon.png`, 64, { scale: 0.96, radius: 18, door: true });
 png(`${SITE}/public/icons/icon-192.png`, 192, { scale: 0.82, radius: 22 });
 png(`${SITE}/public/icons/icon-512.png`, 512, { scale: 0.82, radius: 22 });
 png(`${SITE}/public/icons/icon-maskable-512.png`, 512, { scale: 0.6 });
@@ -75,7 +69,7 @@ const og = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630"><rect
   <text x="520" y="300" font-family="Georgia, 'Noto Serif', serif" font-weight="700" font-size="84" fill="${C.deep}">Darshan Saathi</text>
   <text x="524" y="360" font-family="system-ui, sans-serif" font-size="26" letter-spacing="5" fill="${C.saffron}">YOUR TEMPLE COMPANION</text>
   <text x="524" y="425" font-family="system-ui, sans-serif" font-size="23" fill="#7a6a60">Darshan timings · Puja &amp; seva booking · Directions</text></svg>`;
-jobs.push({ file: `${APP}/web/og.png`, w: 1200, h: 630, svg: og, transparent: false });
+jobs.push({ file: `${SITE}/public/og.png`, w: 1200, h: 630, svg: og, transparent: false });
 
 (async () => {
   const browser = await chromium.launch();

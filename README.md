@@ -1,7 +1,11 @@
 # Temple App — Flutter Client
 
-Flutter client for the temple pilgrimage platform (**Darshan Saathi**, darshansaathi.com). One codebase targets **Android, iOS and
-Flutter Web**.
+Flutter client for the temple pilgrimage platform (**Darshan Saathi**, darshansaathi.com). One codebase targets **Android and iOS**.
+
+The website, https://darshansaathi.com, is not built from this app: it is
+HTML rendered by [`temple-website`](https://github.com/PranayReddy10/temple-website)
+(home page, temple directory, temple, state and deity pages), so search
+engines read every page.
 
 The backend API and admin panel live in
 [`temple-website`](https://github.com/PranayReddy10/temple-website); this app
@@ -82,18 +86,11 @@ Full request and response detail is in
 ```
 flutter pub get
 flutter run                               # a connected device or emulator
-flutter run -d chrome                     # web
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000   # a local server, from the Android emulator
 ```
 
 Without `API_BASE_URL` the app talks to the live server,
 https://temple.darshansaathi.com (the API and the admin panel).
-
-The devotees' website at https://darshansaathi.com is this app's web build:
-
-```bash
-flutter build web --release --no-web-resources-cdn   # then upload build/web/ (with .htaccess) to darshansaathi.com's public_html
-```
 
 There is no server setting in the app: published builds always use the live server, and a build for another server is made with `--dart-define=API_BASE_URL=…`.
 Brand name and tagline come from `--dart-define=BRAND_NAME=…` and
@@ -102,12 +99,7 @@ Brand name and tagline come from `--dart-define=BRAND_NAME=…` and
 ```
 flutter analyze
 flutter test
-flutter build web --release --no-web-resources-cdn
 ```
-
-The web engine always loads from the site itself (`web/flutter_bootstrap.js`
-sets `canvasKitBaseUrl`), never from Google's CDN, which on some mobile
-networks kept the loading screen up for minutes.
 
 ## The day themes
 
