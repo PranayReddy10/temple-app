@@ -1374,10 +1374,15 @@ class DevotionalMedia {
     this.credit,
     this.license,
     this.licenseUrl,
+    this.belongsTo,
     Playback? playback,
   }) : _playback = playback;
 
   final Playback? _playback;
+
+  /// Whose it is: 'temple' (the temple's own), 'deity' (its deity's,
+  /// shown when the temple has none), or null from an older server.
+  final String? belongsTo;
 
   /// The server's classification when it sent one, a guess otherwise.
   Playback get playback => _playback ?? Playback.guess(url, sourceType);
@@ -1409,6 +1414,7 @@ class DevotionalMedia {
         credit: _s(j['credit']),
         license: _s(j['license']),
         licenseUrl: _s(j['license_url']),
+        belongsTo: _s(j['belongs_to']),
         playback: j['playback'] is Map ? Playback.fromJson(_m(j['playback'])) : null,
       );
 }

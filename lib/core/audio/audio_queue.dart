@@ -24,6 +24,17 @@ class AudioQueue {
   /// YouTube link or a search result is not a track.
   static bool isPlayable(DevotionalMedia m) => m.url != null && (m.playback.kind == 'audio' || isDirectAudio(m.url, m.sourceType));
 
+  /// The songs a temple plays as its page opens: its own songs and chants
+  /// that can play as sound, else its deity's. The API lists a temple's own
+  /// first, so an older server without `belongs_to` still gives the right
+  /// first song. A YouTube link plays nothing in an audio player, so it is
+  /// never chosen.
+  static List<DevotionalMedia> templeSongs(List<DevotionalMedia> media) {
+    final songs = media.where((m) => (m.type == 'song' || m.type == 'chant') && isPlayable(m)).toList();
+    final own = songs.where((m) => m.belongsTo == 'temple').toList();
+    return own.isNotEmpty ? own : songs;
+  }
+
   factory AudioQueue.of(List<DevotionalMedia> all, {DevotionalMedia? start}) {
     final items = all.where(isPlayable).toList();
     if (items.isEmpty) return empty;

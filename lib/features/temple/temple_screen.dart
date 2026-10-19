@@ -10,12 +10,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/temple_repository.dart';
+import '../../core/audio/audio_queue.dart';
 import '../../core/brand.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
+import '../../core/state/app_settings.dart';
 import '../../core/state/location_controller.dart';
+import '../../core/state/mantra_player.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/state/engagement_controller.dart';
@@ -88,11 +91,15 @@ class _TempleScreenState extends State<TempleScreen> {
   final _keys = {for (final k in _Section.values) k: GlobalKey()};
   // Cached here because dispose() may not look up ancestors through context.
   late final DayController _dayCtl = context.read<DayController>();
+  late final AudioQueueController _songs = context.read<AudioQueueController>();
+  bool _songTried = false;
+  List<DevotionalMedia> _templeSongs = const [];
 
   @override
   void initState() {
     super.initState();
     Analytics.instance.screen('temple', item: widget.slug);
+    _songs; // Read now: dispose() may not look it up.
     _load();
     final slug = widget.preview?.deity?.slug;
     if (slug != null) _startPreview(slug);
@@ -109,6 +116,14 @@ class _TempleScreenState extends State<TempleScreen> {
 
   @override
   void dispose() {
+    // Going back stops this temple's song, whether it started by itself
+    // or the devotee played it from the list.
+    final playing = _songs.current?.url;
+    if (playing != null && _templeSongs.any((m) => m.url == playing)) {
+      // Not while the page is being taken down: listeners rebuild.
+      final ctl = _songs;
+      Future.microtask(ctl.stop);
+    }
     if (_previewing) {
       final ctl = _dayCtl;
       WidgetsBinding.instance.addPostFrameCallback((_) => ctl.endPreview());
@@ -145,6 +160,7 @@ class _TempleScreenState extends State<TempleScreen> {
       }
       final slug = r.data.summary.deity?.slug;
       if (slug != null) _startPreview(slug);
+      if (r.data.devotionalMedia.isNotEmpty) _playTempleSong(r.data.devotionalMedia);
       if (widget.preview == null) _loadMedia(r.data.summary);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.isNotFound ? 'This temple is not published.' : e.message);
@@ -155,7 +171,24 @@ class _TempleScreenState extends State<TempleScreen> {
 
   Future<void> _loadMedia(TempleSummary t, {bool fresh = false}) async {
     final r = await context.read<TempleRepository>().templeMedia(t, fresh: fresh);
-    if (mounted) setState(() => _media = r);
+    if (!mounted) return;
+    setState(() => _media = r);
+    if (_detail?.data.devotionalMedia.isNotEmpty != true) _playTempleSong(r.data);
+  }
+
+  /// The temple's song starts as its page opens: once per visit, when the
+  /// devotee has not turned it off, the app is not muted, and nothing else
+  /// is already playing (their own choice is not cut short).
+  void _playTempleSong(List<DevotionalMedia> media) {
+    final songs = AudioQueue.templeSongs(media);
+    if (songs.isEmpty) return;
+    setState(() => _templeSongs = songs);
+    if (_songTried) return;
+    _songTried = true;
+    if (!context.read<AppSettings>().templeSong || context.read<MantraPlayer>().muted) return;
+    final other = _songs.current;
+    if (_songs.isPlaying && other != null && !songs.any((m) => m.url == other.url)) return;
+    _songs.playQueue(songs);
   }
 
   /// Pull-to-refresh: the page itself (not the short-lived copy), and the
@@ -234,6 +267,7 @@ class _TempleScreenState extends State<TempleScreen> {
             onLike: () => _like(t),
             following: following,
             onFollow: () => _follow(t),
+            song: _templeSongs.isEmpty ? null : _SongButton(songs: _templeSongs),
           ),
           SliverPersistentHeader(pinned: true, delegate: _AnchorBar(day: day, onTap: _jump, labels: [s('overview'), s('gallery'), s('songs_videos'), s('darshan'), s('seva'), s('reviews')])),
           // ---- Overview -------------------------------------------------
@@ -1211,6 +1245,29 @@ class _DarshanCard extends StatelessWidget {
 }
 
 /// Always in reach, however far down the page: plan it, or mark it done.
+/// The temple's song in the top bar: a small note while it plays (tap to
+/// stop), a struck-out note when it does not (tap to play it again).
+class _SongButton extends StatelessWidget {
+  const _SongButton({required this.songs});
+
+  final List<DevotionalMedia> songs;
+
+  @override
+  Widget build(BuildContext context) {
+    final ctl = context.watch<AudioQueueController>();
+    final m = ctl.current;
+    final playing = ctl.isPlaying && m != null && songs.any((s) => s.url == m.url);
+    return IconButton(
+      key: const ValueKey('temple-song-button'),
+      tooltip: playing ? 'Stop the song' : 'Play the temple song',
+      iconSize: 20,
+      visualDensity: VisualDensity.compact,
+      onPressed: () => playing ? ctl.stop() : ctl.playQueue(songs),
+      icon: Icon(playing ? Icons.music_note_rounded : Icons.music_off_rounded),
+    );
+  }
+}
+
 class _BottomActions extends StatelessWidget {
   const _BottomActions({required this.day, required this.visited, required this.inYatra, required this.onYatra, required this.onMark});
 
@@ -1261,9 +1318,11 @@ class _BottomActions extends StatelessWidget {
 /// Collapsing hero: a swipeable gallery under a torana, with the trust badge
 /// and the save button.
 class _Hero extends StatelessWidget {
-  const _Hero({required this.temple, required this.photos, required this.index, required this.onPage, required this.day, required this.saved, required this.onSave, required this.onOpenPhoto, required this.liked, required this.likes, required this.onLike, required this.following, required this.onFollow});
+  const _Hero({required this.temple, required this.photos, required this.index, required this.onPage, required this.day, required this.saved, required this.onSave, required this.onOpenPhoto, required this.liked, required this.likes, required this.onLike, required this.following, required this.onFollow, this.song});
 
   final TempleSummary temple;
+  /// The temple's song, a small icon at the top right: tap to stop or play.
+  final Widget? song;
   final List<Photo> photos;
   final int index;
   final ValueChanged<int> onPage;
@@ -1291,6 +1350,7 @@ class _Hero extends StatelessWidget {
       foregroundColor: day.onAccent(),
       title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: height),
       actions: [
+        if (song != null) song!,
         // A like: one tap, the lightest signal. A heart with its count.
         Tooltip(
           message: liked ? S.of(context)('liked') : S.of(context)('like'),
