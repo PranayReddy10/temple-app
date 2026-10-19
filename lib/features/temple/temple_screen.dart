@@ -10,12 +10,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/api/temple_repository.dart';
+import '../../core/audio/audio_queue.dart';
 import '../../core/brand.dart';
 import '../../core/l10n/strings.dart';
 import '../../core/models/models.dart';
 import '../../core/motifs/architecture.dart';
 import '../../core/motifs/motif.dart';
+import '../../core/state/app_settings.dart';
 import '../../core/state/location_controller.dart';
+import '../../core/state/mantra_player.dart';
 import '../../core/state/auth_controller.dart';
 import '../../core/state/day_controller.dart';
 import '../../core/state/engagement_controller.dart';
@@ -88,11 +91,15 @@ class _TempleScreenState extends State<TempleScreen> {
   final _keys = {for (final k in _Section.values) k: GlobalKey()};
   // Cached here because dispose() may not look up ancestors through context.
   late final DayController _dayCtl = context.read<DayController>();
+  late final AudioQueueController _songs = context.read<AudioQueueController>();
+  bool _songTried = false;
+  List<DevotionalMedia> _templeSongs = const [];
 
   @override
   void initState() {
     super.initState();
     Analytics.instance.screen('temple', item: widget.slug);
+    _songs; // Read now: dispose() may not look it up.
     _load();
     final slug = widget.preview?.deity?.slug;
     if (slug != null) _startPreview(slug);
@@ -109,6 +116,14 @@ class _TempleScreenState extends State<TempleScreen> {
 
   @override
   void dispose() {
+    // Going back stops this temple's song, whether it started by itself
+    // or the devotee played it from the list.
+    final playing = _songs.current?.url;
+    if (playing != null && _templeSongs.any((m) => m.url == playing)) {
+      // Not while the page is being taken down: listeners rebuild.
+      final ctl = _songs;
+      Future.microtask(ctl.stop);
+    }
     if (_previewing) {
       final ctl = _dayCtl;
       WidgetsBinding.instance.addPostFrameCallback((_) => ctl.endPreview());
@@ -145,6 +160,7 @@ class _TempleScreenState extends State<TempleScreen> {
       }
       final slug = r.data.summary.deity?.slug;
       if (slug != null) _startPreview(slug);
+      if (r.data.devotionalMedia.isNotEmpty) _playTempleSong(r.data.devotionalMedia);
       if (widget.preview == null) _loadMedia(r.data.summary);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.isNotFound ? 'This temple is not published.' : e.message);
@@ -155,7 +171,24 @@ class _TempleScreenState extends State<TempleScreen> {
 
   Future<void> _loadMedia(TempleSummary t, {bool fresh = false}) async {
     final r = await context.read<TempleRepository>().templeMedia(t, fresh: fresh);
-    if (mounted) setState(() => _media = r);
+    if (!mounted) return;
+    setState(() => _media = r);
+    if (_detail?.data.devotionalMedia.isNotEmpty != true) _playTempleSong(r.data);
+  }
+
+  /// The temple's song starts as its page opens: once per visit, when the
+  /// devotee has not turned it off, the app is not muted, and nothing else
+  /// is already playing (their own choice is not cut short).
+  void _playTempleSong(List<DevotionalMedia> media) {
+    final songs = AudioQueue.templeSongs(media);
+    if (songs.isEmpty) return;
+    setState(() => _templeSongs = songs);
+    if (_songTried) return;
+    _songTried = true;
+    if (!context.read<AppSettings>().templeSong || context.read<MantraPlayer>().muted) return;
+    final other = _songs.current;
+    if (_songs.isPlaying && other != null && !songs.any((m) => m.url == other.url)) return;
+    _songs.playQueue(songs);
   }
 
   /// Pull-to-refresh: the page itself (not the short-lived copy), and the
@@ -208,12 +241,18 @@ class _TempleScreenState extends State<TempleScreen> {
     final media = d != null && d.devotionalMedia.isNotEmpty ? d.devotionalMedia : (_media?.data ?? const <DevotionalMedia>[]);
 
     return Scaffold(
-      bottomNavigationBar: _BottomActions(
-        day: day,
-        visited: visited,
-        inYatra: inYatra,
-        onYatra: () => _addToYatra(t),
-        onMark: () => _checkIn(t),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TempleSongBar(songs: _templeSongs, day: day),
+          _BottomActions(
+            day: day,
+            visited: visited,
+            inYatra: inYatra,
+            onYatra: () => _addToYatra(t),
+            onMark: () => _checkIn(t),
+          ),
+        ],
       ),
       // Pull down to fetch the page again: reviews, likes, timings, media.
       body: RefreshIndicator(
@@ -1211,6 +1250,55 @@ class _DarshanCard extends StatelessWidget {
 }
 
 /// Always in reach, however far down the page: plan it, or mark it done.
+/// What plays while the temple's page is open: its song, with pause and
+/// stop. Shown only while one of this temple's songs is the current one.
+class _TempleSongBar extends StatelessWidget {
+  const _TempleSongBar({required this.songs, required this.day});
+
+  final List<DevotionalMedia> songs;
+  final DayTheme day;
+
+  @override
+  Widget build(BuildContext context) {
+    final ctl = context.watch<AudioQueueController>();
+    final m = ctl.current;
+    if (m == null || !songs.any((s) => s.url == m.url)) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Material(
+      key: const ValueKey('temple-song-bar'),
+      color: day.accent,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
+        child: Row(
+          children: [
+            Icon(Icons.music_note_rounded, color: day.onAccent(), size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                [m.title, if (m.artist != null) m.artist!].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(color: day.onAccent()),
+              ),
+            ),
+            IconButton(
+              tooltip: ctl.isPlaying ? 'Pause' : 'Play',
+              onPressed: ctl.toggle,
+              icon: Icon(ctl.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: day.onAccent()),
+            ),
+            IconButton(
+              key: const ValueKey('temple-song-stop'),
+              tooltip: 'Stop the song',
+              onPressed: ctl.stop,
+              icon: Icon(Icons.stop_rounded, color: day.onAccent()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BottomActions extends StatelessWidget {
   const _BottomActions({required this.day, required this.visited, required this.inYatra, required this.onYatra, required this.onMark});
 

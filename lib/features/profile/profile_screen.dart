@@ -320,6 +320,13 @@ class ProfileScreen extends StatelessWidget {
                 value: settings.templeSounds,
                 onChanged: settings.setTempleSounds,
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Play temple song on opening'),
+                subtitle: const Text('A temple\'s song plays when you open its page and stops when you go back. Silent when the app is muted.'),
+                value: settings.templeSong,
+                onChanged: settings.setTempleSong,
+              ),
             ],
           ),
         ),

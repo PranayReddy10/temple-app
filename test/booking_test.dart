@@ -109,8 +109,8 @@ Map<String, dynamic> templeJson() => {
     };
 
 /// Every provider the temple page reaches for, over one mock API.
-Future<Widget> templeHarness(http.Client client, {bool signedIn = true, Widget home = const TempleScreen(slug: 'booking-temple')}) async {
-  SharedPreferences.setMockInitialValues({'door_animations': false, if (signedIn) 'devotee_token': 't', if (signedIn) 'devotee': jsonEncode({'id': 1, 'name': 'Anu', 'phone': '9876543210'})});
+Future<Widget> templeHarness(http.Client client, {bool signedIn = true, Widget home = const TempleScreen(slug: 'booking-temple'), AudioQueueController? songs, Map<String, Object> prefs = const {}}) async {
+  SharedPreferences.setMockInitialValues({'door_animations': false, if (signedIn) 'devotee_token': 't', if (signedIn) 'devotee': jsonEncode({'id': 1, 'name': 'Anu', 'phone': '9876543210'}), ...prefs});
   final store = await SharedPreferences.getInstance();
   final api = ApiClient(baseUrl: 'http://api.test', client: client);
   final auth = AuthController(store, api);
@@ -138,7 +138,7 @@ Future<Widget> templeHarness(http.Client client, {bool signedIn = true, Widget h
       ChangeNotifierProvider(create: (_) => FamilyController(store)),
       ChangeNotifierProvider(create: (_) => MantraPlayer(store)),
       ChangeNotifierProvider(create: (_) => EngagementController(store, auth, api: api)),
-      ChangeNotifierProvider(create: (_) => AudioQueueController()),
+      if (songs != null) ChangeNotifierProvider<AudioQueueController>.value(value: songs) else ChangeNotifierProvider(create: (_) => AudioQueueController()),
       ChangeNotifierProvider(create: (_) => RemindersController(store)),
       ChangeNotifierProvider(create: (_) => LocationController(store)),
       ChangeNotifierProvider(create: (_) => OfflinePackController(store, repo)),

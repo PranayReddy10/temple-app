@@ -20,6 +20,7 @@ class AppSettings extends ChangeNotifier {
     api.language = _locale.languageCode;
     _doorAnimations = _prefs.getBool('door_animations') ?? true;
     _templeSounds = _prefs.getBool('opening_bell') ?? true;
+    _templeSong = _prefs.getBool('temple_song_autoplay') ?? true;
     final langs = _prefs.getString('languages');
     if (langs != null) {
       try {
@@ -51,6 +52,7 @@ class AppSettings extends ChangeNotifier {
   late ThemeMode _themeMode;
   late bool _doorAnimations;
   late bool _templeSounds;
+  late bool _templeSong;
 
   Locale get locale => _locale;
   ThemeMode get themeMode => _themeMode;
@@ -58,6 +60,9 @@ class AppSettings extends ChangeNotifier {
 
   /// The bell as the app opens, and the passport's page turns.
   bool get templeSounds => _templeSounds;
+
+  /// A temple's song starts as its page opens, and stops on leaving it.
+  bool get templeSong => _templeSong;
   String get apiBase => api.baseUrl;
 
   static const supportedLocales = [Locale('en'), Locale('te'), Locale('hi'), Locale('ta'), Locale('kn')];
@@ -78,6 +83,12 @@ class AppSettings extends ChangeNotifier {
   Future<void> setDoorAnimations(bool v) async {
     _doorAnimations = v;
     await _prefs.setBool('door_animations', v);
+    notifyListeners();
+  }
+
+  Future<void> setTempleSong(bool v) async {
+    _templeSong = v;
+    await _prefs.setBool('temple_song_autoplay', v);
     notifyListeners();
   }
 
