@@ -113,26 +113,24 @@ void main() {
     await _open(tester);
 
     expect(songs.played.map((m) => m.title), ['Someshwara Suprabhatam']);
-    expect(find.text('Someshwara Suprabhatam'), findsWidgets);
-    expect(find.byKey(const ValueKey('temple-song-bar')), findsOneWidget);
+    // A small note in the top bar while it plays.
+    expect(find.byKey(const ValueKey('temple-song-button')), findsOneWidget);
+    expect(find.byTooltip('Stop the song'), findsOneWidget);
 
-    // Pause and play again from the bar.
-    await tester.tap(find.byTooltip('Pause'));
-    await tester.pump();
-    expect(songs.isPlaying, isFalse);
-    await tester.tap(find.byTooltip('Play'));
-    await tester.pump();
-    expect(songs.isPlaying, isTrue);
-
-    // Stop by hand: the bar goes.
-    await tester.tap(find.byKey(const ValueKey('temple-song-stop')));
+    // One tap stops it.
+    await tester.tap(find.byKey(const ValueKey('temple-song-button')));
     await tester.pump();
     expect(songs.stops, 1);
-    expect(find.byKey(const ValueKey('temple-song-bar')), findsNothing);
+    expect(songs.current, isNull);
+    expect(find.byTooltip('Play the temple song'), findsOneWidget);
 
-    // Played again from the list, then the devotee goes back: it stops.
-    await songs.playQueue(AudioQueue.templeSongs(_media.map(DevotionalMedia.fromJson).toList()));
+    // Another plays it again.
+    await tester.tap(find.byKey(const ValueKey('temple-song-button')));
     await tester.pump();
+    expect(songs.isPlaying, isTrue);
+    expect(songs.current?.title, 'Someshwara Suprabhatam');
+
+    // The devotee goes back: it stops.
     final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
     nav.pop();
     await tester.pump();
@@ -151,7 +149,8 @@ void main() {
     await _open(tester);
 
     expect(songs.played, isEmpty);
-    expect(find.byKey(const ValueKey('temple-song-bar')), findsNothing);
+    // The note stays, to play it by choice.
+    expect(find.byTooltip('Play the temple song'), findsOneWidget);
   });
 
   testWidgets('a song the devotee is already listening to is not cut short', (tester) async {

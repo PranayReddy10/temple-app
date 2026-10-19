@@ -241,18 +241,12 @@ class _TempleScreenState extends State<TempleScreen> {
     final media = d != null && d.devotionalMedia.isNotEmpty ? d.devotionalMedia : (_media?.data ?? const <DevotionalMedia>[]);
 
     return Scaffold(
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _TempleSongBar(songs: _templeSongs, day: day),
-          _BottomActions(
-            day: day,
-            visited: visited,
-            inYatra: inYatra,
-            onYatra: () => _addToYatra(t),
-            onMark: () => _checkIn(t),
-          ),
-        ],
+      bottomNavigationBar: _BottomActions(
+        day: day,
+        visited: visited,
+        inYatra: inYatra,
+        onYatra: () => _addToYatra(t),
+        onMark: () => _checkIn(t),
       ),
       // Pull down to fetch the page again: reviews, likes, timings, media.
       body: RefreshIndicator(
@@ -273,6 +267,7 @@ class _TempleScreenState extends State<TempleScreen> {
             onLike: () => _like(t),
             following: following,
             onFollow: () => _follow(t),
+            song: _templeSongs.isEmpty ? null : _SongButton(songs: _templeSongs),
           ),
           SliverPersistentHeader(pinned: true, delegate: _AnchorBar(day: day, onTap: _jump, labels: [s('overview'), s('gallery'), s('songs_videos'), s('darshan'), s('seva'), s('reviews')])),
           // ---- Overview -------------------------------------------------
@@ -1250,51 +1245,25 @@ class _DarshanCard extends StatelessWidget {
 }
 
 /// Always in reach, however far down the page: plan it, or mark it done.
-/// What plays while the temple's page is open: its song, with pause and
-/// stop. Shown only while one of this temple's songs is the current one.
-class _TempleSongBar extends StatelessWidget {
-  const _TempleSongBar({required this.songs, required this.day});
+/// The temple's song in the top bar: a small note while it plays (tap to
+/// stop), a struck-out note when it does not (tap to play it again).
+class _SongButton extends StatelessWidget {
+  const _SongButton({required this.songs});
 
   final List<DevotionalMedia> songs;
-  final DayTheme day;
 
   @override
   Widget build(BuildContext context) {
     final ctl = context.watch<AudioQueueController>();
     final m = ctl.current;
-    if (m == null || !songs.any((s) => s.url == m.url)) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    return Material(
-      key: const ValueKey('temple-song-bar'),
-      color: day.accent,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
-        child: Row(
-          children: [
-            Icon(Icons.music_note_rounded, color: day.onAccent(), size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                [m.title, if (m.artist != null) m.artist!].join(' · '),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(color: day.onAccent()),
-              ),
-            ),
-            IconButton(
-              tooltip: ctl.isPlaying ? 'Pause' : 'Play',
-              onPressed: ctl.toggle,
-              icon: Icon(ctl.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: day.onAccent()),
-            ),
-            IconButton(
-              key: const ValueKey('temple-song-stop'),
-              tooltip: 'Stop the song',
-              onPressed: ctl.stop,
-              icon: Icon(Icons.stop_rounded, color: day.onAccent()),
-            ),
-          ],
-        ),
-      ),
+    final playing = ctl.isPlaying && m != null && songs.any((s) => s.url == m.url);
+    return IconButton(
+      key: const ValueKey('temple-song-button'),
+      tooltip: playing ? 'Stop the song' : 'Play the temple song',
+      iconSize: 20,
+      visualDensity: VisualDensity.compact,
+      onPressed: () => playing ? ctl.stop() : ctl.playQueue(songs),
+      icon: Icon(playing ? Icons.music_note_rounded : Icons.music_off_rounded),
     );
   }
 }
@@ -1349,9 +1318,11 @@ class _BottomActions extends StatelessWidget {
 /// Collapsing hero: a swipeable gallery under a torana, with the trust badge
 /// and the save button.
 class _Hero extends StatelessWidget {
-  const _Hero({required this.temple, required this.photos, required this.index, required this.onPage, required this.day, required this.saved, required this.onSave, required this.onOpenPhoto, required this.liked, required this.likes, required this.onLike, required this.following, required this.onFollow});
+  const _Hero({required this.temple, required this.photos, required this.index, required this.onPage, required this.day, required this.saved, required this.onSave, required this.onOpenPhoto, required this.liked, required this.likes, required this.onLike, required this.following, required this.onFollow, this.song});
 
   final TempleSummary temple;
+  /// The temple's song, a small icon at the top right: tap to stop or play.
+  final Widget? song;
   final List<Photo> photos;
   final int index;
   final ValueChanged<int> onPage;
@@ -1379,6 +1350,7 @@ class _Hero extends StatelessWidget {
       foregroundColor: day.onAccent(),
       title: CollapsedTitle(text: temple.name, color: day.onAccent(), expandedHeight: height),
       actions: [
+        if (song != null) song!,
         // A like: one tap, the lightest signal. A heart with its count.
         Tooltip(
           message: liked ? S.of(context)('liked') : S.of(context)('like'),
